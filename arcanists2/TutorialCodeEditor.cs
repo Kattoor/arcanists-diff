@@ -178,6 +178,31 @@ public class TutorialCodeEditor : MonoBehaviour
     }));
   }
 
+  private void Update()
+  {
+    if (!Input.GetKeyDown(KeyCode.F1))
+      return;
+    this.CopyToClipBoard();
+  }
+
+  public void CopyToClipBoard()
+  {
+    Global.systemCopyBuffer = this.codeEditor.Text;
+    Debug.Log((object) "Copied Code");
+  }
+
+  public void CreateDefaultTutorial()
+  {
+    byte[] bytes = Tutorial.FromCodeOnly(this.codeEditor.Text).ToBytes();
+    StringBuilder stringBuilder = new StringBuilder("new Data(){ name = \"" + Path.GetFileNameWithoutExtension(this.editing) + "\" , bytes = new byte[] { ");
+    for (int index = 0; index < bytes.Length - 1; ++index)
+      stringBuilder.Append(bytes[index].ToString()).Append(",");
+    stringBuilder.Append(bytes[bytes.Length - 1]);
+    stringBuilder.Append("} },\n");
+    Global.systemCopyBuffer = stringBuilder.ToString();
+    Debug.Log((object) "Copied Json as bytes (DefaultTutorials.cs) to clipboard");
+  }
+
   private void OnOpen(string s)
   {
     this.codeEditor.Text = s;

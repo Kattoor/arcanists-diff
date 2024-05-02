@@ -606,6 +606,14 @@ public class RatedTab : MonoBehaviour
       foreach (RatedFacts ratedFacts in Client._ratedFacts.list)
       {
         ++num;
+        int gameType = ratedFacts.gameType;
+        if (ratedFacts.gameType == 2 && (ratedFacts.extraOptions & 10) == 0)
+        {
+          if (!((UnityEngine.Object) ChatBox.Instance != (UnityEngine.Object) null))
+            return;
+          ChatBox.Instance.NewChatMsg("", "You must search for Random Spells and/or Elementals in the Party Mode queue.", (Color) ColorScheme.GetColor(Global.ColorSystem), "", ChatOrigination.System);
+          return;
+        }
         if ((ratedFacts.extraOptions & 16) != 0 && (ratedFacts.spellOverrides != null ? Server.OriginalSpellsOnly(GameStyle.Original_Spells_Only, ratedFacts.spellOverrides) : Server.OriginalSpellsOnly(GameStyle.Original_Spells_Only, Client.settingsPlayer)))
         {
           ChatBox.Instance.NewChatMsg("You have original spells enabled, but have non-original spells in your settings profile { " + (object) num + " } !!!!", (Color) ColorScheme.GetColor(Global.ColorSystem));

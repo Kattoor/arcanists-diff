@@ -90,12 +90,14 @@ label_54:
       {
         spell.addVelocity = false;
         spell.velocity = spell.velocity + spell.addedVelocity;
+        spell.velocity.x = Mathd.Clamp(spell.velocity.x, (FixedInt) -50, (FixedInt) 50);
+        spell.velocity.y = Mathd.Clamp(spell.velocity.y, (FixedInt) -50, (FixedInt) 50);
         spell.addedVelocity.x = (FixedInt) 0;
         spell.addedVelocity.y = (FixedInt) 0;
       }
       else if (spell.affectedByGravity && spell.velocity.y > -ZMap.MaxSpeed)
         spell.velocity.y += spell.map.Gravity;
-      else if (!spell.affectedByGravity && spell.velocity.y > -1 && spell.maxDuration > 150)
+      else if (!spell.affectedByGravity && spell.velocity.y > -10 && spell.maxDuration > 150)
         spell.affectedByGravity = true;
       spell.Wind();
 label_29:
@@ -123,6 +125,7 @@ label_29:
           effector.followParent = false;
           effector.position = spell.position;
           effector.active = false;
+          effector.rotation = spell.GetRotation;
           spell.parent.effectors.Add(effector);
           spell.game.forceRysncPause = true;
           if (spell.spellEnum == SpellEnum.Electrostatic_Charge)

@@ -91,6 +91,8 @@ public class Spell : Entity, ISpellBridge
 
   public int TurnsTillFirstUse => this.runTimeStats.TurnsTillFirstUse;
 
+  public bool halfFirstTurn => this.runTimeStats.halfFirstTurn;
+
   public CastType type => this.runTimeStats.type;
 
   public BookOf bookOf => this.runTimeStats.bookOf;

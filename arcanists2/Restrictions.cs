@@ -35,7 +35,7 @@ public class Restrictions
       if (spells[index] < byte.MaxValue && !this.availableSpells[(int) spells[index]])
         return true;
     }
-    return false;
+    return this.elementals != -1;
   }
 
   public bool CheckRestricted(int i) => i < 0 || i >= 256 || !this.availableSpells[i];
@@ -62,7 +62,7 @@ public class Restrictions
     this.elementals = r.elementals;
   }
 
-  public void Serialzie(myBinaryWriter w)
+  public void Serialize(myBinaryWriter w)
   {
     this.availableSpells.Serialize(w);
     w.Write(this.elementals);

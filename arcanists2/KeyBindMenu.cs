@@ -13,6 +13,7 @@ public class KeyBindMenu : MonoBehaviour
   public UIOnHover toggleControls;
   public UIOnHover toggleSkipWarning;
   public UIOnHover toggleDetower;
+  public GameObject panelHotkeys;
 
   public static KeyBindMenu Instance { get; private set; }
 
@@ -51,6 +52,8 @@ public class KeyBindMenu : MonoBehaviour
     }));
     this.toggleDetower.AlwaysOn = Global.GetPrefBool("prefjumpdetower", false);
   }
+
+  public void ToggleHotkeys() => this.panelHotkeys.SetActive(!this.panelHotkeys.activeSelf);
 
   public void ToggleControls()
   {

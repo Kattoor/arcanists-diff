@@ -30,4 +30,5 @@ public enum SpellLogic
   WaterDrop,
   BloodClot,
   Leaf,
+  Javelin,
 }

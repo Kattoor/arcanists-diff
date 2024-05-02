@@ -95,7 +95,7 @@ public class GameSettings
     w.Write((int) this.gameType);
     w.Write(this.restrictions == null ? (byte) 0 : (byte) 1);
     if (this.restrictions != null)
-      this.restrictions.Serialzie(w);
+      this.restrictions.Serialize(w);
     w.Write(this.mapSeed);
     w.Write(this.fixedMapSeed);
     w.Write(this.mapWidth);

@@ -35,9 +35,12 @@ public class AudioManager : MonoBehaviour
   public AudioClip splash;
   public AudioClip spellSlash;
   public AudioClip mineCharge;
+  public AudioClip pigCharge;
   public AudioClip moneySteps;
   public AudioClip moneyJump;
   public AudioClip watchtowerDestroyed;
+  public AudioClip leapHit;
+  public AudioClip stalkAppear;
   public AudioClip[] turnStart;
   [Header("Music")]
   public AudioClip musicMainMenu;

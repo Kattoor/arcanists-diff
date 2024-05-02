@@ -67,7 +67,7 @@ label_42:
                 spell.isMoving = false;
                 if (!ZEffector.InSanctuary(spell.game.world, new MyLocation(num4, num5)))
                 {
-                  ZCreatureThorn thorn = ZCreatureCreate.CreateThorn(spell.game, spell.toSummon.GetComponent<CreatureThorn>(), (Vector2) new Vector3((float) num4, (float) num5), Quaternion.identity, spell.game.GetMapTransform());
+                  ZCreatureThorn thorn = ZCreatureCreate.CreateThorn(spell.game, spell.parent?.parent, spell.toSummon.GetComponent<CreatureThorn>(), (Vector2) new Vector3((float) num4, (float) num5), Quaternion.identity, spell.game.GetMapTransform());
                   thorn.game = spell.game;
                   thorn.spell.game = spell.game;
                   thorn.spell.parent = (ZComponent) spell.parent != (object) null ? spell.parent.parent?.first() : spell.parent;
@@ -110,7 +110,7 @@ label_42:
                   spell.isMoving = false;
                   if (!ZEffector.InSanctuary(spell.game.world, new MyLocation(num4, num5)))
                   {
-                    ZCreatureThorn thorn = ZCreatureCreate.CreateThorn(spell.game, spell.toSummon.GetComponent<CreatureThorn>(), (Vector2) new Vector3((float) num4, (float) num5), Quaternion.identity, spell.game.GetMapTransform());
+                    ZCreatureThorn thorn = ZCreatureCreate.CreateThorn(spell.game, spell.parent?.parent, spell.toSummon.GetComponent<CreatureThorn>(), (Vector2) new Vector3((float) num4, (float) num5), Quaternion.identity, spell.game.GetMapTransform());
                     thorn.game = spell.game;
                     thorn.spell.game = spell.game;
                     thorn.spell.parent = spell.parent;
@@ -153,12 +153,14 @@ label_42:
       {
         spell.addVelocity = false;
         spell.velocity = spell.velocity + spell.addedVelocity;
+        spell.velocity.x = Mathd.Clamp(spell.velocity.x, (FixedInt) -50, (FixedInt) 50);
+        spell.velocity.y = Mathd.Clamp(spell.velocity.y, (FixedInt) -50, (FixedInt) 50);
         spell.addedVelocity.x = (FixedInt) 0;
         spell.addedVelocity.y = (FixedInt) 0;
       }
       else if (spell.affectedByGravity && spell.velocity.y > -ZMap.MaxSpeed)
         spell.velocity.y += spell.map.Gravity;
-      else if (!spell.affectedByGravity && spell.velocity.y > -1 && spell.maxDuration > 150)
+      else if (!spell.affectedByGravity && spell.velocity.y > -10 && spell.maxDuration > 150)
         spell.affectedByGravity = true;
       spell.Wind();
       ++spell.curDuration;

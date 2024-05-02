@@ -1,5 +1,7 @@
 ﻿
 
+using UnityEngine;
+
 #nullable disable
 public class ZCreatureFlameDragon : ZCreature
 {
@@ -17,7 +19,7 @@ public class ZCreatureFlameDragon : ZCreature
     if (dt != this.ImmuneTo || this.ImmuneTo == DamageType.None)
       return base.ApplyDamage(spellEnum, dt, damage, enemy, TurnCreated, spellRef);
     if (dt == DamageType.Snow)
-      this.ApplyHeal(DamageType.Snow, 1, enemy);
+      this.ApplyHeal(DamageType.Snow, Mathf.Max(1, damage / 2), enemy);
     return 0;
   }
 }

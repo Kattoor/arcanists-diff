@@ -6,14 +6,18 @@ using UnityEngine;
 #nullable disable
 public class WerewolfObject : MonoBehaviour
 {
-  public AnimateRepeat anim;
   public SpriteRenderer body;
+  public SpriteRenderer leftArm;
+  public SpriteRenderer rightArm;
   private List<Sprite> sprites = new List<Sprite>();
 
-  internal void Init(SettingsPlayer settingsPlayer, string name)
+  internal void Init(ZPerson p, ZCreature creature, SettingsPlayer settingsPlayer, string name)
   {
-    ClanOufit clanOutfit = ClientResources.Instance.GetClanOutfit(Client.GetAccount(name).clan);
-    this.body.sprite = ConfigurePlayer.GetSprite(settingsPlayer.indexBody, ClientResources.Instance._characterBody, settingsPlayer, Outfit.Body, settingsPlayer.textures?[0] ?? clanOutfit?.GetSprite((int) settingsPlayer.indexBody, Outfit.Body));
+    Color32 gray = settingsPlayer.coloring.colors[0].gray;
+    settingsPlayer.coloring.colors[0].gray = settingsPlayer.coloring.colors[0].red;
+    ClanOutfit clanOutfit = ClientResources.Instance.GetClanOutfit(Client.GetAccount(name).clan);
+    this.leftArm.sprite = ConfigurePlayer.GetSprite(settingsPlayer.indexLeftHand, ClientResources.Instance._characterLeftHand, settingsPlayer, Outfit.LeftHand, settingsPlayer.textures?[2] ?? clanOutfit?.GetSprite((int) settingsPlayer.indexLeftHand, Outfit.LeftHand));
+    this.rightArm.sprite = ConfigurePlayer.GetSprite(settingsPlayer.indexRightHand, ClientResources.Instance._characterRightHand, settingsPlayer, Outfit.RightHand, settingsPlayer.textures?[3] ?? clanOutfit?.GetSprite((int) settingsPlayer.indexRightHand, Outfit.RightHand));
     foreach (SpriteRenderer componentsInChild in this.GetComponentsInChildren<SpriteRenderer>())
     {
       if ((Object) componentsInChild.sprite != (Object) null && componentsInChild.sprite.texture.isReadable)
@@ -22,17 +26,8 @@ public class WerewolfObject : MonoBehaviour
         this.sprites.Add(componentsInChild.sprite);
       }
     }
-    for (int index = 0; index < this.anim.sprites.Length; ++index)
-    {
-      Sprite sprite = this.anim.sprites[index];
-      if ((Object) sprite != (Object) null && sprite.texture.isReadable)
-      {
-        this.anim.sprites[index] = ConfigurePlayer.ApplyOutfit(sprite, settingsPlayer);
-        this.sprites.Add(this.anim.sprites[index]);
-      }
-    }
-    this.anim.GetSpriteRenderer.sprite = this.anim.sprites[0];
-    this.anim.deleteOnDestroy = true;
+    settingsPlayer.coloring.colors[2].gray = gray;
+    Inert.AddTorquingAndOrArchStaffs(p, creature, settingsPlayer, true, false);
   }
 
   private void OnDestroy()

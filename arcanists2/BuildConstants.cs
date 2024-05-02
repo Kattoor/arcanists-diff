@@ -5,7 +5,7 @@ using System;
 #nullable disable
 public static class BuildConstants
 {
-  public static readonly DateTime buildDate = new DateTime(638384671596677109L);
+  public static readonly DateTime buildDate = new DateTime(638502103922686763L);
   public const string version = "1.0.0.3";
   public const BuildConstants.ReleaseType releaseType = BuildConstants.ReleaseType.NewReleaseType;
   public const BuildConstants.Platform platform = BuildConstants.Platform.PC;

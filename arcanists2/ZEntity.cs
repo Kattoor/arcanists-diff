@@ -91,7 +91,7 @@ public class ZEntity : ZComponent
     this.pX = this.validX;
     this.pY = this.validY;
     if (this.moving != null)
-      this.game?.ongoing.KillCoroutines(this.moving);
+      this.game.ongoing.KillCoroutines(this.moving);
     this.moving = (IEnumerator<float>) null;
   }
 

@@ -96,4 +96,16 @@ public class Cosmetics
       cosmetics.array[index].Deserialize(r);
     return cosmetics;
   }
+
+  public enum Outfit
+  {
+    Body,
+    Head,
+    LeftHand,
+    RightHand,
+    Hat,
+    Beard,
+    Spells,
+    Achievement,
+  }
 }

@@ -8,6 +8,8 @@ using UnityEngine;
 public class GargoyalObj : MonoBehaviour
 {
   public List<SpriteRenderer> sprites;
+  public float wingStartRot;
+  public float wingStartRotEnd;
   public Transform leftWing;
   public Transform rightWing;
   private bool flying = true;
@@ -79,8 +81,8 @@ public class GargoyalObj : MonoBehaviour
           this.up = true;
         }
       }
-      this.rightWing.localEulerAngles = new Vector3(0.0f, Mathf.SmoothStep(0.0f, -45f, this.f), Mathf.SmoothStep(0.0f, -10f, this.f));
-      this.leftWing.localEulerAngles = new Vector3(0.0f, Mathf.SmoothStep(0.0f, -45f, this.f), Mathf.SmoothStep(0.0f, 10f, this.f));
+      this.rightWing.localEulerAngles = new Vector3(0.0f, Mathf.SmoothStep(0.0f, -45f, this.f), Mathf.SmoothStep(this.wingStartRot, this.wingStartRotEnd, this.f) + Mathf.SmoothStep(0.0f, -10f, this.f));
+      this.leftWing.localEulerAngles = new Vector3(0.0f, Mathf.SmoothStep(0.0f, -45f, this.f), Mathf.SmoothStep(this.wingStartRot, this.wingStartRotEnd, this.f) + Mathf.SmoothStep(0.0f, 10f, this.f));
       yield return (object) new WaitForEndOfFrame();
     }
   }
@@ -92,11 +94,11 @@ public class GargoyalObj : MonoBehaviour
       this.f -= Time.deltaTime;
       if ((double) this.f < 0.0)
         this.f = 0.0f;
-      this.rightWing.localEulerAngles = new Vector3(0.0f, Mathf.Lerp(0.0f, -30f, this.f), Mathf.Lerp(0.0f, -10f, this.f));
-      this.leftWing.localEulerAngles = new Vector3(0.0f, Mathf.Lerp(0.0f, -30f, this.f), Mathf.Lerp(0.0f, 10f, this.f));
+      this.rightWing.localEulerAngles = new Vector3(0.0f, Mathf.Lerp(0.0f, -30f, this.f), Mathf.SmoothStep(this.wingStartRot, this.wingStartRotEnd, this.f) + Mathf.Lerp(0.0f, -10f, this.f));
+      this.leftWing.localEulerAngles = new Vector3(0.0f, Mathf.Lerp(0.0f, -30f, this.f), Mathf.SmoothStep(this.wingStartRot, this.wingStartRotEnd, this.f) + Mathf.Lerp(0.0f, 10f, this.f));
       yield return (object) new WaitForEndOfFrame();
     }
-    this.rightWing.localEulerAngles = new Vector3(0.0f, 0.0f, 0.0f);
-    this.leftWing.localEulerAngles = new Vector3(0.0f, 0.0f, 0.0f);
+    this.rightWing.localEulerAngles = new Vector3(0.0f, 0.0f, this.wingStartRot);
+    this.leftWing.localEulerAngles = new Vector3(0.0f, 0.0f, this.wingStartRot);
   }
 }

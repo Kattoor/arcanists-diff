@@ -32,8 +32,11 @@ public enum CreatureType
   Bee,
   Beehive,
   Swarm,
-  Wolf,
-  Bear,
+  Boar,
+  Tiger,
   Cosmic_Horror,
   Jar,
+  Javelin,
+  Wisp,
+  Bear,
 }

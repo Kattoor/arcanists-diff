@@ -186,6 +186,9 @@ public class ZTower : ZComponent
       case TowerType.Light:
         this.creature.ApplyHeal(DamageType.Heal, 10, this.creature);
         break;
+      case TowerType.Seasons:
+        ZSpell.TreeHouse(this.creature, this.baseTower.FromSpell);
+        break;
       case TowerType.Wooden:
         ZSpell.ApplyExplosionForce(SpellEnum.Watchtower, this.creature.world, this.creature.position, 40, Curve.Generic, 50, 50, (FixedInt) 8, DamageType.Wallop, this.creature, this.creature.game.turn);
         this.creature.DestroyTower();
@@ -259,7 +262,7 @@ public class ZTower : ZComponent
     }
     else
     {
-      if ((dt == DamageType.Sunder || dt == DamageType.Rake) && (ZComponent) enemy != (object) null && this.creature.team == enemy.team)
+      if ((dt == DamageType.Sunder || dt == DamageType.Rake || dt == DamageType.SunderLight) && (ZComponent) enemy != (object) null && this.creature.team == enemy.team)
         return;
       if (dt == DamageType.Arcane && this.type == TowerType.Arcane && (ZComponent) enemy != (object) null && enemy.FullArcane && hitBySpell == SpellEnum.Arcane_Flash)
       {
@@ -303,9 +306,9 @@ public class ZTower : ZComponent
         switch (dt)
         {
           case DamageType.Snow:
-            if (this.type == TowerType.Frost || this.type == TowerType.Seasons)
+            if (this.type == TowerType.Frost || this.type == TowerType.Holiday || this.type == TowerType.Seasons && this.game.currentSeason == GameSeason.Winter)
             {
-              ++this.Health;
+              this.Health += Mathf.Max(1, damage / 2);
               if (this.Health > this.MaxHealth)
                 this.Health = this.MaxHealth;
               else
@@ -403,8 +406,12 @@ public class ZTower : ZComponent
           ZSpell.FireEffector(spellRef.GetBaseSpell, this.creature, this.position, (FixedInt) 0, (FixedInt) 0, true);
         if (this.creature.shield > 0 && dt != DamageType.IgnoreShield && dt != DamageType.Percentage50 && hitBySpell != SpellEnum.Blood_Craze)
         {
+          this.creature.HealBloodBank(enemy, Mathf.Min(this.creature.shield, damage), dt);
           if (this.creature.shield >= damage)
           {
+            this.creature.entangledShield -= damage;
+            if (this.creature.entangled && this.creature.entangledShield < 0)
+              this.creature.RemoveEntangle();
             this.creature.shield -= damage;
             enemy?.achievementParent?.awards.DealtDamge(enemy, this.creature, damage, hitBySpell, spellRef);
             if (dt == DamageType.SuperStun)

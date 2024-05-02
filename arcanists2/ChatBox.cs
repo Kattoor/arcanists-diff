@@ -39,6 +39,17 @@ public class ChatBox : UIBehaviour
   public TMP_Text txtDiscordQuickLinks;
   public GameObject activeContainer;
   public TextMeshProUGUI txtFilterMode;
+  [Header("Transparent")]
+  public Image[] fullTransparent;
+  public Image[] halfTransparent;
+  public GameObject containerRightSide;
+  public RectTransform mainRect;
+  public RectTransform containerSettingsButtons;
+  public TMP_Text txtIndicatorTransparent;
+  [Header("LineCount")]
+  public RectTransform filterContainer;
+  public RectTransform emptyPanel;
+  public RectTransform fpsPanel;
   public static bool showDate = true;
   public static bool showIcons = true;
   public static int showFade = 2;
@@ -48,6 +59,7 @@ public class ChatBox : UIBehaviour
   [NonSerialized]
   public TMP_Text textSpellCasted;
   private OrderedDictionary<string, float> recentNotifications = new OrderedDictionary<string, float>();
+  public bool isTransparent;
   private ChatBox.ChatFilter chatFilter;
 
   public static ChatBox Instance { get; set; }
@@ -58,6 +70,70 @@ public class ChatBox : UIBehaviour
   }
 
   public bool Active => this._active;
+
+  public void ToggleTransparency()
+  {
+    this.isTransparent = !this.isTransparent;
+    Global.SetPrefBool("invisChatbox", this.isTransparent);
+    this.SetTransparent();
+  }
+
+  public static void ChangeLineCount(int i, bool save = true, bool force = false)
+  {
+    i = Mathf.Clamp(i, 1, 8);
+    if ((UnityEngine.Object) HUD.instance != (UnityEngine.Object) null | force && (UnityEngine.Object) ChatBox.Instance != (UnityEngine.Object) null)
+    {
+      RectTransform transform = (RectTransform) ChatBox.Instance.transform;
+      transform.sizeDelta = new Vector2(transform.sizeDelta.x, 236.3f - (float) (24 * (8 - i)));
+      ChatBox.Instance.filterContainer.gameObject.SetActive(i > 5);
+      ChatBox.Instance.emptyPanel.gameObject.SetActive(i > 7);
+      ChatBox.Instance.fpsPanel.gameObject.SetActive(i > 7);
+      HUD.instance?.SetSepllBarPosition();
+      ChatBox.Instance.recycled.ChangeLineCount(i);
+    }
+    if (!save)
+      return;
+    PlayerPrefs.SetInt("linecount", i);
+  }
+
+  public void SetTransparent(bool fromDefault = false)
+  {
+    if (this.isTransparent)
+    {
+      for (int index = 0; index < this.fullTransparent.Length; ++index)
+        this.fullTransparent[index].color = new Color(1f, 1f, 1f, 0.0f);
+      for (int index = 0; index < this.halfTransparent.Length; ++index)
+        this.halfTransparent[index].color = new Color(1f, 1f, 1f, PlayerPrefs.GetFloat("prefchattransparency", 0.75f));
+      this.txtIndicatorTransparent.text = ">";
+      this.containerRightSide.SetActive(false);
+      this.mainRect.sizeDelta = new Vector2(1045f, this.mainRect.sizeDelta.y);
+      this.containerSettingsButtons.SetAnchor(Anchor.BottomRight);
+      this.containerSettingsButtons.anchoredPosition = new Vector2(-29.2f, 18.86f);
+      ChatBox.ChangeLineCount(PlayerPrefs.GetInt("linecount", 5), false, true);
+    }
+    else
+    {
+      for (int index = 0; index < this.fullTransparent.Length; ++index)
+        this.fullTransparent[index].color = new Color(1f, 1f, 1f, 1f);
+      for (int index = 0; index < this.halfTransparent.Length; ++index)
+        this.halfTransparent[index].color = new Color(1f, 1f, 1f, 1f);
+      this.txtIndicatorTransparent.text = "<";
+      this.containerRightSide.SetActive(true);
+      this.mainRect.sizeDelta = new Vector2(1202.23f, this.mainRect.sizeDelta.y);
+      this.containerSettingsButtons.SetAnchor(Anchor.TopRight);
+      this.containerSettingsButtons.anchoredPosition = new Vector2(-5f, -19.5f);
+      if (!fromDefault)
+      {
+        ChatBox.ChangeLineCount(PlayerPrefs.GetInt("linecount", 5), false, !fromDefault);
+      }
+      else
+      {
+        if (this.recycled.MaxVisible == 8)
+          return;
+        ChatBox.ChangeLineCount(8, false);
+      }
+    }
+  }
 
   protected override void Awake()
   {
@@ -111,11 +187,11 @@ public class ChatBox : UIBehaviour
     MyContextMenu myContextMenu = MyContextMenu.Show();
     if (Client.miniGame != null)
     {
-      myContextMenu.AddItem("Leave current minigame", (Action) (() => Client.Ask((byte) 87, (byte) 11)), (Color) ColorScheme.GetColor(Color.red));
-      if ((UnityEngine.Object) ChessUI.Instance != (UnityEngine.Object) null && ChessUI.Instance.IsFirst)
+      myContextMenu.AddItem("Leave current minigame", (Action) (() => Client.miniGame?.gameObject?.ClickClose()), (Color) ColorScheme.GetColor(Color.red));
+      if (Client.miniGame.IsFirst)
       {
         myContextMenu.AddSeperator();
-        myContextMenu.AddItem("Invite Lobby to Chess match", (Action) (() => Client.AskToShare("Chess", ContentType.MiniGameInvite, (object) new MinigameInvite()
+        myContextMenu.AddItem("Invite Lobby to " + Client.miniGame.GetGameType() + " match", (Action) (() => Client.AskToShare(Client.miniGame.GetGameType(), ContentType.MiniGameInvite, (object) new MinigameInvite()
         {
           from = Client.Name,
           minigameID = Client.miniGame.id,
@@ -125,10 +201,10 @@ public class ChatBox : UIBehaviour
         if (Client.clan != null)
         {
           myContextMenu.AddSeperator();
-          myContextMenu.AddItem("Invite Clan to Chess match", (Action) (() =>
+          myContextMenu.AddItem("Invite Clan to " + Client.miniGame.GetGameType() + " match", (Action) (() =>
           {
             Client.sharingWith = "[Clan]";
-            Client.AskToShare("Chess", ContentType.MiniGameInvite, (object) new MinigameInvite()
+            Client.AskToShare(Client.miniGame.GetGameType(), ContentType.MiniGameInvite, (object) new MinigameInvite()
             {
               from = Client.Name,
               minigameID = Client.miniGame.id,
@@ -140,7 +216,12 @@ public class ChatBox : UIBehaviour
       }
     }
     else
-      myContextMenu.AddItem("New Chess Lobby", (Action) (() => Client.AskToCreateMiniGame((byte) 87)), Color.green);
+    {
+      myContextMenu.AddItem("New Chess Lobby", (Action) (() => Client.AskToCreateMiniGame((byte) 1)), Color.green);
+      myContextMenu.AddItem("New Checkers Lobby", (Action) (() => Client.AskToCreateMiniGame((byte) 2)), Color.green);
+      myContextMenu.AddItem("New Join31 Lobby", (Action) (() => Client.AskToCreateMiniGame((byte) 3)), Color.green);
+      myContextMenu.AddItem("New RPSTBG Lobby", (Action) (() => Client.AskToCreateMiniGame((byte) 4)), Color.green);
+    }
     myContextMenu.Rebuild();
   }
 
@@ -169,7 +250,20 @@ public class ChatBox : UIBehaviour
       this.txtDiscordQuickLinks.text = stringBuilder.ToString();
     }
     this.txtDiscordQuickLinks.transform.parent.gameObject.SetActive(true);
-    MyToolTip.Show("Chat Prefixes\n\n<" + InputFieldPlus.RGBtoHEX(ColorScheme.GetColor(Global.ColorTeamText)) + ">Team Chat: '/' (If in a team game...ex: /summon swarm)\n</color><" + InputFieldPlus.RGBtoHEX(ColorScheme.GetColor(Global.ColorSentPrivate)) + ">Private Chat: '/name:' (Easier to Right-click their name but...ex: /bob:hi bob)\n</color><" + InputFieldPlus.RGBtoHEX(ColorScheme.GetColor(Global.ColorMiniGameText)) + ">Chess Chat: ';' (If in a chess game...ex: ;Checkmate!)\n</color><" + InputFieldPlus.RGBtoHEX(ColorScheme.GetColor(Global.ColorClanText)) + ">Clan Chat: '.' (If in a clan...ex: .hello)</color>\n\nEmoji: ':' (ex: :shark:)\nHold alt while picking an Emoji\nfrom the emoji selector to\nAdd it to your favorites");
+    MyToolTip.Show("Chat Prefixes\n\n<" + InputFieldPlus.RGBtoHEX(ColorScheme.GetColor(Global.ColorTeamText)) + ">Team Chat: '/' (If in a team game...ex: /summon swarm)\n</color><" + InputFieldPlus.RGBtoHEX(ColorScheme.GetColor(Global.ColorSentPrivate)) + ">Private Chat: '/name:' (Easier to Right-click their name but...ex: /bob:hi bob)\n</color><" + InputFieldPlus.RGBtoHEX(ColorScheme.GetColor(Global.ColorMiniGameText)) + ">Mini-Game Chat: ';' (If in a mini-game...ex: ;Checkmate!)\n</color><" + InputFieldPlus.RGBtoHEX(ColorScheme.GetColor(Global.ColorClanText)) + ">Clan Chat: '.' (If in a clan...ex: .hello)</color>\n\nEmoji: ':' (ex: :shark:)\nHold alt while picking an Emoji\nfrom the emoji selector to\nAdd it to your favorites");
+  }
+
+  public void ClickLineCount() => ChatBox.ClickLineCount2();
+
+  public static void ClickLineCount2()
+  {
+    MyContextMenu myContextMenu = MyContextMenu.Show();
+    for (int index = 1; index <= 8; ++index)
+    {
+      int e = index;
+      myContextMenu.AddItem(index.ToString(), (Action) (() => ChatBox.ChangeLineCount(e)), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+    }
+    myContextMenu.Rebuild();
   }
 
   public void ShowToolTip(string s) => MyToolTip.Show(s);
@@ -190,13 +284,19 @@ public class ChatBox : UIBehaviour
     myContextMenu.Rebuild();
   }
 
-  public void ShowFilterOptions()
+  public void ShowFilterOptions() => ChatBox._ShowFilterOptions();
+
+  public static void _ShowFilterOptions()
   {
     MyContextMenu myContextMenu = MyContextMenu.Show();
+    ChatBox instance = ChatBox.Instance;
+    ChatBox.ChatFilter chatFilter = instance != null ? instance.chatFilter : (ChatBox.ChatFilter) PlayerPrefs.GetInt("filterChat", 0);
+    myContextMenu.AddSeperator("<mspace=\"-\">---------------------In-Game Line Count--------------------</mspace>");
+    myContextMenu.AddItem("Visible Lines (" + (object) PlayerPrefs.GetInt("linecount", 5) + ")", (Action) (() => ChatBox.ClickLineCount2()), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
     myContextMenu.AddSeperator("<mspace=\"-\">---------------------Chat Filter--------------------</mspace>");
-    myContextMenu.AddItem("Block Entirely" + (this.chatFilter == ChatBox.ChatFilter.Block_Entirely ? "<sprite=\"AccountIconsAll\" index=225>" : ""), (Action) (() => this.SetFilter(ChatBox.ChatFilter.Block_Entirely, true)), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
-    myContextMenu.AddItem("Stars" + (this.chatFilter == ChatBox.ChatFilter.Stars ? "<sprite=\"AccountIconsAll\" index=225>" : ""), (Action) (() => this.SetFilter(ChatBox.ChatFilter.Stars, true)), (Color) ColorScheme.GetColor(MyContextMenu.ColorYellow));
-    myContextMenu.AddItem("Off" + (this.chatFilter == ChatBox.ChatFilter.Off ? "<sprite=\"AccountIconsAll\" index=225>" : ""), (Action) (() => this.SetFilter(ChatBox.ChatFilter.Off, true)), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
+    myContextMenu.AddItem("Block Entirely" + (chatFilter == ChatBox.ChatFilter.Block_Entirely ? "<sprite=\"AccountIconsAll\" index=225>" : ""), (Action) (() => ChatBox._SetFilter(ChatBox.ChatFilter.Block_Entirely, true)), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+    myContextMenu.AddItem("Stars" + (chatFilter == ChatBox.ChatFilter.Stars ? "<sprite=\"AccountIconsAll\" index=225>" : ""), (Action) (() => ChatBox._SetFilter(ChatBox.ChatFilter.Stars, true)), (Color) ColorScheme.GetColor(MyContextMenu.ColorYellow));
+    myContextMenu.AddItem("Off" + (chatFilter == ChatBox.ChatFilter.Off ? "<sprite=\"AccountIconsAll\" index=225>" : ""), (Action) (() => ChatBox._SetFilter(ChatBox.ChatFilter.Off, true)), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
     myContextMenu.AddSeperator("<mspace=\"-\">---------------In-game Floating Text--------------</mspace>");
     myContextMenu.AddItem("Whenever the chat box is hidden" + (ChatBox.showFade == 1 ? "<sprite=\"AccountIconsAll\" index=225>" : ""), (Action) (() =>
     {
@@ -215,95 +315,113 @@ public class ChatBox : UIBehaviour
     }), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
     myContextMenu.AddSeperator("----------------------------------------------------");
     if (Global.GetPrefBool("prefflashchat", true))
-      myContextMenu.AddItem("Disable flashing when a chat message is recieved", (Action) (() => this.ToggleFlashChat()), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
+      myContextMenu.AddItem("Disable flashing when a chat message is recieved", (Action) (() => ChatBox.ToggleFlashChat()), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
     else
-      myContextMenu.AddItem("Enable flashing when a chat message is recieved", (Action) (() => this.ToggleFlashChat()), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+      myContextMenu.AddItem("Enable flashing when a chat message is recieved", (Action) (() => ChatBox.ToggleFlashChat()), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
     if (Global.GetPrefBool("prefflashchatturn", true))
-      myContextMenu.AddItem("Disable flashing when its your turn", (Action) (() => this.ToggleFlashChatTurn()), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
+      myContextMenu.AddItem("Disable flashing when its your turn", (Action) (() => ChatBox.ToggleFlashChatTurn()), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
     else
-      myContextMenu.AddItem("Enable flashing when its your turn", (Action) (() => this.ToggleFlashChatTurn()), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+      myContextMenu.AddItem("Enable flashing when its your turn", (Action) (() => ChatBox.ToggleFlashChatTurn()), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
     if (Global.GetPrefBool("prefflashchatinvite", true))
-      myContextMenu.AddItem("Disable flashing when a game invite is received", (Action) (() => this.ToggleFlashChaInvite()), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
+      myContextMenu.AddItem("Disable flashing when a game invite is received", (Action) (() => ChatBox.ToggleFlashChaInvite()), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
     else
-      myContextMenu.AddItem("Enable flashing when a game invite is received", (Action) (() => this.ToggleFlashChaInvite()), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+      myContextMenu.AddItem("Enable flashing when a game invite is received", (Action) (() => ChatBox.ToggleFlashChaInvite()), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
     if (Global.GetPrefBool("prefacceptinvites", true))
-      myContextMenu.AddItem("Disable Game Invites", (Action) (() => this.ToggleAcceptInvites()), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
+      myContextMenu.AddItem("Disable Game Invites", (Action) (() => ChatBox.ToggleAcceptInvites()), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
     else
-      myContextMenu.AddItem("Enable Game Invites", (Action) (() => this.ToggleAcceptInvites()), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+      myContextMenu.AddItem("Enable Game Invites", (Action) (() => ChatBox.ToggleAcceptInvites()), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
     if (Global.GetPrefBool("prefclaninvites", true))
-      myContextMenu.AddItem("Disable Clan Invites", (Action) (() => this.ToggleClanInvites()), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
+      myContextMenu.AddItem("Disable Clan Invites", (Action) (() => ChatBox.ToggleClanInvites()), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
     else
-      myContextMenu.AddItem("Enable Clan Invites", (Action) (() => this.ToggleClanInvites()), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+      myContextMenu.AddItem("Enable Clan Invites", (Action) (() => ChatBox.ToggleClanInvites()), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
     if (Global.GetPrefBool("prefshowcreatedgames", true))
-      myContextMenu.AddItem("Disable Created Lobbies Notifications", (Action) (() => this.ToggleShowCreatedGames()), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
+      myContextMenu.AddItem("Disable Created Lobbies Notifications", (Action) (() => ChatBox.ToggleShowCreatedGames()), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
     else
-      myContextMenu.AddItem("Enable Created Lobbies Notifications", (Action) (() => this.ToggleShowCreatedGames()), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+      myContextMenu.AddItem("Enable Created Lobbies Notifications", (Action) (() => ChatBox.ToggleShowCreatedGames()), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
     if (Global.GetPrefBool("prefshowstartedgames", true))
-      myContextMenu.AddItem("Disable Rated Game Notifications", (Action) (() => this.ToggleShowStartGame()), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
+      myContextMenu.AddItem("Disable Rated Game Notifications", (Action) (() => ChatBox.ToggleShowStartGame()), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
     else
-      myContextMenu.AddItem("Enable Rated Game Notifications", (Action) (() => this.ToggleShowStartGame()), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+      myContextMenu.AddItem("Enable Rated Game Notifications", (Action) (() => ChatBox.ToggleShowStartGame()), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
     if (ChatBox.showDate)
-      myContextMenu.AddItem("Hide chat message timestamps", (Action) (() => this.ToggleShowDate()), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
+      myContextMenu.AddItem("Hide chat message timestamps", (Action) (() => ChatBox.ToggleShowDate()), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
     else
-      myContextMenu.AddItem("Show chat message timestamps", (Action) (() => this.ToggleShowDate()), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+      myContextMenu.AddItem("Show chat message timestamps", (Action) (() => ChatBox.ToggleShowDate()), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
     if (ChatBox.showIcons)
-      myContextMenu.AddItem("Hide Account Icons", (Action) (() => this.ToggleShowIcons()), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
+      myContextMenu.AddItem("Hide Account Icons", (Action) (() => ChatBox.ToggleShowIcons()), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
     else
-      myContextMenu.AddItem("Show Account Icons", (Action) (() => this.ToggleShowIcons()), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+      myContextMenu.AddItem("Show Account Icons", (Action) (() => ChatBox.ToggleShowIcons()), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
     if (Global.GetPrefBool("prefdeathmsg", true))
       myContextMenu.AddItem("Disable player messages on death", (Action) (() => Global.SetPrefBool("prefdeathmsg", false)), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
     else
       myContextMenu.AddItem("Enable player messages on death", (Action) (() => Global.SetPrefBool("prefdeathmsg", true)), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+    myContextMenu.AddSlider((UnityAction<float>) (a =>
+    {
+      PlayerPrefs.SetFloat("prefchattransparency", a);
+      ChatBox.Instance?.SetTransparent();
+    }), "Chatbox Transparency", PlayerPrefs.GetFloat("prefchattransparency", 0.75f));
+    myContextMenu.AddSlider((UnityAction<float>) (a =>
+    {
+      PlayerPrefs.SetFloat("prefSpellBarTransparency", a);
+      ClickSpell.Instance?.ChangeAlpha(a);
+    }), "Spellbar Transparency", PlayerPrefs.GetFloat("prefSpellBarTransparency", 0.35f));
     myContextMenu.Rebuild();
   }
 
-  private void ToggleFlashChat()
+  private static void ToggleFlashChat()
   {
     Global.SetPrefBool("prefflashchat", !Global.GetPrefBool("prefflashchat", true));
   }
 
-  private void ToggleFlashChatTurn()
+  private static void ToggleFlashChatTurn()
   {
     Global.SetPrefBool("prefflashchatturn", !Global.GetPrefBool("prefflashchatturn", true));
   }
 
-  private void ToggleFlashChaInvite()
+  private static void ToggleFlashChaInvite()
   {
     Global.SetPrefBool("prefflashchatinvite", !Global.GetPrefBool("prefflashchatinvite", true));
   }
 
-  private void ToggleAcceptInvites()
+  private static void ToggleAcceptInvites()
   {
     Global.SetPrefBool("prefacceptinvites", !Global.GetPrefBool("prefacceptinvites", true));
   }
 
-  private void ToggleClanInvites()
+  private static void ToggleClanInvites()
   {
     Global.SetPrefBool("prefclaninvites", !Global.GetPrefBool("prefclaninvites", true));
   }
 
-  private void ToggleShowCreatedGames()
+  private static void ToggleShowCreatedGames()
   {
     Global.SetPrefBool("prefshowcreatedgames", !Global.GetPrefBool("prefshowcreatedgames", true));
   }
 
-  private void ToggleShowStartGame()
+  private static void ToggleShowStartGame()
   {
     Global.SetPrefBool("prefshowstartedgames", !Global.GetPrefBool("prefshowstartedgames", true));
   }
 
-  private void ToggleShowDate()
+  private static void ToggleShowDate()
   {
     ChatBox.showDate = !ChatBox.showDate;
     Global.SetPrefBool("prefshowdate", ChatBox.showDate);
-    this.recycled.ForceRender();
+    ChatBox.Instance?.recycled.ForceRender();
   }
 
-  private void ToggleShowIcons()
+  private static void ToggleShowIcons()
   {
     ChatBox.showIcons = !ChatBox.showIcons;
     Global.SetPrefBool("prefshowicons", ChatBox.showIcons);
-    this.recycled.ForceRender();
+    ChatBox.Instance?.recycled.ForceRender();
+  }
+
+  public static void _SetFilter(ChatBox.ChatFilter c, bool update)
+  {
+    ChatBox.Instance?.SetFilter(c, update);
+    if (!update)
+      return;
+    PlayerPrefs.SetInt("filterChat", (int) c);
   }
 
   public void SetFilter(ChatBox.ChatFilter c, bool update)
@@ -360,10 +478,6 @@ public class ChatBox : UIBehaviour
       this.DefaultPosition();
     else
       this.PositionGame();
-    if (!((UnityEngine.Object) this.textSpellCasted != (UnityEngine.Object) null))
-      return;
-    UnityEngine.Object.Destroy((UnityEngine.Object) this.textSpellCasted.gameObject);
-    this.textSpellCasted = (TMP_Text) null;
   }
 
   private void PositionGame()
@@ -371,9 +485,11 @@ public class ChatBox : UIBehaviour
     RectTransform transform = (RectTransform) this.transform;
     transform.SetAnchor(Anchor.BottomLeft);
     transform.pivot = new Vector2(0.0f, 0.0f);
-    transform.anchoredPosition = new Vector2(0.0f, Controller.Instance.useColorScheme ? 0.0f : this.defaultPosition.y);
+    transform.anchoredPosition = new Vector2(5f, Controller.Instance.useColorScheme ? 5f : this.defaultPosition.y);
     this.currentPosition = transform.anchoredPosition;
     this._active = true;
+    this.isTransparent = Global.GetPrefBool("invisChatbox", true);
+    this.SetTransparent();
   }
 
   private void DefaultPosition()
@@ -384,6 +500,8 @@ public class ChatBox : UIBehaviour
     transform.anchoredPosition = this.defaultPosition;
     this.currentPosition = transform.anchoredPosition;
     this._active = true;
+    this.isTransparent = false;
+    this.SetTransparent(true);
   }
 
   public void ToggleChat() => this.SetActive(!this._active);
@@ -418,6 +536,7 @@ public class ChatBox : UIBehaviour
   {
     this.activeContainer.SetActive(v);
     this.chatInput.enabled = v;
+    this.hiddenText.text = v ? "" : "Press Tab to chat";
     this.buttonEmojiPopup.SetActive(v);
     if (v)
       return;
@@ -478,6 +597,11 @@ public class ChatBox : UIBehaviour
     this.NewChatMsg("", msg, c, name, origination, t, data);
   }
 
+  public static void SystemMessage(string msg)
+  {
+    ChatBox.Instance?.NewChatMsg(msg, (Color) ColorScheme.GetColor(Global.ColorSystem));
+  }
+
   public void NewChatMsg(string msg, Color c)
   {
     WordFilter.CheckReplacements(ref msg);
@@ -497,8 +621,7 @@ public class ChatBox : UIBehaviour
       case AccountType.None:
         return "";
       case AccountType.Mod:
-      case AccountType.Community_Admin:
-      case AccountType.GameMod:
+      case AccountType.Head_of_Moderation:
         return "<sprite=\"AccountIconsAll\" anim=\"168,183,15\"> ";
       case AccountType.Developer:
       case AccountType.Game_Director:
@@ -506,6 +629,8 @@ public class ChatBox : UIBehaviour
         return "<sprite=\"AccountIconsAll\" anim=\"144,159,15\"> ";
       case AccountType.Muted:
         return acc.discord != 0UL ? "<sprite=\"AccountIconsAll\" index=223> " : "<sprite=\"AccountIconsAll\" index=222>";
+      case AccountType.Audio_Director:
+        return "<sprite=\"AccountIconsAll\" anim=\"312,327,10\"> ";
       case AccountType.Arcane_Monster:
         return "<sprite=\"AccountIconsAll\" anim=\"240,255,8\"> ";
       case AccountType.First_Place:
@@ -520,11 +645,9 @@ public class ChatBox : UIBehaviour
         return "<sprite=\"AccountIconsAll\" index=216> ";
       case AccountType.Contributor:
         return "<sprite=\"AccountIconsAll\" anim=\"288,300,15\"> ";
-      case AccountType.Imp:
-      case AccountType.Web_Developer:
-        return "<sprite=\"AccountIconsAll\" index=218> ";
+      case AccountType.Backend_Technical_Director:
+        return "<sprite=\"AccountIconsAll\" anim=\"312,327,10\"> ";
       case AccountType.Tournament_Official:
-      case AccountType.Head_Tournament_Official:
         return "<sprite=\"AccountIconsAll\" index=219> ";
       case AccountType.Wiki_Staff:
         return "<sprite=\"AccountIconsAll\" index=220> ";
@@ -544,7 +667,11 @@ public class ChatBox : UIBehaviour
         return "<sprite=\"AccountIconsAll\" anim=\"136,142,10\"> ";
       case AccountType.Lifetime:
         return "<sprite=\"AccountIconsAll\" anim=\"136,142,10\"> ";
-      case AccountType.Art_Lead:
+      case AccountType.Website_Director:
+        return "<sprite=\"AccountIconsAll\" anim=\"312,327,10\"> ";
+      case AccountType.Art_Director:
+        return "<sprite=\"AccountIconsAll\" anim=\"312,327,10\"> ";
+      case AccountType.Tournament_Director:
         return "<sprite=\"AccountIconsAll\" anim=\"312,327,10\"> ";
       case AccountType.Press_Account:
         return "<sprite=\"AccountIconsAll\" index=229> ";
@@ -596,6 +723,14 @@ public class ChatBox : UIBehaviour
         return ChatBox.ExperienceString((int) acc.experience) + accountIcons;
       return "<link=\"Level " + acc.experience.ToString() + "\">" + ChatBox.ExperienceString((int) acc.experience) + "</link>" + accountIcons;
     }
+    if (acc.displayedIcon > (int) byte.MaxValue)
+    {
+      if (!includeExtra)
+        return accountIcons;
+      if (!link)
+        return ChatBox.ExperienceString((int) acc.experience) + accountIcons;
+      return "<link=\"Badge: " + ClientResources.Instance.badges[acc.DisplayedBadge].name + "\"><sprite=\"Badges\" index=" + (object) acc.DisplayedBadge + "> </link>" + accountIcons;
+    }
     if (accountType == 0 || acc.displayedIcon == (int) byte.MaxValue)
     {
       if (!includeExtra)
@@ -639,6 +774,8 @@ public class ChatBox : UIBehaviour
   {
     if (!string.IsNullOrEmpty(RightClickName) && Client.IsIgnored(RightClickName))
       return;
+    if (origination != ChatOrigination.System && WordFilter.HasRealBadWords(msg))
+      msg = WordFilter.ReplaceRealBadWords(msg);
     if (this.chatFilter != ChatBox.ChatFilter.Off && origination != ChatOrigination.System && WordFilter.HasBadWords(msg))
     {
       if (this.chatFilter == ChatBox.ChatFilter.Block_Entirely)

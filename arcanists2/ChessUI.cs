@@ -1,7 +1,6 @@
 ﻿
 
 using ChessConsole;
-using ChessConsole.Pieces;
 using Hazel;
 using System;
 using System.Collections;
@@ -14,7 +13,7 @@ using UnityEngine.Events;
 using UnityEngine.UI;
 
 #nullable disable
-public class ChessUI : MonoBehaviour
+public class ChessUI : MonoBehaviour, IMiniGameUI
 {
   public RectTransform rectTransform;
   public RectTransform rectMove;
@@ -105,6 +104,7 @@ public class ChessUI : MonoBehaviour
     ChessUI.Instance.buttonDraw.SetActive(!b.isSpectator);
     ChessUI.Instance.useAudio = Global.GetPrefBool("prefchessaudio", true);
     ChessUI.Instance.buttonAudio.AlwaysOn = !ChessUI.Instance.useAudio;
+    ChessUI.Instance.board.gameObject = (IMiniGameUI) ChessUI.Instance;
   }
 
   public void ToggleAudio()
@@ -136,7 +136,7 @@ public class ChessUI : MonoBehaviour
   private void Start()
   {
     this.boardSet = Mathf.Clamp(PlayerPrefs.GetInt("prefchessBoard", 5), 0, this.imageBoards.Count - 1);
-    this.pieceSet = Mathf.Clamp(PlayerPrefs.GetInt("prefchessPiece", 1), 0, this.imagePieces.Count - 1);
+    this.pieceSet = Mathf.Clamp(PlayerPrefs.GetInt("prefchessPiece", 0), 0, this.imagePieces.Count - 1);
     this.chessboardBg.sprite = this.imageBoards[this.boardSet];
     if (this.board == null)
     {
@@ -606,7 +606,7 @@ public class ChessUI : MonoBehaviour
           }
           else if ((this.holdedNode == null || this.holdedNode != cell) && this.holdedNode != null && this.holdedNode.Piece.LegalMoves.Contains(cell))
           {
-            if (this.holdedNode.Piece is Pawn && cell.Y == (this.holdedNode.Piece.Color == PlayerColor.White ? 7 : 0))
+            if (this.holdedNode.Piece is ChessConsole.Pieces.Pawn && cell.Y == (this.holdedNode.Piece.Color == PlayerColor.White ? 7 : 0))
             {
               MyContextMenu myContextMenu = MyContextMenu.Show();
               myContextMenu.AddSeperator("Promotion Options");

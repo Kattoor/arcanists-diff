@@ -45,6 +45,7 @@ namespace Educative
     public int MaxUses = -1;
     public int RechargeTime;
     public int TurnsTillFirstUse;
+    public bool halfFirstTurn;
     [Header("Type")]
     public CastType type;
     public BookOf bookOf;

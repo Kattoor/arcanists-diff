@@ -9,5 +9,5 @@ public enum CreatureRace
   Effector,
   Frost_Walker,
   Soulbound,
-  Werewolf,
+  Bear,
 }

@@ -3,6 +3,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Net.Http;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -34,5 +36,26 @@ public class KnownServersList
   {
     Global.systemCopyBuffer = JsonUtility.ToJson((object) this);
     Debug.Log((object) ("Known Severs copied to clipboard: " + Global.systemCopyBuffer));
+  }
+
+  public static async Task<KnownServersList> GetServerList()
+  {
+    using (HttpClient client = new HttpClient())
+    {
+      string requestUri = "http://play.arcanists2.com/ServerList.json";
+      try
+      {
+        using (HttpResponseMessage response = await client.GetAsync(requestUri))
+        {
+          response.EnsureSuccessStatusCode();
+          return JsonUtility.FromJson<KnownServersList>(await response.Content.ReadAsStringAsync());
+        }
+      }
+      catch (HttpRequestException ex)
+      {
+        Debug.LogError((object) ("Error getting ServerMesh Server List: " + ex.Message));
+      }
+    }
+    return Inert.Instance.servers;
   }
 }

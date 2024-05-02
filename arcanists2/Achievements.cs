@@ -184,8 +184,8 @@ public class Achievements
     },
     new Achievements.Container()
     {
-      name = "Master of The Wilds ",
-      description = "Win a rated game with the full Book of The Wilds",
+      name = "Master of Druidism ",
+      description = "Win a rated game with the full Book of Druidism",
       points = (ushort) 300,
       ratedOnly = true
     },
@@ -298,7 +298,7 @@ public class Achievements
     },
     new Achievements.Container()
     {
-      name = "The Wilds Arcanist",
+      name = "Druidism Arcanist",
       description = "Win a rated game, over 1250 rating, with the Raven familiar",
       points = (ushort) 100,
       ratedOnly = true

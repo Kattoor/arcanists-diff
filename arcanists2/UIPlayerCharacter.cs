@@ -238,6 +238,8 @@ public class UIPlayerCharacter : MonoBehaviour
     this.Realign(this.rightArm);
     this.Realign(this.leftArm);
     this.Realign(this.hat);
+    this.Realign(this.leftFoot);
+    this.Realign(this.rightFoot);
   }
 
   public void Copy(ZPerson p)
@@ -288,7 +290,7 @@ public class UIPlayerCharacter : MonoBehaviour
       if ((int) spell1 < Inert.Instance.spells.Count && spell1 < byte.MaxValue)
       {
         Spell spell2 = !p.seasonISHoliday || spell1 < (byte) 120 || spell1 > (byte) 131 ? Inert.Instance._spells[(int) spell1] : Inert.Instance.holidaySpells[(int) spell1 - 120];
-        if (spell2.level == 3 || p.seasonISHoliday && spell2.spellEnum == SpellEnum.Snow_Globe)
+        if (spell2.level == 3)
           this.AddLevel3(spell2);
       }
     }
@@ -303,7 +305,7 @@ public class UIPlayerCharacter : MonoBehaviour
       while (index2 < 12)
       {
         Spell spell = !p.seasonISHoliday || num3 != 10 ? Inert.Instance._spells[index1] : Inert.Instance.holidaySpells[index2];
-        if (spell.level == 3 || p.seasonISHoliday && spell.spellEnum == SpellEnum.Snow_Globe)
+        if (spell.level == 3)
           this.AddLevel3(spell);
         ++index2;
         ++index1;
@@ -319,7 +321,7 @@ public class UIPlayerCharacter : MonoBehaviour
     foreach (SpellSlot spell1 in c.spells)
     {
       Spell spell2 = spell1.spell;
-      if (!spell1.isPresent && (spell2.level == 3 || p.seasonISHoliday && spell2.spellEnum == SpellEnum.Snow_Globe))
+      if (!spell1.isPresent && spell2.level == 3)
         this.AddLevel3(spell2);
     }
     foreach (ZGame.MinionBookTitan minionBookTitan in p.minionBookTitans)
@@ -328,7 +330,7 @@ public class UIPlayerCharacter : MonoBehaviour
 
   public void AddLevel3(Spell spell)
   {
-    if (!ClientResources.Instance.icons.ContainsKey(spell.name) || this.spells.FindIndex((Predicate<Image>) (z => (UnityEngine.Object) z != (UnityEngine.Object) null && (UnityEngine.Object) z.sprite != (UnityEngine.Object) null && spell.name.Equals(z.sprite.name))) != -1)
+    if (!((UnityEngine.Object) spell != (UnityEngine.Object) null) || !ClientResources.Instance.icons.ContainsKey(spell.name) || this.spells.FindIndex((Predicate<Image>) (z => (UnityEngine.Object) z != (UnityEngine.Object) null && (UnityEngine.Object) z.sprite != (UnityEngine.Object) null && spell.name.Equals(z.sprite.name))) != -1)
       return;
     if (this.i >= this.spells.Count)
     {

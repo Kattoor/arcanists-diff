@@ -9,11 +9,13 @@ public class ZSpellMechanicalArrow : ZSpell
   public override IEnumerator<float> SpellMove(bool gotoStatic = false, bool checkEffectors = true)
   {
     ZSpellMechanicalArrow spell = this;
+    if ((ZComponent) spell.parent != (object) null && spell.parent.parent.localTurn == 0)
+      spell.maxDuration = 900;
     spell.isMoving = true;
     spell.zb = MapGenerator.getOutlineArray(spell.radius);
     if (gotoStatic)
       yield return 0.0f;
-label_44:
+label_46:
     while (!spell.isDead)
     {
       spell.pX = spell.position.x;
@@ -42,7 +44,7 @@ label_44:
         {
           spell.position = new MyLocation(spell.validX, spell.validY);
           yield return 0.0f;
-          goto label_44;
+          goto label_46;
         }
         else
         {
@@ -95,6 +97,8 @@ label_44:
       {
         spell.addVelocity = false;
         spell.velocity = spell.velocity + spell.addedVelocity;
+        spell.velocity.x = Mathd.Clamp(spell.velocity.x, (FixedInt) -50, (FixedInt) 50);
+        spell.velocity.y = Mathd.Clamp(spell.velocity.y, (FixedInt) -50, (FixedInt) 50);
         spell.addedVelocity.x = (FixedInt) 0;
         spell.addedVelocity.y = (FixedInt) 0;
       }
@@ -107,7 +111,7 @@ label_44:
       }
       else if (spell.affectedByGravity && spell.velocity.y > -ZMap.MaxSpeed)
         spell.velocity.y += spell.map.Gravity;
-      else if (!spell.affectedByGravity && spell.velocity.y > -1 && spell.maxDuration > 150)
+      else if (!spell.affectedByGravity && spell.velocity.y > -10 && spell.maxDuration > 150)
         spell.affectedByGravity = true;
       spell.Wind();
       if (spell.Rotates && (Object) spell.transform != (Object) null)

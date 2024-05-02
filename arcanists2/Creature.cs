@@ -122,7 +122,7 @@ public class Creature : Entity
       return;
     this.overheadEmoji = UnityEngine.Object.Instantiate<OverheadEmoji>(ClientResources.Instance.overheadEmoji, this.overheadCanvas.transform.position + new Vector3(0.0f, spectator ? 20f : 40f), Quaternion.identity, this.transform);
     this.overheadEmoji.OnEmoji(index);
-    if ((!Client.emojiSound || spectator) && !Spectator.isConnected)
+    if (!Client.emojiSound || spectator && !Spectator.isConnected)
       return;
     AudioManager.Play(AudioManager.instance.emojiShow);
   }

@@ -78,6 +78,17 @@ public class CoroutineInstance
     this.forceArmageddon = false;
   }
 
+  public void CopyOver(CoroutineInstance b, bool immediate = true)
+  {
+    for (int index = 0; index < b.NumberOfSlowUpdateCoroutines; ++index)
+    {
+      this.RunSpell(b.SlowUpdateProcesses[index], immediate);
+      b.SlowUpdateProcesses[index] = (IEnumerator<float>) null;
+    }
+    b.NumberOfSlowUpdateCoroutines = 0;
+    b._nextSlowUpdateProcessSlot = 0;
+  }
+
   public IEnumerator<float> RunCoroutine(IEnumerator<float> coroutine, bool immediate = true)
   {
     if (coroutine == null)

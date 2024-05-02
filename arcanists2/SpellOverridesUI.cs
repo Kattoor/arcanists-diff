@@ -467,6 +467,9 @@ public class SpellOverridesUI : MonoBehaviour
       case "race":
         this.CreateDropDown<CreatureRace>(property, ref i, CreatureRace.Unaffiliated);
         break;
+      case "serializedSpellEnum":
+        this.CreateDropDown<SpellEnum>(property, ref i, SpellEnum.None);
+        break;
       case "spellEnum":
         this.CreateDropDown<SpellEnum>(property, ref i, SpellEnum.None);
         break;

@@ -38,7 +38,7 @@ public static class ZCreatureCreate
     Creature creature = Inert.GetCreature(reader.ReadString());
     bool flag = reader.ReadBoolean();
     MyLocation pos = reader.ReadMyLocation();
-    ZCreature z = !flag ? Inert.CreateCharacter(parent, parent.settingsPlayer, pos, index, noSpells: true) : (typeof (CreatureThorn) == ((object) creature).GetType() ? (ZCreature) ZCreatureCreate.CreateThorn(parent.game, (CreatureThorn) creature, pos.ToSinglePrecision(), Quaternion.identity, parent.game.GetMapTransform()) : ZCreatureCreate.CreateCreature(parent, creature, pos.ToSinglePrecision(), Quaternion.identity, parent.game.GetMapTransform(), false));
+    ZCreature z = !flag ? Inert.CreateCharacter(parent, parent.settingsPlayer, pos, index, noSpells: true) : (typeof (CreatureThorn) == ((object) creature).GetType() ? (ZCreature) ZCreatureCreate.CreateThorn(parent.game, parent, (CreatureThorn) creature, pos.ToSinglePrecision(), Quaternion.identity, parent.game.GetMapTransform()) : (typeof (CreatureJavelin) == ((object) creature).GetType() ? (ZCreature) ZCreatureCreate.CreateJavalin(parent.game, (CreatureJavelin) creature, pos.ToSinglePrecision(), Quaternion.identity, parent.game.GetMapTransform()) : ZCreatureCreate.CreateCreature(parent, creature, pos.ToSinglePrecision(), Quaternion.identity, parent.game.GetMapTransform(), false)));
     z.id = id;
     z.position = pos;
     z.parent = parent;
@@ -104,22 +104,19 @@ public static class ZCreatureCreate
     z.tries = reader.ReadInt32();
     z.retribution = reader.ReadInt32();
     z.transformscale = (float) reader.ReadInt32();
-    if (Inert._Version > 57)
-    {
-      z.appliedGravity = reader.ReadInt32();
-      z.fusion = reader.ReadInt32();
-      z.halfHealing = reader.ReadInt32();
-      z.loopCount = reader.ReadInt32();
-      z.glideIsActive = reader.ReadBoolean();
-      z.climbingHooksIsActive = reader.ReadBoolean();
-      z.tries = reader.ReadInt32();
-      z.turnUndeadTurn = reader.ReadInt32();
-      z.turnFriendlyDmg = reader.ReadInt32();
-      parent.game.helper.id_effectorStaticShield.Add(new ZGame.ID2(z, reader.ReadInt32()));
-      z.usingGlide = reader.ReadBoolean();
-      z._FourSeasonsCastAtEndOfTurn = reader.ReadBoolean();
-      z._FourSeasonsLocation = reader.ReadMyLocation();
-    }
+    z.appliedGravity = reader.ReadInt32();
+    z.fusion = reader.ReadInt32();
+    z.halfHealing = reader.ReadInt32();
+    z.glideIsActive = reader.ReadBoolean();
+    z.climbingHooksIsActive = reader.ReadBoolean();
+    z.tries = reader.ReadInt32();
+    z.turnUndeadTurn = reader.ReadInt32();
+    z.turnFriendlyDmg = reader.ReadInt32();
+    parent.game.helper.id_effectorStaticShield.Add(new ZGame.ID2(z, reader.ReadInt32()));
+    z.usingGlide = reader.ReadBoolean();
+    z._FourSeasonsCastAtEndOfTurn = reader.ReadBoolean();
+    z._FourSeasonsLocation = reader.ReadMyLocation();
+    z.bloodBankHeal = reader.ReadInt32();
     z.diesInWater = reader.ReadBoolean();
     parent.game.helper.id_stormShield.Add(new ZGame.ID2(z, reader.ReadInt32()));
     parent.game.helper.id_Aura.Add(new ZGame.ID2(z, reader.ReadInt32()));
@@ -137,7 +134,7 @@ public static class ZCreatureCreate
     return z;
   }
 
-  public static void Serialize(ZCreature c, myBinaryWriter writer)
+  public static void Serialize(ZCreature c, myBinaryWriter writer, bool includeSpells = true)
   {
     bool flag = c.game.xCreature.Contains(c);
     writer.Write(flag);
@@ -170,9 +167,16 @@ public static class ZCreatureCreate
     writer.Write(c.HighJumpData);
     writer.Write(ZGame.GetID(c.daOriginalTrueParent));
     writer.Write(ZGame.GetID(c.originalParent));
-    writer.Write(c.spells.Count);
-    for (int index = 0; index < c.spells.Count; ++index)
-      c.spells[index].Serialize(c.game, writer);
+    if (!includeSpells && !c.isPawn)
+    {
+      writer.Write(0);
+    }
+    else
+    {
+      writer.Write(c.spells.Count);
+      for (int index = 0; index < c.spells.Count; ++index)
+        c.spells[index].Serialize(c.game, writer);
+    }
     writer.Write(c.moneyBags);
     writer.Write(c.audioBags);
     writer.Write(ZGame.GetID(c.pact));
@@ -204,22 +208,19 @@ public static class ZCreatureCreate
     writer.Write(c.tries);
     writer.Write(c.retribution);
     writer.Write(c.transformscale);
-    if (Inert._Version > 57)
-    {
-      writer.Write(c.appliedGravity);
-      writer.Write(c.fusion);
-      writer.Write(c.halfHealing);
-      writer.Write(c.loopCount);
-      writer.Write(c.glideIsActive);
-      writer.Write(c.climbingHooksIsActive);
-      writer.Write(c.tries);
-      writer.Write(c.turnUndeadTurn);
-      writer.Write(c.turnFriendlyDmg);
-      writer.Write(ZGame.GetID((ZEffector) c.effectorStaticShield));
-      writer.Write(c.usingGlide);
-      writer.Write(c._FourSeasonsCastAtEndOfTurn);
-      writer.Write(c._FourSeasonsLocation);
-    }
+    writer.Write(c.appliedGravity);
+    writer.Write(c.fusion);
+    writer.Write(c.halfHealing);
+    writer.Write(c.glideIsActive);
+    writer.Write(c.climbingHooksIsActive);
+    writer.Write(c.tries);
+    writer.Write(c.turnUndeadTurn);
+    writer.Write(c.turnFriendlyDmg);
+    writer.Write(ZGame.GetID((ZEffector) c.effectorStaticShield));
+    writer.Write(c.usingGlide);
+    writer.Write(c._FourSeasonsCastAtEndOfTurn);
+    writer.Write(c._FourSeasonsLocation);
+    writer.Write(c.bloodBankHeal);
     writer.Write(c.diesInWater);
     writer.Write(ZGame.GetID(c.stormShield));
     writer.Write(ZGame.GetID(c.auraOfDecay));
@@ -243,8 +244,7 @@ public static class ZCreatureCreate
     zcreature.invulnerable = -1;
     zcreature.game = game;
     zcreature.collider.world = game.world;
-    if (zcreature.spellEnum != SpellEnum.None)
-      ZSpell.ApplyEffectors(game, zcreature, zcreature.position);
+    ZSpell.ApplyEffectors(game, zcreature, zcreature.position);
     zcreature.spells.Clear();
     foreach (SpellSlot spell in old.spells)
       zcreature.spells.Add(new SpellSlot(spell));
@@ -264,6 +264,7 @@ public static class ZCreatureCreate
         if (zcreature.game.isClient)
         {
           ColorLerp colorLerp = zcreature.gameObject.AddComponent<ColorLerp>();
+          colorLerp._creature = zcreature;
           colorLerp.rends = ((IEnumerable<SpriteRenderer>) zcreature.gameObject.GetComponentsInChildren<SpriteRenderer>()).ToList<SpriteRenderer>();
           for (int index = colorLerp.rends.Count - 1; index >= 0; --index)
           {
@@ -295,24 +296,43 @@ public static class ZCreatureCreate
     return zcreature;
   }
 
-  public static ZCreatureThorn CreateThorn(
+  public static ZCreatureJavelin CreateJavalin(
     ZGame game,
-    CreatureThorn c,
+    CreatureJavelin c,
     Vector2 l,
     Quaternion q,
     Transform p)
   {
-    ZCreatureThorn z = new ZCreatureThorn();
+    ZCreatureJavelin z = new ZCreatureJavelin();
     z.id = ++game.nextCreatureID;
     z.game = game;
     z.Copy((Creature) c);
     z.ClientSetup((Creature) c, l, q, p);
+    z.collider.layer |= 65536;
+    return z;
+  }
+
+  public static ZCreatureThorn CreateThorn(
+    ZGame game,
+    ZPerson p,
+    CreatureThorn c,
+    Vector2 l,
+    Quaternion q,
+    Transform t)
+  {
+    ZCreatureThorn z = new ZCreatureThorn();
+    z.id = ++game.nextCreatureID;
+    z.game = game;
+    z.parent = p;
+    z.Copy((Creature) c);
+    z.ClientSetup((Creature) c, l, q, t);
     z.spell = (ZSpell) new ZSpellThornBall();
     z.spell.game = game;
     z.spell.id = ++game.nextSpellID;
     z.spell.Copy(c.spell, game);
     z.spell.collider = z.collider;
     z.collider.spell = z.spell;
+    z.tries = p.localTurn + 20;
     z.spell.gameObject = z.gameObject;
     z.spell.transform = z.transform;
     return z;
@@ -380,8 +400,8 @@ public static class ZCreatureCreate
       if (c.runTimeStats.effectorMaxTurnsOverride > 0)
         z.auraOfDecay.MaxTurnsAlive = c.runTimeStats.effectorMaxTurnsOverride;
     }
-    for (int index = 0; index < c.spells.Count; ++index)
-      z.spells.Add(new SpellSlot(c.spells[index]));
+    for (int index = 0; index < c.runTimeStats.spells.Count; ++index)
+      z.spells.Add(new SpellSlot(c.runTimeStats.spells[index]));
     z.undeadHead = c.undeadHead;
   }
 

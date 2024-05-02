@@ -111,6 +111,13 @@ public class pfabLobbyGame :
     MyToolTip.Show("Turn time: " + (object) this.gameFacts.customTime + " seconds");
   }
 
+  public void HoverLadderType()
+  {
+    if (this.gameFacts == null)
+      return;
+    MyToolTip.Show("Ladder: " + RatedFacts.GetGameTypeAsStringLong((int) this.gameFacts.gameType));
+  }
+
   public void HoverMap()
   {
     if (this.gameFacts == null)
@@ -338,7 +345,7 @@ public class pfabLobbyGame :
       for (int index2 = 0; index2 < g.settings.customArmageddon.Count; ++index2)
       {
         Spell spell = Inert.GetSpell(g.settings.customArmageddon[index2]);
-        if ((UnityEngine.Object) spell != (UnityEngine.Object) null && spell.level < 4)
+        if ((UnityEngine.Object) spell != (UnityEngine.Object) null && (spell.level < 4 || GameFacts.AllowCustomArmageddon(spell.spellEnum)))
         {
           this.imgArmageddon.sprite = ClientResources.Instance.GetSpellIcon(spell.name);
           break;
@@ -406,7 +413,7 @@ public class pfabLobbyGame :
       case TimeEnum.Ten:
         this.imgTime.sprite = ClientResources.Instance._iconsTime[7];
         break;
-      case TimeEnum.Eight:
+      case TimeEnum.Seven:
         this.imgTime.sprite = ClientResources.Instance._iconsTime[8];
         break;
       case TimeEnum.Fifteen:

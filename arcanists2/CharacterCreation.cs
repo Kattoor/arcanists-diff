@@ -1175,8 +1175,8 @@ public class CharacterCreation : Catalogue
         {
           switch (SettingsPlayer.CheckAchievements(viewing, sortedGroup[index]))
           {
-            case Achievement.High_Mage:
-            case Achievement.Arch_Mage:
+            case Achievement.Lord_of_Wands:
+            case Achievement.Wand_Hoarder:
               intList.Add(sortedGroup[index]);
               continue;
             default:

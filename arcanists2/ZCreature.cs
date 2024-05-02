@@ -133,6 +133,7 @@ public class ZCreature : ZEntity
   internal int loopCount;
   internal bool glideIsActive;
   internal bool climbingHooksIsActive;
+  internal int bloodBankHeal;
   internal int tries;
   [NonSerialized]
   public List<ZCreature.NotScaled> notScaled = new List<ZCreature.NotScaled>();
@@ -164,6 +165,15 @@ public class ZCreature : ZEntity
   public FixedInt maxAngle => (FixedInt) this.baseCreature.maxAngle;
 
   public bool pawn => this.isPawn && this.spells.Count < 12;
+
+  public bool isPhantom
+  {
+    get
+    {
+      ZMyCollider collider = this.collider;
+      return collider != null && collider.gameObjectLayer == 16;
+    }
+  }
 
   public ZPerson achievementParent
   {
@@ -307,7 +317,10 @@ public class ZCreature : ZEntity
 
   public int familiarLevelBlood => this.parent == null ? 0 : this.parent.GetLevel(BookOf.Blood);
 
-  public int familiarLevelWild => this.parent == null ? 0 : this.parent.GetLevel(BookOf.The_Wilds);
+  public int familiarLevelDruidism
+  {
+    get => this.parent == null ? 0 : this.parent.GetLevel(BookOf.Druidism);
+  }
 
   public int familiarLevelCosmos => this.parent == null ? 0 : this.parent.GetLevel(BookOf.Cosmos);
 
@@ -440,6 +453,15 @@ public class ZCreature : ZEntity
     return z;
   }
 
+  public SpellSlot AddPresent(SpellEnum z)
+  {
+    SpellSlot spellSlot = new SpellSlot(Inert.GetSpell(z));
+    spellSlot.isPresent = true;
+    spellSlot.MaxUses = 1;
+    this.spells.Add(spellSlot);
+    return spellSlot;
+  }
+
   public int EffectorCount(EffectorType t)
   {
     int num = 0;
@@ -546,11 +568,18 @@ public class ZCreature : ZEntity
     this.velocity.y = FixedInt.ZeroF;
     this.addedVelocity.x = FixedInt.ZeroF;
     this.addedVelocity.y = FixedInt.ZeroF;
-    this.game.CreatureMoveSurroundings(this.position, 100);
+    if (!this.inWater)
+      this.game.CreatureMoveSurroundings(this.position, 100);
     if (this.health <= 0)
+    {
       this.OnDeath(true);
+    }
     else
+    {
+      if (this.inWater)
+        return;
       this.Fall();
+    }
   }
 
   public void OnMount(ZCreature c)
@@ -671,10 +700,17 @@ public class ZCreature : ZEntity
           effector.active = false;
           if ((ZComponent) effector.partner != (object) null)
           {
-            effector.partner.active = false;
-            effector.partner.collider?.Disable();
-            effector.partner.isNull = true;
-            ZComponent.Destroy<GameObject>(effector.partner.gameObject);
+            if (effector.type == EffectorType.Fake_Portal)
+            {
+              effector.partner = (ZEffector) null;
+            }
+            else
+            {
+              effector.partner.active = false;
+              effector.partner.collider?.Disable();
+              effector.partner.isNull = true;
+              ZComponent.Destroy<GameObject>(effector.partner.gameObject);
+            }
           }
           else if (effector.type == EffectorType.Static_Ball)
           {
@@ -1113,7 +1149,6 @@ public class ZCreature : ZEntity
       else
         this.maxHealth = 250;
     }
-    this.team = this.parent.team;
     this.race = CreatureRace.Undead;
     if (this.type == CreatureType.Dragon)
     {
@@ -1533,31 +1568,7 @@ label_16:
         }
       }
     }
-    if ((ZComponent) enemy != (object) null && !enemy.isDead && (ZComponent) this != (object) enemy && damage > 1)
-    {
-      switch (dt)
-      {
-        case DamageType.Heal20:
-          break;
-        case DamageType.Heal50:
-          int num3 = 0;
-          if (dt == DamageType.Heal50)
-            num3 = 5;
-          if (!ZComponent.IsNull((ZComponent) enemy.parent.bloodBank) && !enemy.parent.bloodBank.isDead)
-            num3 += enemy.type == CreatureType.Vampire ? 3 : 1;
-          int damage3 = Mathf.Min(damage, this.health) * num3 / 10;
-          if (damage3 <= 0)
-            damage3 = 1;
-          if (enemy.health > 0)
-            enemy.DoHeal(damage3, !ZComponent.IsNull((ZComponent) enemy.parent.bloodBank) ? DamageType.Heal20 : dt);
-          enemy.UpdateHealthTxt();
-          break;
-        default:
-          if (ZComponent.IsNull((ZComponent) enemy.parent.bloodBank) || enemy.parent.bloodBank.isDead)
-            break;
-          goto case DamageType.Heal50;
-      }
-    }
+    this.HealBloodBank(enemy, damage, dt);
     if (this.spellEnum == SpellEnum.Summon_Blood_Bank && (ZComponent) this.pact != (object) this.parent.first() && damage > 0 && (ZComponent) this.parent.first() != (object) null && !this.parent.first().isDead && this.parent.first().health > 0)
       this.parent.first().DoHeal(Mathf.Min(damage, this.health), DamageType.Heal20);
     this.health -= damage;
@@ -1571,9 +1582,39 @@ label_16:
     this.OnDeath(true);
   }
 
+  public void HealBloodBank(ZCreature enemy, int damage, DamageType dt)
+  {
+    if (!((ZComponent) enemy != (object) null) || enemy.isDead || !((ZComponent) this != (object) enemy) || damage <= 1)
+      return;
+    switch (dt)
+    {
+      case DamageType.Heal20:
+        break;
+      case DamageType.Heal50:
+        int num = 0;
+        enemy.bloodBankHeal += Mathf.Min(damage, this.health);
+        if (dt == DamageType.Heal50)
+          num = 50;
+        if (!ZComponent.IsNull((ZComponent) enemy.parent.bloodBank) && !enemy.parent.bloodBank.isDead)
+          num += enemy.type == CreatureType.Vampire ? 30 : enemy.parent.bloodBank.baseCreature.runTimeStats.effectorMaxTurnsOverride;
+        int damage1 = Mathf.Min(enemy.bloodBankHeal, this.health) * num / 100;
+        if (damage1 <= 0)
+          break;
+        enemy.bloodBankHeal -= damage1 * 100 / num;
+        if (enemy.health > 0)
+          enemy.DoHeal(damage1, !ZComponent.IsNull((ZComponent) enemy.parent.bloodBank) ? DamageType.Heal20 : dt);
+        enemy.UpdateHealthTxt();
+        break;
+      default:
+        if (ZComponent.IsNull((ZComponent) enemy.parent.bloodBank) || enemy.parent.bloodBank.isDead)
+          break;
+        goto case DamageType.Heal50;
+    }
+  }
+
   public bool SoulJarSave(DamageType dt)
   {
-    if (this.isPawn || !this.familiar.Has(FamiliarType.Underdark) || ZComponent.IsNull((ZComponent) this.parent.GetFamiliar(BookOf.Underdark)) || dt == DamageType.Light || dt == DamageType.Heal)
+    if (this.isPawn || !this.familiar.Has(FamiliarType.Underdark) || ZComponent.IsNull((ZComponent) this.parent.GetFamiliar(BookOf.Underdark)) || dt == DamageType.Light || dt == DamageType.Heal || dt == DamageType.SunderLight)
       return false;
     ZSpellSoulJar soulJar = this.parent.GetFamiliar(BookOf.Underdark)?.soulJar;
     if (ZComponent.IsNull((ZComponent) soulJar) || soulJar.isDead)
@@ -1640,8 +1681,8 @@ label_16:
       return damage;
     }
     if ((ZComponent) enemy != (object) null && enemy.type == CreatureType.Bear)
-      damage += Math.Min(damage, (enemy.maxHealth - enemy.health) / 2);
-    if ((dt == DamageType.Sunder || dt == DamageType.Rake) && (ZComponent) enemy != (object) null && this.team == enemy.team)
+      damage += Math.Min(damage, (100 - enemy.health * 100 / enemy.maxHealth) * damage / 100);
+    if ((dt == DamageType.Sunder || dt == DamageType.Rake || dt == DamageType.SunderLight) && (ZComponent) enemy != (object) null && this.team == enemy.team)
     {
       if (dt != DamageType.Rake || (ZComponent) enemy == (object) this || !this.isPawn && this.parent == enemy.parent)
         return 0;
@@ -1776,7 +1817,7 @@ label_46:
         }
       }
     }
-    else if ((dt == DamageType.Light || dt == DamageType.Heal) && this.race == CreatureRace.Undead)
+    else if ((dt == DamageType.Light || dt == DamageType.Heal || dt == DamageType.SunderLight) && this.race == CreatureRace.Undead)
     {
       damage <<= 1;
     }
@@ -1884,8 +1925,10 @@ label_46:
         this.RemoveDestroyableEffector(EffectorType.Retribution);
       enemy.ApplyDamage(SpellEnum.Retribution, DamageType.None, damage3, this, TurnCreated, isLoop: true);
     }
+    bool flag = this.shield > 0;
     if (this.shield > 0 && dt != DamageType.IgnoreShield && dt != DamageType.Percentage50 && hitBySpell != SpellEnum.Blood_Craze)
     {
+      this.HealBloodBank(enemy, Mathf.Min(this.shield, damage), dt);
       if (this.shield >= damage)
       {
         this.entangledShield -= damage;
@@ -1899,15 +1942,20 @@ label_46:
         {
           if (damage > 0)
           {
-            ZPerson parent = this.parent;
-            if ((parent != null ? (!parent.yourTurn ? 1 : 0) : 0) == 0 && this.game.serverState.busy != ServerState.Busy.No && this.game.serverState.busy != ServerState.Busy.Moving && this.game.serverState.busy != ServerState.Busy.Moving_NoCountdown && this.game.serverState.busy != ServerState.Busy.Between_Turns || TurnCreated < this.turnProtectionShieldCast)
-              goto label_155;
+            if (this.type != CreatureType.Boar || !this.isMoving)
+            {
+              ZPerson parent = this.parent;
+              if ((parent != null ? (!parent.yourTurn ? 1 : 0) : 0) == 0 && this.game.serverState.busy != ServerState.Busy.No && this.game.serverState.busy != ServerState.Busy.Moving && this.game.serverState.busy != ServerState.Busy.Moving_NoCountdown && this.game.serverState.busy != ServerState.Busy.Between_Turns)
+                goto label_157;
+            }
+            if (TurnCreated < this.turnProtectionShieldCast)
+              goto label_157;
           }
           else
-            goto label_155;
+            goto label_157;
         }
         this.OnStunned();
-label_155:
+label_157:
         this.UpdateHealthTxt();
         enemy?.achievementParent?.awards.DealtDamge(enemy, this, damage, hitBySpell, spellRef);
         return 0;
@@ -1990,7 +2038,7 @@ label_155:
       this.DarkDefenses(true);
     if (this.health <= 0)
     {
-      if (!this.CheckToTunUndead(dt, enemy))
+      if (flag && (this.spellEnum == SpellEnum.Summon_Pixies || this.spellEnum == SpellEnum.Summon_Pegasus || this.spellEnum == SpellEnum.Summon_Paladin) || !this.CheckToTunUndead(dt, enemy))
       {
         if (hitBySpell == SpellEnum.Clockwork_Bomb && this.spellEnum == SpellEnum.Summon_Dragon_Egg && (ZComponent) enemy != (object) null)
           ZSpell.HatchSteamDragon(enemy, this.position);
@@ -2063,16 +2111,19 @@ label_155:
       {
         if (damage > 0)
         {
-          ZPerson parent = this.parent;
-          if ((parent != null ? (!parent.yourTurn ? 1 : 0) : 0) == 0 && this.game.serverState.busy != ServerState.Busy.No && this.game.serverState.busy != ServerState.Busy.Moving && this.game.serverState.busy != ServerState.Busy.Moving_NoCountdown && this.game.serverState.busy != ServerState.Busy.Between_Turns)
-            goto label_243;
+          if (this.type != CreatureType.Boar || !this.isMoving)
+          {
+            ZPerson parent = this.parent;
+            if ((parent != null ? (!parent.yourTurn ? 1 : 0) : 0) == 0 && this.game.serverState.busy != ServerState.Busy.No && this.game.serverState.busy != ServerState.Busy.Moving && this.game.serverState.busy != ServerState.Busy.Moving_NoCountdown && this.game.serverState.busy != ServerState.Busy.Between_Turns)
+              goto label_246;
+          }
         }
         else
-          goto label_243;
+          goto label_246;
       }
       this.OnStunned();
     }
-label_243:
+label_246:
     return 0;
   }
 
@@ -2152,10 +2203,10 @@ label_243:
 
   public bool CheckToTunUndead(DamageType dt, ZCreature enemy)
   {
-    if (!this.isDead && this.isPawn && (dt == DamageType.Death || dt == DamageType.Death_Bomb) && this.race != CreatureRace.Undead && (this.type != CreatureType.Gargoyle || this.canMove) && this.race != CreatureRace.Arcane && this.race != CreatureRace.Soulbound && this.type != CreatureType.Golem && (ZComponent) enemy != (object) null)
+    if (!this.isDead && this.isPawn && (dt == DamageType.Death || dt == DamageType.Death_Bomb) && this.race != CreatureRace.Undead && this.race != CreatureRace.Arcane && this.race != CreatureRace.Soulbound && this.type != CreatureType.Golem && (ZComponent) enemy != (object) null)
     {
       int? count = enemy.parent?.controlled.Count;
-      int num = 3 + this.parent.GetMaxMinions();
+      int num = 4 + this.parent.GetMaxMinions();
       if (count.GetValueOrDefault() < num & count.HasValue)
       {
         int maxHealth = this.maxHealth;
@@ -2179,7 +2230,7 @@ label_243:
     return false;
   }
 
-  public void SwitchTeams(ZPerson newParent)
+  public void SwitchTeams(ZPerson newParent, bool syncSpells = false)
   {
     if (newParent == null || newParent == this.parent)
       return;
@@ -2193,7 +2244,18 @@ label_243:
     }
     this.originalParent = this.parent;
     this.parent = newParent;
-    this.team = (int) newParent.id;
+    this.team = newParent.team;
+    if (syncSpells)
+      ZSpell.SyncSpellsWithParent(this.parent.first(), this, true);
+    int num = parent.localTurn - newParent.localTurn;
+    if (num != 0)
+    {
+      foreach (SpellSlot spell in this.spells)
+      {
+        if (spell.LastTurnFired > -1)
+          spell.SetTurnFired = spell.LastTurnFired - num;
+      }
+    }
     Inert.AddOverheadCanvas(this.clientObj);
     if ((UnityEngine.Object) HUD.instance != (UnityEngine.Object) null && HUD.instance.hideOverheadIcons)
       this.overheadCanvas?.gameObject.SetActive(false);
@@ -2228,11 +2290,46 @@ label_243:
     else if (!ZComponent.IsNull((ZComponent) this.rider) && this.rider.parent.team != this.parent.team)
       this.rider.Demount();
     this.UpdateHealthTxt();
+    if (parent.team == newParent.team || this.isDead || this.game.isClient)
+      return;
+    this.game.SendCreatureSpells(this, false, true);
   }
 
   public float BGScale() => (float) ((double) this.radius / 18.0 * 0.20499999821186066);
 
   public float MiniBGScale() => (float) this.radius / 36f;
+
+  public bool InSunlight()
+  {
+    Coords start = new Coords((int) this.position.x, (int) this.position.y);
+    Coords end = new Coords((int) this.position.x, this.map.Height);
+    Coords coords = this.map.bresenhamsLineCast(start, end, this, (ZSpell) null, Inert.mask_entity_movement);
+    if (coords != null)
+      coords = this.map.bresenhamsLineCast(start, new Coords((int) this.position.x - 100, this.map.Height), this, (ZSpell) null, Inert.mask_entity_movement);
+    if (coords != null)
+      coords = this.map.bresenhamsLineCast(start, new Coords((int) this.position.x + 100, this.map.Height), this, (ZSpell) null, Inert.mask_entity_movement);
+    if (coords != null)
+      coords = this.map.bresenhamsLineCast(start, new Coords((int) this.position.x - 25, this.map.Height), this, (ZSpell) null, Inert.mask_entity_movement);
+    if (coords != null)
+      coords = this.map.bresenhamsLineCast(start, new Coords((int) this.position.x + 25, this.map.Height), this, (ZSpell) null, Inert.mask_entity_movement);
+    if (coords != null)
+      coords = this.map.bresenhamsLineCast(start, new Coords((int) this.position.x - 50, this.map.Height), this, (ZSpell) null, Inert.mask_entity_movement);
+    if (coords != null)
+      coords = this.map.bresenhamsLineCast(start, new Coords((int) this.position.x + 50, this.map.Height), this, (ZSpell) null, Inert.mask_entity_movement);
+    if (coords != null)
+      coords = this.map.bresenhamsLineCast(start, new Coords((int) this.position.x - 75, this.map.Height), this, (ZSpell) null, Inert.mask_entity_movement);
+    if (coords != null)
+      coords = this.map.bresenhamsLineCast(start, new Coords((int) this.position.x + 75, this.map.Height), this, (ZSpell) null, Inert.mask_entity_movement);
+    if (coords != null)
+      coords = this.map.bresenhamsLineCast(start, new Coords((int) this.position.x - 125, this.map.Height), this, (ZSpell) null, Inert.mask_entity_movement);
+    if (coords != null)
+      coords = this.map.bresenhamsLineCast(start, new Coords((int) this.position.x + 125, this.map.Height), this, (ZSpell) null, Inert.mask_entity_movement);
+    if (coords != null)
+      coords = this.map.bresenhamsLineCast(start, new Coords((int) this.position.x - 150, this.map.Height), this, (ZSpell) null, Inert.mask_entity_movement);
+    if (coords != null)
+      coords = this.map.bresenhamsLineCast(start, new Coords((int) this.position.x + 150, this.map.Height), this, (ZSpell) null, Inert.mask_entity_movement);
+    return coords == null;
+  }
 
   public void CheckEffectorsOnMove()
   {
@@ -2487,19 +2584,14 @@ label_243:
     if ((UnityEngine.Object) this.txtHealth != (UnityEngine.Object) null)
       this.txtHealth.text = i.ToString();
     if ((UnityEngine.Object) this.panelPlayer != (UnityEngine.Object) null)
-      this.panelPlayer.SetHP(i);
+      this.panelPlayer.SetHP(i, (float) this.maxHealth);
     if (!((UnityEngine.Object) this.txtShield != (UnityEngine.Object) null))
       return;
-    if (this.shield > 0 || this.bleeding || this.parent.communeWithNature > 0 || this.fusion > this.parent.localTurn || this.parent.ritualEnum.Count > 0 && !this.isPawn)
+    if (this.shield > 0 || this.bleeding || this.parent.communeWithNature > 0 || this.fusion > this.parent.localTurn)
     {
-      string str = this.parent.communeWithNature > 0 ? "<sprite name=\"zCommune With Nature\">" : "";
+      string str = this.parent.communeWithNature > 0 ? "<sprite name=\"zHarmony\">" : "";
       if (this.fusion > this.parent.localTurn)
         str += "<sprite name=\"zFusion\">";
-      if (this.parent.ritualEnum.Count > 0 && !this.isPawn)
-      {
-        foreach (SpellEnum s in this.parent.ritualEnum)
-          str = str + "<sprite name=\"z" + Inert.GetSpell(s).name + "\">";
-      }
       this.txtShield.text = (this.shield <= 0 || !this.bleeding ? (this.bleeding ? "<sprite name=\"blooddrop\">" : (this.shield > 0 ? "+" + this.shield.ToString() : "")) : "+" + this.shield.ToString() + "<sprite name=\"blooddrop\">") + str;
     }
     else
@@ -2511,7 +2603,7 @@ label_243:
 
   public virtual void ApplyHeal(DamageType dt, int damage, ZCreature enemy)
   {
-    if ((dt == DamageType.Heal || dt == DamageType.Light) && this.race == CreatureRace.Undead && ZComponent.IsNull((ZComponent) this.tower))
+    if ((dt == DamageType.Heal || dt == DamageType.Light || dt == DamageType.SunderLight) && this.race == CreatureRace.Undead && ZComponent.IsNull((ZComponent) this.tower))
     {
       this.ApplyDamage(SpellEnum.PowerOfLight, dt, damage, enemy, this.game.turn);
     }
@@ -2703,13 +2795,19 @@ label_243:
       Quaternion identity = Quaternion.identity;
       Transform transform = zcreature.transform;
       particleEffect = ZComponent.Instantiate<GameObject>(t, singlePrecision, identity, transform);
+      if (!isCharge)
+      {
+        ParticleSystem component = particleEffect.GetComponent<ParticleSystem>();
+        component.main.duration = (float) ((double) MaxDuration / 30.0 + 0.20000000298023224);
+        component.Play();
+      }
       if (!zcreature.isPawn)
         zcreature.animator?.Play(AnimateState.Walk, (float) MaxDuration / 30f);
     }
     while (curDuration < MaxDuration && !zcreature.isDead && !zcreature.stunned && !ZComponent.IsNull((ZComponent) zcreature) && !zcreature.InDarkTotem())
     {
       if (zcreature.game.isClient && curDuration % 10 == 0 && zcreature.isPawn)
-        AudioManager.Play(AudioManager.instance.mineCharge);
+        AudioManager.Play(zcreature.spellEnum == SpellEnum.Summon_Boar || zcreature.spellEnum == SpellEnum.Pack_Mentality ? AudioManager.instance.pigCharge : AudioManager.instance.mineCharge);
       zcreature.SetScaleBasedOnVelocity(walkvelocity.x.ToFloat());
       ++curDuration;
       if (!isCharge | spotOn && state == ZCreature.DKMoveState.Walk)
@@ -2811,7 +2909,7 @@ label_243:
           for (int index3 = 0; index3 < zcreature.radius * 2; ++index3)
           {
             int index4 = (index3 + a) % zcreature.zb.Count;
-            if (!zcreature.map.CheckPositionOnlyMap((int) (fixedInt3 + zcreature.pX) + zcreature.zb[index4].x, (int) (fixedInt4 + zcreature.pY) + zcreature.zb[index4].y))
+            if (!zcreature.map.CheckPositionOnlyMap((int) (fixedInt3 + zcreature.pX) + zcreature.zb[index4].x, (int) (fixedInt4 + zcreature.pY) + zcreature.zb[index4].y) || zcreature.flying)
             {
               int xInt = (int) (fixedInt3 + zcreature.pX);
               int yInt = (int) (fixedInt4 + zcreature.pY);
@@ -3015,6 +3113,33 @@ label_243:
           this.WalkToPosition = myLocation;
       }
       this.CreatureMoveSurroundings();
+    }
+  }
+
+  public virtual void MoveLeft3(int extraBits = 0)
+  {
+    if ((double) this.transformscale > 0.0)
+      this.SetScale(-1f);
+    if (!ZComponent.IsNull((ZComponent) this.tower))
+    {
+      this.tower.TowerMoveLeft();
+      if (ExtraMoveBits.HighJump(extraBits) && (ZComponent) this.tower != (object) null)
+      {
+        this.tower.TowerMoveUp();
+      }
+      else
+      {
+        if (!ExtraMoveBits.LongJump(extraBits) || !((ZComponent) this.tower != (object) null))
+          return;
+        this.tower.TowerMoveDown();
+      }
+    }
+    else
+    {
+      if (this.game.isClient && !this.game.resyncing && this.parent != null && (UnityEngine.Object) this.parent.torquing != (UnityEngine.Object) null && (ZComponent) this.parent.torquing.creature == (object) this)
+        this.parent.torquing.Moved();
+      this.validX = (FixedInt) this.GetX();
+      this.validY = (FixedInt) this.GetY();
     }
   }
 
@@ -3249,6 +3374,29 @@ label_243:
         return false;
     }
     return !this.isMoving;
+  }
+
+  public void DebugWalkAngle(int x, int y, MyLocation velocity)
+  {
+    int num = ((FixedInt.Create(360) - (Inert.AngleOfVelocity(velocity) - FixedInt.Create(90))) * FixedInt.ThreeSixtyBy1 * this.zb.Count - this.radius).ToInt();
+    if (num < 0)
+      num += this.zb.Count;
+    if (num < 0 || this.zb.Count == 0)
+    {
+      Debug.LogError((object) ("Error a: " + (object) num + " zb: " + (object) this.zb.Count + " vel: " + (object) velocity + " aov: " + (object) Inert.AngleOfVelocity(velocity)));
+      if (num < 0)
+      {
+        if (this.zb.Count == 0)
+          this.zb = MapGenerator.getOutlineArray(this.radius);
+        while (num < 0 && this.zb.Count > 0)
+          num += this.zb.Count;
+      }
+    }
+    for (int index1 = 0; index1 < this.radius * 2; ++index1)
+    {
+      int index2 = (index1 + num) % this.zb.Count;
+      DebugImpact.Create(new Vector3((float) (x + this.zb[index2].x), (float) (y + this.zb[index2].y)), "", Color.blue);
+    }
   }
 
   public void MoveRight2()
@@ -3523,7 +3671,7 @@ label_243:
           goto label_22;
       }
       while (num2 < this.map.Width);
-      num2 = 800;
+      num2 = this.map.Width / 2;
     }
 label_22:
     return position;
@@ -3608,8 +3756,9 @@ label_22:
     {
       int index2 = (index1 + num1) % this.zb.Count;
       int x = (int) this.position.x;
-      int num2 = (int) this.position.y - 3;
-      if (!this.map.CheckPosition(x + this.zb[index2].x, num2 + this.zb[index2].y, this, Inert.mask_movement_NoEffector))
+      int num2 = (int) this.position.y - 1;
+      int num3 = (int) this.position.y - 3;
+      if (!this.map.CheckPositionOnlyMap(x + this.zb[index2].x, num2 + this.zb[index2].y) || !this.map.CheckPositionOnlyEntities(x + this.zb[index2].x, num3 + this.zb[index2].y, this, Inert.mask_movement_NoEffector))
         return false;
     }
     if (gliding && this.CheckClimbingHooks())
@@ -3769,14 +3918,14 @@ label_9:
             if (num4 < 0)
               num4 += zcreature.zb.Count;
             int mask = Inert.mask_entity_movement;
-            if (zcreature.phantom)
+            if (zcreature.isPhantom)
               mask = 35328;
             for (int index1 = 0; index1 < size * 2; ++index1)
             {
               int index2 = (index1 + num4) % zcreature.zb.Count;
               int x2 = num2 + zcreature.zb[index2].x;
               int y2 = num3 + zcreature.zb[index2].y;
-              if ((zcreature.phantom ? (!zcreature.map.CheckPositionPhantom(x2, y2, zcreature, mask) ? 1 : 0) : (!zcreature.map.CheckPosition(x2, y2, zcreature, mask) ? 1 : 0)) != 0)
+              if ((zcreature.isPhantom ? (!zcreature.map.CheckPositionPhantom(x2, y2, zcreature, mask) ? 1 : 0) : (!zcreature.map.CheckPosition(x2, y2, zcreature, mask) ? 1 : 0)) != 0)
               {
                 FixedInt y3 = zcreature.velocity.y;
                 if (zcreature.velocity.y > 0 && zcreature.canMount)
@@ -3892,6 +4041,8 @@ label_9:
           {
             zcreature.addVelocity = false;
             zcreature.velocity = zcreature.velocity + zcreature.addedVelocity;
+            zcreature.velocity.x = Mathd.Clamp(zcreature.velocity.x, (FixedInt) -50, (FixedInt) 50);
+            zcreature.velocity.y = Mathd.Clamp(zcreature.velocity.y, (FixedInt) -50, (FixedInt) 50);
             zcreature.addedVelocity.x = (FixedInt) 0;
             zcreature.addedVelocity.y = (FixedInt) 0;
           }
@@ -3970,7 +4121,7 @@ label_9:
 
   public bool InDarkTotem() => false;
 
-  public virtual IEnumerator<float> WolfLeap()
+  public virtual IEnumerator<float> WolfLeap(int damage)
   {
     ZCreature zcreature = this;
     if (zcreature.zb == null)
@@ -4057,9 +4208,11 @@ label_9:
             {
               int num3 = (int) (fixedInt3 + zcreature.pX) + zcreature.zb[index2].x;
               int num4 = (int) (fixedInt4 + zcreature.pY) + zcreature.zb[index2].y;
-              zcreature.map.ServerBitBlt(zcreature.spellEnum == SpellEnum.Summon_Alpha_Wolf ? 5 : 36, num3, num4);
-              ZSpell.ApplyExplosionForce(zcreature.spellEnum, zcreature.world, new MyLocation(num3, num4), zcreature.spellEnum == SpellEnum.Summon_Alpha_Wolf ? 20 : 15, Curve.None, zcreature.radius, 15, (FixedInt) 2, DamageType.Sunder, zcreature, zcreature.game.turn, Curve.None);
-              ZComponent.Instantiate<GameObject>(Inert.GetSpell(SpellEnum.Summon_Wolf).explosion, new Vector3((float) num3, (float) num4), Quaternion.identity, zcreature.game.GetMapTransform());
+              zcreature.map.ServerBitBlt(zcreature.spellEnum == SpellEnum.Summon_Tiger ? 5 : 36, num3, num4);
+              ZSpell.ApplyExplosionForce(zcreature.spellEnum, zcreature.world, new MyLocation(num3, num4), damage, Curve.None, zcreature.radius, 15, (FixedInt) 2, DamageType.Sunder, zcreature, zcreature.game.turn, Curve.None);
+              ZComponent.Instantiate<GameObject>(Inert.GetSpell(SpellEnum.Summon_Boar).explosion, new Vector3((float) num3, (float) num4), Quaternion.identity, zcreature.game.GetMapTransform());
+              if (zcreature.game.isClient && !zcreature.game.resyncing)
+                AudioManager.PlayFromSource(AudioManager.instance.leapHit, AudioManager.instance.sourceCastSpell);
               zcreature.KillMovement();
               if (!zcreature.ShouldFall())
               {
@@ -4095,6 +4248,8 @@ label_9:
         {
           zcreature.addVelocity = false;
           zcreature.velocity = zcreature.velocity + zcreature.addedVelocity;
+          zcreature.velocity.x = Mathd.Clamp(zcreature.velocity.x, (FixedInt) -50, (FixedInt) 50);
+          zcreature.velocity.y = Mathd.Clamp(zcreature.velocity.y, (FixedInt) -50, (FixedInt) 50);
           zcreature.addedVelocity.x = (FixedInt) 0;
           zcreature.addedVelocity.y = (FixedInt) 0;
         }
@@ -4123,6 +4278,7 @@ label_9:
   public virtual IEnumerator<float> Move(bool fromSerialization = false)
   {
     ZCreature zcreature1 = this;
+    zcreature1.isMoving = true;
     bool animateState = !(zcreature1.velocity.y < 0);
     if (fromSerialization)
     {
@@ -4141,7 +4297,6 @@ label_9:
     }
     else
     {
-      zcreature1.isMoving = true;
       zcreature1.inWater = false;
       zcreature1.addedVelocity.x = (FixedInt) 0;
       zcreature1.addedVelocity.y = (FixedInt) 0;
@@ -4234,6 +4389,12 @@ label_19:
         {
           zcreature1.velocity.y = (FixedInt) -1;
           fixedInt4 = (FixedInt) -1;
+        }
+        if (num1 > 100)
+        {
+          num1 = 1;
+          zcreature1.velocity.y = (FixedInt) -1;
+          zcreature1.velocity.x = (FixedInt) 0;
         }
         int num2 = num1 - 3;
         if (zcreature1.velocity.y < 0 && zcreature1.climbingHooksIsActive && zcreature1.CheckClimbingHooks())
@@ -4549,6 +4710,8 @@ label_19:
             {
               zcreature1.addVelocity = false;
               zcreature1.velocity = zcreature1.velocity + zcreature1.addedVelocity;
+              zcreature1.velocity.x = Mathd.Clamp(zcreature1.velocity.x, (FixedInt) -50, (FixedInt) 50);
+              zcreature1.velocity.y = Mathd.Clamp(zcreature1.velocity.y, (FixedInt) -50, (FixedInt) 50);
               zcreature1.addedVelocity.x = (FixedInt) 0;
               zcreature1.addedVelocity.y = (FixedInt) 0;
             }

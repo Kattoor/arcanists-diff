@@ -81,7 +81,7 @@ public class hardInput : MonoBehaviour
 
   public static int GetControllerTypeIndex() => hardManager.singleton.controllerType;
 
-  public static KeyCode GetKeyCode(string keyName, bool useSecondaryKey)
+  public static KeyCode GetKeyCode(string keyName, bool useSecondaryKey = false)
   {
     return hardManager.singleton.GetKeyCode(keyName, useSecondaryKey);
   }

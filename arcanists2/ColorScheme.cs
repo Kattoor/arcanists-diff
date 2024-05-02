@@ -233,7 +233,8 @@ public class ColorScheme
       Global.ColorSystem.To32(),
       Global.ColorNotification.To32(),
       Global.ColorAnnoucement.To32(),
-      Global.ColorTeamText.To32()
+      Global.ColorTeamText.To32(),
+      Global.ColorNoteText.To32()
     };
   }
 

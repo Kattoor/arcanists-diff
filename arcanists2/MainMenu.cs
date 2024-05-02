@@ -27,6 +27,8 @@ public class MainMenu : Catalogue
   [Header("Maps")]
   public TMP_Dropdown dropMaps;
   public RectTransform pointTutorialObj;
+  [Header("Steam")]
+  public GameObject butSteam;
 
   public static MainMenu Instance { get; private set; }
 
@@ -50,9 +52,9 @@ public class MainMenu : Catalogue
       this.bigImage.sprite = ClientResources.Instance.MainMenuSprites[MainMenu.bigIndex];
     }
     Account account;
-    if (Client.offlineMode || !LocalServerConn.UseEncryption || !Client._accounts.TryGetValue(Client.Name, out account) || account.discord != 0UL)
-      return;
-    this.buttonVerifyDiscord.SetActive(true);
+    if (!Client.offlineMode && LocalServerConn.UseEncryption && Client._accounts.TryGetValue(Client.Name, out account) && account.discord == 0UL)
+      this.buttonVerifyDiscord.SetActive(true);
+    this.butSteam.SetActive(!Global.GetPrefBool("steam", false));
   }
 
   private void Start()
@@ -122,6 +124,13 @@ public class MainMenu : Catalogue
     MenuBackgroundUpdater.SwitchBackgrounds(this.bgImage, this.fgImage);
   }
 
+  public void ClickSteam()
+  {
+    Global.SetPrefBool("steam", true);
+    this.butSteam.SetActive(false);
+    Global.OpenURL("https://store.steampowered.com/app/2901550/Arcanists/");
+  }
+
   public void ClickSandbox()
   {
     Client._gameFacts = new GameFacts();
@@ -139,6 +148,7 @@ public class MainMenu : Catalogue
 
   public void ClickMultiplayer()
   {
+    Global.SetPrefBool("steam", true);
     if (Client.offlineMode)
     {
       Controller.Instance.OpenMenu(Controller.Instance.MenuLogin, false);

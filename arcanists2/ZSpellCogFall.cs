@@ -178,12 +178,14 @@ label_55:
       {
         zspellCogFall.addVelocity = false;
         zspellCogFall.velocity = zspellCogFall.velocity + zspellCogFall.addedVelocity;
+        zspellCogFall.velocity.x = Mathd.Clamp(zspellCogFall.velocity.x, (FixedInt) -50, (FixedInt) 50);
+        zspellCogFall.velocity.y = Mathd.Clamp(zspellCogFall.velocity.y, (FixedInt) -50, (FixedInt) 50);
         zspellCogFall.addedVelocity.x = (FixedInt) 0;
         zspellCogFall.addedVelocity.y = (FixedInt) 0;
       }
       else if (zspellCogFall.affectedByGravity && zspellCogFall.velocity.y > -ZMap.MaxSpeed)
         zspellCogFall.velocity.y += zspellCogFall.map.Gravity;
-      else if (!zspellCogFall.affectedByGravity && zspellCogFall.velocity.y > -1 && zspellCogFall.maxDuration > 150)
+      else if (!zspellCogFall.affectedByGravity && zspellCogFall.velocity.y > -10 && zspellCogFall.maxDuration > 150)
         zspellCogFall.affectedByGravity = true;
       zspellCogFall.Wind();
 label_50:

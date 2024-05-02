@@ -23,7 +23,6 @@ public class OverheadEmoji : MonoBehaviour
       this.cur += Time.deltaTime * this.speed;
       float num = 1f / this.transform.parent.localScale.x * this.curve.Evaluate(this.cur);
       this.transform.localScale = new Vector3(num, Mathf.Abs(num), 1f);
-      Debug.Log((object) this.transform.localScale);
       if ((double) this.cur < 1.0)
         return;
       ++this.state;

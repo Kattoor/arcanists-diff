@@ -19,6 +19,7 @@ public class HUD : UIBehaviour
 {
   public Inert inert;
   public ClientResources clientResources;
+  public RectTransform turnIndicator;
   public EmojiSelector emojiSelector;
   public RectTransform luaContainer;
   public RectTransform panelSpells;
@@ -28,6 +29,7 @@ public class HUD : UIBehaviour
   public Material matStarScroll;
   public GameObject buttonChangeOutfits;
   public GameObject pfabPanelPlayer;
+  public GameObject pfabPanelPlayerOld;
   public GameObject pfabPanelVS;
   public ChatFade chatFade;
   public RectTransform buttonHideChat;
@@ -99,6 +101,7 @@ public class HUD : UIBehaviour
   public Image time_bg;
   public TMP_Text time_txt;
   public TMP_Text waiting_txt;
+  public GameObject panelWaiting;
   public ReplayTime replayTime;
   public TMP_Text txtGameID;
   public GameObject BidPanel;
@@ -147,6 +150,8 @@ public class HUD : UIBehaviour
   public UIOnHover uiHoverToggleTeam;
   public UIOnHover uiHoverToggleOverlay;
   public GameObject familiarHowTo;
+  public static bool useNewSpellBgIcons = true;
+  public static bool useNewPanelPlayer = true;
   [NonSerialized]
   public bool hideOverheadIcons;
   private float _lastResyncMsg;
@@ -173,7 +178,7 @@ public class HUD : UIBehaviour
   private bool dummiesLoaded;
   public static bool talking;
   public byte lastPlayersTurn = byte.MaxValue;
-  private bool _lockScale;
+  private bool _lockScale = true;
   private bool hidden = true;
   private Coroutine showHideEverything;
   private Quiz quiz = new Quiz();
@@ -206,6 +211,46 @@ public class HUD : UIBehaviour
     }
   }
 
+  public static void ToggleSpellBgIcons(bool v)
+  {
+    HUD.useNewSpellBgIcons = v;
+    Global.SetPrefBool("newspellicons", v);
+    HUD.instance?._ToggleSpellBgIcons(v);
+  }
+
+  public static void TogglePanelPlayer(bool v)
+  {
+    HUD.useNewPanelPlayer = v;
+    Global.SetPrefBool("useNewPanelPlayer", v);
+    HUD.instance?.ChangePanelPlayers();
+  }
+
+  public static void ToggleColoredNames(bool v)
+  {
+    Global.SetPrefBool("prefcolorednames", v);
+    if (!((UnityEngine.Object) HUD.instance != (UnityEngine.Object) null))
+      return;
+    foreach (ZPerson player in HUD.instance.game.players)
+    {
+      PanelPlayer panelPlayer = player.panelPlayer;
+      if ((UnityEngine.Object) panelPlayer != (UnityEngine.Object) null)
+        panelPlayer.UpdateColors();
+    }
+  }
+
+  public void _ToggleSpellBgIcons(bool v)
+  {
+    HUD.useNewSpellBgIcons = v;
+    if ((UnityEngine.Object) ClickSpell.Instance != (UnityEngine.Object) null)
+    {
+      foreach (SpellButton spellButton in ClickSpell.Instance.spellButtons)
+        spellButton.Activate(HUD.useNewSpellBgIcons);
+    }
+    if (!((UnityEngine.Object) ClickSpell.Instance != (UnityEngine.Object) null))
+      return;
+    ClickSpell.Instance.SetSpells();
+  }
+
   protected override void Awake()
   {
     HUD.UseTouchControls = Global.GetPrefBool("prefControls", HUD.UseTouchControls);
@@ -213,12 +258,7 @@ public class HUD : UIBehaviour
     ClientResources.Init(this.clientResources);
     HUD.instance = this;
     base.Awake();
-    if ((UnityEngine.Object) ChatBox.Instance != (UnityEngine.Object) null)
-    {
-      this.textSpellCasted.rectTransform.SetParent(ChatBox.Instance.transform);
-      this.textSpellCasted.rectTransform.SetAsFirstSibling();
-      ChatBox.Instance.textSpellCasted = this.textSpellCasted;
-    }
+    int num = (UnityEngine.Object) ChatBox.Instance != (UnityEngine.Object) null ? 1 : 0;
     this.buttonChangeOutfits.SetActive(Client.cosmetics.achievements[(int) SettingsPlayer.Achievement_GameOutfit]);
     this.panelStart.SetActive(true);
   }
@@ -311,15 +351,32 @@ public class HUD : UIBehaviour
     ChatBox.Instance?.NewChatMsg("Attempting to resync... " + err, (Color) ColorScheme.GetColor(Global.ColorSystem));
   }
 
+  public void ChangePanelPlayers()
+  {
+    foreach (ZPerson player in this.game.players)
+    {
+      PanelPlayer panelPlayer = player.panelPlayer;
+      if ((UnityEngine.Object) panelPlayer != (UnityEngine.Object) null)
+      {
+        PanelPlayer component = UnityEngine.Object.Instantiate<GameObject>(HUD.useNewPanelPlayer ? this.pfabPanelPlayer : this.pfabPanelPlayerOld, (Transform) this.panelPlayersPanel).GetComponent<PanelPlayer>();
+        component.Copy(panelPlayer);
+        player.panelPlayer = component;
+        if ((ZComponent) player.first() != (object) null)
+          player.first().panelPlayer = component;
+        UnityEngine.Object.Destroy((UnityEngine.Object) panelPlayer.gameObject);
+      }
+    }
+  }
+
   public void AddPanelPlayer(ZCreature c)
   {
-    GameObject gameObject = UnityEngine.Object.Instantiate<GameObject>(this.pfabPanelPlayer, (Transform) this.panelPlayersPanel);
+    GameObject gameObject = UnityEngine.Object.Instantiate<GameObject>(HUD.useNewPanelPlayer ? this.pfabPanelPlayer : this.pfabPanelPlayerOld, (Transform) this.panelPlayersPanel);
     RectTransform transform = (RectTransform) gameObject.transform;
     PanelPlayer component = gameObject.GetComponent<PanelPlayer>();
     int num = 0;
     if (this.game.isTeam)
       num = 35 * ((int) c.parent.id / Client._gameFacts.GetNumberPlayersPerTeam());
-    transform.anchoredPosition = new Vector2(6f, (float) (-6 - (int) c.parent.id * 45 - num));
+    transform.anchoredPosition = new Vector2(12f, (float) (-6 - (int) c.parent.id * 45 - num));
     if (c.isPawn)
       component.Init(c.parent.name, c.parent.settingsPlayer, c.parent.clientColor, c.clientObj);
     else
@@ -330,22 +387,25 @@ public class HUD : UIBehaviour
 
   public void AddPanelPlayer(ZPerson c)
   {
-    GameObject gameObject = UnityEngine.Object.Instantiate<GameObject>(this.pfabPanelPlayer, (Transform) this.panelPlayersPanel);
+    GameObject gameObject = UnityEngine.Object.Instantiate<GameObject>(HUD.useNewPanelPlayer ? this.pfabPanelPlayer : this.pfabPanelPlayerOld, (Transform) this.panelPlayersPanel);
     RectTransform transform = (RectTransform) gameObject.transform;
     PanelPlayer component = gameObject.GetComponent<PanelPlayer>();
     int num = 0;
     if (this.game.isTeam)
       num = 35 * ((int) c.id / Client._gameFacts.GetNumberPlayersPerTeam());
-    transform.anchoredPosition = new Vector2(6f, (float) (-6 - (int) c.id * 45 - num));
+    transform.anchoredPosition = new Vector2(12f, (float) (-6 - (int) c.id * 45 - num));
     component.Init(c.name, c.settingsPlayer, c.clientColor);
     c.panelPlayer = component;
+    if (!((ZComponent) c.first() != (object) null))
+      return;
+    c.first().panelPlayer = component;
   }
 
   public void AdjustPlayersPanel(ZPerson p)
   {
     if (!((UnityEngine.Object) p.panelPlayer != (UnityEngine.Object) null))
       return;
-    ((RectTransform) p.panelPlayer.transform).anchoredPosition = new Vector2(6f, (float) (-6 - (int) p.id * 45));
+    ((RectTransform) p.panelPlayer.transform).anchoredPosition = new Vector2(12f, (float) (-6 - (int) p.id * 45));
   }
 
   public void AddVSPanel()
@@ -379,7 +439,7 @@ public class HUD : UIBehaviour
     }
     else
     {
-      this.armOverlay.color = new Color(1f, 1f, 1f, 0.11f * (float) (this.game.armageddonTurn - zzturn));
+      this.armOverlay.color = new Color(0.9f, 0.9f, 0.9f, 0.11f * (float) (this.game.armageddonTurn - zzturn));
       this.armText.text = (this.game.armageddonTurn - zzturn).ToString();
       this.armOverlay.gameObject.SetActive(true);
       this.armBg.color = Color.white;
@@ -477,28 +537,25 @@ public class HUD : UIBehaviour
 
   private IEnumerator SpellTextLerp(float waitTime)
   {
-    Vector2 spellCastStartPos = new Vector2(this.textSpellCasted.rectTransform.anchoredPosition.x, 0.0f);
-    Vector2 spellCastEndPos = new Vector2(this.textSpellCasted.rectTransform.anchoredPosition.x, 95f);
-    Vector2 current = Vector2.zero with
-    {
-      x = spellCastStartPos.x
-    };
+    Color c = this.textSpellCasted.color;
     float t;
     for (t = 0.0f; (double) t < 1.0; t += Time.deltaTime * 3f)
     {
-      current.y = Mathf.SmoothStep(spellCastStartPos.y, spellCastEndPos.y, t);
-      this.textSpellCasted.rectTransform.anchoredPosition = current;
+      c.a = Mathf.SmoothStep(0.0f, 1f, t);
+      this.textSpellCasted.color = c;
       yield return (object) new WaitForEndOfFrame();
     }
-    this.textSpellCasted.rectTransform.anchoredPosition = spellCastEndPos;
+    c.a = 1f;
+    this.textSpellCasted.color = c;
     yield return (object) new WaitForSecondsRealtime(waitTime);
     for (t = 1f; (double) t > 0.0; t -= Time.deltaTime * 3f)
     {
-      current.y = Mathf.SmoothStep(spellCastStartPos.y, spellCastEndPos.y, t);
-      this.textSpellCasted.rectTransform.anchoredPosition = current;
+      c.a = Mathf.SmoothStep(0.0f, 1f, t);
+      this.textSpellCasted.color = c;
       yield return (object) new WaitForEndOfFrame();
     }
-    this.textSpellCasted.rectTransform.anchoredPosition = spellCastStartPos;
+    c.a = 0.0f;
+    this.textSpellCasted.color = c;
     this.textSpellCasted.text = "";
   }
 
@@ -576,10 +633,10 @@ public class HUD : UIBehaviour
           Client.AsktoPing(0, (Vector2) Camera.main.ScreenToWorldPoint(Input.mousePosition));
         }
       }
-      if (hardInput.GetKeyDown("Minions") && (int) this.game.serverState.playersTurn != Client.curGameID && !this.Chatting() && (int) this.game.serverState.playersTurn < this.game.players.Count)
+      if ((hardInput.GetKeyDown("Minions") || this.game.isSpectator && hardInput.GetKeyDown("Center Camera")) && ((int) this.game.serverState.playersTurn != Client.curGameID || this.game.isSpectator || this.game.isReplay) && !this.Chatting() && (int) this.game.serverState.playersTurn < this.game.players.Count)
         CameraMovement.Instance.LerpToTransform(this.game.players[(int) this.game.serverState.playersTurn].controlled[0], true);
     }
-    if (this.game.isReplay || !Input.GetKeyDown(KeyCode.Tab) || this.game.isReplay || this.game.isServer && (!Client.allowtutorialDebugging || !this.game.isTutorial) && (!this.game.isSandbox || !((UnityEngine.Object) ChatBox.Instance != (UnityEngine.Object) null)))
+    if (this.game.isReplay || !Input.GetKeyDown(KeyCode.Tab) || this.game.isReplay || this.game.isServer && (!Client.allowtutorialDebugging || !this.game.isTutorial) && !this.game.isSandbox)
       return;
     this.ToggleChatInput();
   }
@@ -715,10 +772,10 @@ public class HUD : UIBehaviour
 
   private IEnumerator ReadyRepeat()
   {
-    while (this.game != null && !this.game.receivedInitialMsg)
+    while (this.game != null && !this.game.receivedInitialMsg && !this.game.isReplay)
     {
       Client.SendToGameServer(new byte[1]{ (byte) 17 });
-      yield return (object) new WaitForSeconds(1f);
+      yield return (object) new WaitForSecondsRealtime(1f);
     }
   }
 
@@ -867,9 +924,11 @@ public class HUD : UIBehaviour
     }
     if (this.game != null)
       this.txtGameOptions.text = this.game.gameFacts.ToString(this.game, true);
-    if (!this.game.isSpectator && !this.game.isSandbox)
-      return;
-    HUD.instance.buttonShowSpells.GetComponent<UIOnHover>().Interactable(false);
+    if (this.game.isSpectator || this.game.isSandbox)
+      HUD.instance.buttonShowSpells.GetComponent<UIOnHover>().Interactable(false);
+    if (this.game.isReplay)
+      this.buttonOverheadEmoji.SetActive(false);
+    this._ToggleSpellBgIcons(Global.GetPrefBool("newspellicons", true));
   }
 
   public static string GetCustomArmageddonName(GameFacts f)
@@ -927,24 +986,33 @@ public class HUD : UIBehaviour
 
   public void SendChatMessage(string s)
   {
-    if ((UnityEngine.Object) Player.Instance != (UnityEngine.Object) null)
-      Player.Instance.lastSendTick = Time.realtimeSinceStartup + 0.4f;
-    this.chatInput.gameObject.SetActive(false);
-    if (!string.IsNullOrEmpty(s))
+    ZGame game = Client.game;
+    if ((game != null ? (game.isSandbox ? 1 : 0) : 0) != 0)
     {
-      if (ChatBox.Instance.privateChat)
-      {
-        Client.SendPrivateChatMsg(ChatBox.Instance.privateChatTo, s);
-        this.InitChat();
-      }
-      else
-        Client.SendChatMsg(s);
+      Client.DevConsole(s, Client.game);
+      this.chatInput.gameObject.SetActive(false);
     }
     else
     {
-      if (!ChatBox.Instance.privateChat)
-        return;
-      this.InitChat();
+      if ((UnityEngine.Object) Player.Instance != (UnityEngine.Object) null)
+        Player.Instance.lastSendTick = Time.realtimeSinceStartup + 0.4f;
+      this.chatInput.gameObject.SetActive(false);
+      if (!string.IsNullOrEmpty(s))
+      {
+        if (ChatBox.Instance.privateChat)
+        {
+          Client.SendPrivateChatMsg(ChatBox.Instance.privateChatTo, s);
+          this.InitChat();
+        }
+        else
+          Client.SendChatMsg(s);
+      }
+      else
+      {
+        if (!ChatBox.Instance.privateChat)
+          return;
+        this.InitChat();
+      }
     }
   }
 
@@ -1061,7 +1129,7 @@ public class HUD : UIBehaviour
     }
     else
     {
-      if (slot.spell.spellEnum != SpellEnum.Forest_Seed || creature.game.MaxTurnTime >= 20)
+      if (slot.spell.spellEnum != SpellEnum.Forest_Seed || creature.game.MaxTurnTime > 20)
         return;
       slot.TurnsTillFirstUse = 0;
     }
@@ -1075,6 +1143,8 @@ public class HUD : UIBehaviour
     {
       if ((ZComponent) player.first() != (object) null)
         HUD.FindFullBooks(game, player, index);
+      if ((ZComponent) player.first() != (object) null)
+        player.startingSpells = player.first().spells.Count;
       ++index;
     }
   }
@@ -1083,7 +1153,7 @@ public class HUD : UIBehaviour
   {
     try
     {
-      if (b == BookOf.Nothing || b >= BookOf.The_Wilds)
+      if (b == BookOf.Nothing || b >= BookOf.Druidism)
         return;
       AnimateRepeat[] componentsInChildren = p.first()?.gameObject?.GetComponentsInChildren<AnimateRepeat>();
       if (componentsInChildren == null || componentsInChildren.Length == 0)
@@ -1134,6 +1204,8 @@ public class HUD : UIBehaviour
       }
       else if (game.AllowExpansion && zcreature.spells[index1].spell.spellType == SpellType.Bomb)
         ++num2;
+      if (zcreature.spells[index1].spell.level == 3)
+        x.shownLevel3.Add(zcreature.spells[index1].spell.spellEnum);
     }
     if (num3 == 12 && (zcreature.game.AllowExpansion || b != BookOf.Arcane))
     {
@@ -1174,6 +1246,8 @@ public class HUD : UIBehaviour
             });
             if (minionSpell.level == 3 && game.isClient)
               HUD.instance.uiPlayerCharacters[(int) zcreature.parent.id].AddLevel3(minionSpell);
+            if (minionSpell.level == 3)
+              x.shownLevel3.Add(minionSpell.spellEnum);
           }
         }
       }
@@ -1210,28 +1284,35 @@ public class HUD : UIBehaviour
         zcreature.spells.Insert(index5, new SpellSlot(spell));
         HUD.OnInitSpell(zcreature, zcreature.spells[index5]);
         ++index5;
-        if ((spell.level == 3 || zcreature.parent.seasonISHoliday && spell.spellEnum == SpellEnum.Snow_Globe) && game.isClient)
+        if (spell.level == 3 && game.isClient)
           HUD.instance.uiPlayerCharacters[(int) zcreature.parent.id].AddLevel3(spell);
+        if (spell.level == 3)
+          x.shownLevel3.Add(spell.spellEnum);
         ++index6;
         ++index4;
       }
-      for (int index7 = 0; index7 < (game.isSandbox ? 5 : (int) game.gameFacts.elementalLevel); ++index7)
+      if (!game.isReplay || zcreature.parent.familiarLevels[index3] == 0)
       {
-        ++zcreature.parent.familiarLevels[index3];
-        game.CreateFamiliar((BookOf) index3, zcreature.parent, false);
+        for (int index7 = 0; index7 < (game.isSandbox ? 5 : (int) game.gameFacts.elementalLevel); ++index7)
+        {
+          ++zcreature.parent.familiarLevels[index3];
+          game.CreateFamiliar((BookOf) index3, zcreature.parent, false);
+        }
       }
       if (game.isClient)
         HUD.ClientChangeElementalStaff(x, (BookOf) index3, false);
     }
-    if (!game.gameFacts.GetStyle().HasStyle(GameStyle.Watchtower) || game.gameFacts.GetStyle().HasStyle(GameStyle.First_Turn_Teleport))
+    if (game.gameFacts.GetStyle().HasStyle(GameStyle.Watchtower) && !game.gameFacts.GetStyle().HasStyle(GameStyle.First_Turn_Teleport))
+      ZSpell.FireTower(Inert.Instance.spells["Watchtower"], zcreature, zcreature.position, (FixedInt) 0, (FixedInt) 0);
+    if (x.shownLevel3.Count <= 0 && !x.BombMaster && !x.FullArcane && !x.MinionMaster)
       return;
-    ZSpell.FireTower(Inert.Instance.spells["Watchtower"], zcreature, zcreature.position, (FixedInt) 0, (FixedInt) 0);
+    game.SendSpellBookInfo(x);
   }
 
   public static void TransformArcaneMonster(ZPerson x, ZCreature c, ZGame game, int index)
   {
     BookOf b = BookOf.Arcane;
-    x.familiarBook = (FamiliarType) (1 << (int) (b & (BookOf) 31));
+    x.familiarBook |= (FamiliarType) (1 << (int) (b & (BookOf) 31));
     x.ActivateableFamiliar = b;
     if (game.isClient)
       HUD.ClientChangeElementalStaff(x, b, true);
@@ -1339,6 +1420,7 @@ public class HUD : UIBehaviour
         myBinaryWriter.Write(Player.Instance.person.GetNextMoveID());
         myBinaryWriter.Write((byte) 0);
         myBinaryWriter.Write((byte) 0);
+        myBinaryWriter.Write((int) Player.Instance.person.ActivateableFamiliar);
       }
       Client.SendToServer(memoryStream.ToArray());
     }
@@ -1539,6 +1621,7 @@ public class HUD : UIBehaviour
 
   public void TogglePauseMenu(bool v)
   {
+    Player.Instance?.UnselectSpell();
     this.panelPause.SetActive(v);
     if (this.panelPause.activeSelf)
     {
@@ -1848,7 +1931,7 @@ public class HUD : UIBehaviour
   public void LeaveBook()
   {
     this.panelSpellDescription.SetActive(false);
-    if (!this.game.isTutorial || string.IsNullOrEmpty(this.turTextbox.text))
+    if (this.game == null || !((UnityEngine.Object) this.turTextbox != (UnityEngine.Object) null) || !this.game.isTutorial || string.IsNullOrEmpty(this.turTextbox.text))
       return;
     this.tutPopup.gameObject.SetActive(true);
   }
@@ -1856,7 +1939,7 @@ public class HUD : UIBehaviour
   public void ShowPanelDescription()
   {
     this.panelSpellDescription.SetActive(true);
-    if (!this.game.isTutorial || string.IsNullOrEmpty(this.turTextbox.text))
+    if (this.game == null || !((UnityEngine.Object) this.turTextbox != (UnityEngine.Object) null) || !this.game.isTutorial || string.IsNullOrEmpty(this.turTextbox.text))
       return;
     this.tutPopup.gameObject.SetActive(false);
   }
@@ -1865,6 +1948,7 @@ public class HUD : UIBehaviour
 
   public void HoverPlayersPanel()
   {
+    MyToolTip.Show("Click to resize - Right-Click for additional options");
     if (this._lockScale)
       return;
     this.game?.ScalePlayersPanel(true);
@@ -1872,10 +1956,13 @@ public class HUD : UIBehaviour
 
   public void LeavePlayersPanel()
   {
+    MyToolTip.Close();
     if (this._lockScale)
       return;
     this.game?.ScalePlayersPanel(false);
   }
+
+  public void RightClickPlayersPanel() => OptionsMenu.ShowHUDContextMenu();
 
   public void UpdateTime()
   {
@@ -1899,7 +1986,7 @@ public class HUD : UIBehaviour
       this.waiting_txt.color = this.time_txt.color;
     }
     this.time_txt.text = string.Concat((object) Math.Max(0, (!Client.game.isSandbox || Client.game.sandboxTime != 0 ? (int) this.game.PlayersMaxTurnTime : 0) - (int) ((double) this.game.serverState.turnTime + 0.5)));
-    this.waiting_txt.gameObject.SetActive(this.game.ongoing.isRunningSpell);
+    this.panelWaiting.SetActive(this.game.ongoing.isRunningSpell);
     this.txtCountdown.text = Global.IntToTime((int) ((double) this.game.CurrentPlayerNotNull().countdown + 0.5), 30);
   }
 
@@ -1908,7 +1995,7 @@ public class HUD : UIBehaviour
     if (this.game == null)
       return;
     this.waiting_txt.color = this.time_txt.color;
-    this.waiting_txt.gameObject.SetActive(this.game.ongoing.isRunningSpell);
+    this.panelWaiting.SetActive(this.game.ongoing.isRunningSpell);
   }
 
   public void DisablePressedButtons()
@@ -2101,35 +2188,54 @@ public class HUD : UIBehaviour
 
   private IEnumerator ieShow(float t)
   {
-    Vector2 pos = this.containerSpells.anchoredPosition;
-    while ((double) t < 1.0)
+    if ((UnityEngine.Object) Player.Instance == (UnityEngine.Object) null || Player.Instance.person == null || (ZComponent) Player.Instance.person.first() == (object) null)
     {
-      t += Time.deltaTime * 5f;
-      this.containerSpells.anchoredPosition = Vector2.Lerp(pos, new Vector2(0.0f, this.getChatYOpen()), t);
-      yield return (object) new WaitForEndOfFrame();
+      this.containerSpells.gameObject.SetActive(false);
     }
-    this.showHideEverything = (Coroutine) null;
+    else
+    {
+      if (!this.containerSpells.gameObject.activeSelf)
+        this.containerSpells.gameObject.SetActive(true);
+      ClickSpell.Instance.ToggleTransparency(true);
+      this.showHideEverything = (Coroutine) null;
+      this.containerSpells.anchoredPosition = new Vector2(0.0f, this.getChatYOpen());
+      yield break;
+    }
+  }
+
+  public void SetSepllBarPosition()
+  {
+    this.containerSpells.anchoredPosition = new Vector2(0.0f, this.getChatYOpen());
   }
 
   private IEnumerator ieHide(float t)
   {
-    Vector2 pos = this.containerSpells.anchoredPosition;
-    while ((double) t < 1.0)
+    if ((UnityEngine.Object) Player.Instance == (UnityEngine.Object) null)
     {
-      t += Time.deltaTime * 3f;
-      this.containerSpells.anchoredPosition = Vector2.Lerp(pos, new Vector2(0.0f, this.getChatY()), t);
-      yield return (object) new WaitForEndOfFrame();
+      this.containerSpells.gameObject.SetActive(false);
     }
-    this.showHideEverything = (Coroutine) null;
-    ClickSpell.Instance?.MakeSureHidden();
+    else
+    {
+      if (!this.containerSpells.gameObject.activeSelf)
+        this.containerSpells.gameObject.SetActive(true);
+      ClickSpell.Instance.ToggleTransparency(false);
+      this.showHideEverything = (Coroutine) null;
+      this.containerSpells.anchoredPosition = new Vector2(0.0f, this.getChatYOpen());
+      ClickSpell instance = ClickSpell.Instance;
+      if (instance != null)
+      {
+        instance.MakeSureHidden();
+        yield break;
+      }
+    }
   }
 
   private float getChatYOpen()
   {
-    if ((UnityEngine.Object) ChatBox.Instance == (UnityEngine.Object) null)
+    if ((UnityEngine.Object) ChatBox.Instance == (UnityEngine.Object) null || !ChatBox.Instance.Active)
       return 16f;
     RectTransform transform = (RectTransform) ChatBox.Instance.transform;
-    return (float) ((double) transform.anchoredPosition.y + (double) transform.sizeDelta.y + 16.0);
+    return (float) ((double) transform.anchoredPosition.y + (double) transform.sizeDelta.y + 9.0);
   }
 
   private float getChatY()
@@ -2137,7 +2243,7 @@ public class HUD : UIBehaviour
     if ((UnityEngine.Object) ChatBox.Instance == (UnityEngine.Object) null || this.game.serverState.busy == ServerState.Busy.Ended)
       return -352.460022f;
     RectTransform transform = (RectTransform) ChatBox.Instance.transform;
-    return (float) ((double) transform.anchoredPosition.y + (double) transform.sizeDelta.y + 16.0 - 380.0);
+    return (float) ((double) transform.anchoredPosition.y + (double) transform.sizeDelta.y + 16.0 - 520.0);
   }
 
   public void ClickQuizYes()

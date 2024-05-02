@@ -13,6 +13,8 @@ public class ParticleVampire : MonoBehaviour
   public ZCreature x;
   private MyLocation lastPos;
   private bool last = true;
+  private int last2;
+  private float cur;
 
   private void Start()
   {
@@ -22,52 +24,28 @@ public class ParticleVampire : MonoBehaviour
 
   private void Update()
   {
-    if (!(bool) (UnityEngine.Object) this.target || !(bool) (UnityEngine.Object) this.target.transform || !((UnityEngine.Object) CharacterCreation.Instance == (UnityEngine.Object) null) || !(this.lastPos != this.target.position))
-      return;
-    this.lastPos = this.target.position;
-    Coords start = new Coords((int) this.x.position.x, (int) this.x.position.y);
-    Coords end = new Coords((int) this.x.position.x, this.x.map.Height);
-    Coords coords = Client.map.bresenhamsLineCast(start, end, this.x, (ZSpell) null, Inert.mask_entity_movement);
-    if (coords != null)
-      coords = Client.map.bresenhamsLineCast(start, new Coords((int) this.x.position.x - 100, this.x.map.Height), this.x, (ZSpell) null, Inert.mask_entity_movement);
-    if (coords != null)
-      coords = Client.map.bresenhamsLineCast(start, new Coords((int) this.x.position.x + 100, this.x.map.Height), this.x, (ZSpell) null, Inert.mask_entity_movement);
-    if (coords != null)
-      coords = Client.map.bresenhamsLineCast(start, new Coords((int) this.x.position.x - 25, this.x.map.Height), this.x, (ZSpell) null, Inert.mask_entity_movement);
-    if (coords != null)
-      coords = Client.map.bresenhamsLineCast(start, new Coords((int) this.x.position.x + 25, this.x.map.Height), this.x, (ZSpell) null, Inert.mask_entity_movement);
-    if (coords != null)
-      coords = Client.map.bresenhamsLineCast(start, new Coords((int) this.x.position.x - 50, this.x.map.Height), this.x, (ZSpell) null, Inert.mask_entity_movement);
-    if (coords != null)
-      coords = Client.map.bresenhamsLineCast(start, new Coords((int) this.x.position.x + 50, this.x.map.Height), this.x, (ZSpell) null, Inert.mask_entity_movement);
-    if (coords != null)
-      coords = Client.map.bresenhamsLineCast(start, new Coords((int) this.x.position.x - 75, this.x.map.Height), this.x, (ZSpell) null, Inert.mask_entity_movement);
-    if (coords != null)
-      coords = Client.map.bresenhamsLineCast(start, new Coords((int) this.x.position.x + 75, this.x.map.Height), this.x, (ZSpell) null, Inert.mask_entity_movement);
-    if (coords != null)
-      coords = Client.map.bresenhamsLineCast(start, new Coords((int) this.x.position.x - 125, this.x.map.Height), this.x, (ZSpell) null, Inert.mask_entity_movement);
-    if (coords != null)
-      coords = Client.map.bresenhamsLineCast(start, new Coords((int) this.x.position.x + 125, this.x.map.Height), this.x, (ZSpell) null, Inert.mask_entity_movement);
-    if (coords != null)
-      coords = Client.map.bresenhamsLineCast(start, new Coords((int) this.x.position.x - 150, this.x.map.Height), this.x, (ZSpell) null, Inert.mask_entity_movement);
-    if (coords != null)
-      coords = Client.map.bresenhamsLineCast(start, new Coords((int) this.x.position.x + 150, this.x.map.Height), this.x, (ZSpell) null, Inert.mask_entity_movement);
-    if (coords != null)
+    if ((bool) (UnityEngine.Object) this.target && (ZComponent) this.x != (object) null && !this.x.isDead && (bool) (UnityEngine.Object) this.target.transform && (UnityEngine.Object) CharacterCreation.Instance == (UnityEngine.Object) null && (this.lastPos != this.target.position || this.last2 != this.x.game.numExplosionsAndMovement || (double) this.cur > 3.0))
     {
-      if (this.last || (double) this.spriteRenderer.color.a <= 0.0)
-        return;
-      this.last = true;
-      this.StopAllCoroutines();
-      this.StartCoroutine(this.Fade(0.0f));
+      this.cur = 0.0f;
+      this.lastPos = this.target.position;
+      this.last2 = this.x.game.numExplosionsAndMovement;
+      if (!this.x.InSunlight())
+      {
+        if (!this.last && (double) this.spriteRenderer.color.a > 0.0)
+        {
+          this.last = true;
+          this.StopAllCoroutines();
+          this.StartCoroutine(this.Fade(0.0f));
+        }
+      }
+      else if (this.last && (double) this.spriteRenderer.color.a < 1.0)
+      {
+        this.last = false;
+        this.StopAllCoroutines();
+        this.StartCoroutine(this.Fade(1f));
+      }
     }
-    else
-    {
-      if (!this.last || (double) this.spriteRenderer.color.a >= 1.0)
-        return;
-      this.last = false;
-      this.StopAllCoroutines();
-      this.StartCoroutine(this.Fade(1f));
-    }
+    this.cur += Time.deltaTime;
   }
 
   private IEnumerator Fade(float f)

@@ -20,6 +20,6 @@ public enum BookOf
   Seasons = 10, // 0x0000000A
   Illusion = 11, // 0x0000000B
   Blood = 12, // 0x0000000C
-  The_Wilds = 13, // 0x0000000D
+  Druidism = 13, // 0x0000000D
   Cosmos = 14, // 0x0000000E
 }

@@ -558,6 +558,8 @@ public class ZCreatureTree : ZCreature
     new Coords(70, 28)
   };
 
+  public ExplosionCutout cutoutTexture => this.baseTree.cutoutTexture;
+
   private Texture2D texture => this.baseTree.texture;
 
   public override int ApplyDamage(
@@ -590,7 +592,7 @@ public class ZCreatureTree : ZCreature
           zmyCollider.creature.collider.gameObjectLayer = 8;
           if ((ZComponent) enemy != (object) null && zmyCollider.creature.team != enemy.team && enemy.parent.controlled.Count > 0)
           {
-            zmyCollider.creature.SwitchTeams(enemy.parent);
+            zmyCollider.creature.SwitchTeams(enemy.parent, true);
             zmyCollider.creature.CreatureMoveSurroundings();
           }
         }
@@ -614,11 +616,13 @@ public class ZCreatureTree : ZCreature
         enemy.health = Mathf.Max(enemy.maxHealth, 250);
       enemy.UpdateHealthTxt();
     }
+    if (this.health > 900)
+      return 0;
     this.health -= damage;
     if (this.health <= 0)
     {
       if ((Object) this.texture != (Object) null)
-        this.map.ServerBitBlt(48, (int) this.position.x, (int) this.position.y, false);
+        this.map.ServerBitBlt((int) this.cutoutTexture, (int) this.position.x, (int) this.position.y, false);
       this.game.forceRysncPause = true;
       this.collider?.Disable();
       this.isDead = true;
@@ -665,7 +669,7 @@ public class ZCreatureTree : ZCreature
 
   public override void StartMoving(bool fromInput = false)
   {
-    if (this.moving != null || this.isDead || this.baseTree.isButterflyJar)
+    if (this.moving != null || this.isDead || this.baseTree.isButterflyJar || !this.baseCreature.canMove)
       return;
     if (this.map.CheckTexutureOnlyMap((int) this.position.x, (int) this.position.y, this.texture))
     {

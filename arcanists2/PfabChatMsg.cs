@@ -52,82 +52,83 @@ public class PfabChatMsg :
 
   public void ContextMenu()
   {
-    if (this.t != null)
+    if (this.t == null)
+      return;
+    switch (this.t.contentType)
     {
-      switch (this.t.contentType)
-      {
-        case ContentType.Outfit:
-          MyContextMenu myContextMenu1 = MyContextMenu.Show();
-          this.nameOfPlayer = Server.SanitizeFilename(this.nameOfPlayer);
-          if (string.IsNullOrEmpty(this.nameOfPlayer))
-            this.nameOfPlayer = Server.RandomString(8);
-          string file = "Downloads/" + this.nameOfPlayer;
-          SettingsPlayer sp = (SettingsPlayer) this.t.obj;
-          myContextMenu1.AddItem("Save @ " + file, (Action) (() =>
-          {
-            sp.SaveAs(file, false);
-            ChatBox.Instance.NewChatMsg("Saved @ " + file, (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
-          }), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
-          myContextMenu1.AddItem("Save & Equip", (Action) (() =>
-          {
-            sp.SaveAs(file, false);
-            Client.AskToChangeOutfit(sp);
-            ChatBox.Instance.NewChatMsg("Saved @ " + file, (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
-          }), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
-          myContextMenu1.AddItem("Equip", (Action) (() => Client.AskToChangeOutfit(sp)), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
-          myContextMenu1.Rebuild();
-          this.DisplayOutfit(myContextMenu1.transform, sp);
-          return;
-        case ContentType.SpellBook:
-          SpellLobbyChange.Create((SettingsPlayer) this.t.obj, (Action<SettingsPlayer>) (s => Client.AskToChangeSpells(s)));
-          return;
-        case ContentType.ArcTutorial:
-          MyContextMenu myContextMenu2 = MyContextMenu.Show();
-          this.nameOfPlayer = Server.SanitizeFilename(this.nameOfPlayer);
-          if (string.IsNullOrEmpty(this.nameOfPlayer))
-            this.nameOfPlayer = Server.RandomString(8);
-          myContextMenu2.AddItem("Save @ Downloads/" + this.nameOfPlayer, (Action) (() =>
-          {
-            Global.SaveTutorial("Downloads/" + this.nameOfPlayer, ((Tutorial) this.t.obj).ToJson().ToString());
-            ChatBox.Instance.NewChatMsg("Saved @ Downloads/" + this.nameOfPlayer, (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
-          }), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
-          myContextMenu2.Rebuild();
-          this.DisplayTutorial(myContextMenu2.transform, (Tutorial) this.t.obj);
-          return;
-        case ContentType.ClanInvite:
-          MyContextMenu myContextMenu3 = MyContextMenu.Show();
-          ClanInvite z1 = (ClanInvite) this.t.obj;
-          if ((double) z1.expire < (double) Time.realtimeSinceStartup)
-            myContextMenu3.AddItem("Invitation expired", (Action) (() => { }), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
-          else if (!string.IsNullOrEmpty(Client.MyAccount.clan))
-            myContextMenu3.AddItem(string.Equals(Client.MyAccount.clan, z1.clan) ? "You've already joined the clan" : "You're already in a clan", (Action) (() => { }), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
-          else
-            myContextMenu3.AddItem("Accept invite from the clan [" + z1.clan + "]", (Action) (() => Client.AcceptClanInvite(z1.clan)), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
-          myContextMenu3.Rebuild();
-          return;
-        case ContentType.MiniGameInvite:
-          MyContextMenu myContextMenu4 = MyContextMenu.Show();
-          MinigameInvite z2 = (MinigameInvite) this.t.obj;
-          if (Client.miniGame != null && Client.miniGame.id == z2.minigameID)
-            myContextMenu4.AddSeperator("Already joined this game");
-          else if (z2.spectator)
-          {
-            myContextMenu4.AddItem("Spectate " + z2.from + "'s " + (object) (IMiniGame.GameType) z2.miniGameType + " game", (Action) (() => Client.AcceptSpectateMiniGame(z2.minigameID, true)), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
-          }
-          else
-          {
-            myContextMenu4.AddItem("Spectate " + z2.from + "'s " + (object) (IMiniGame.GameType) z2.miniGameType + " game", (Action) (() => Client.AcceptSpectateMiniGame(z2.minigameID, true)), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
-            myContextMenu4.AddSeperator();
-            myContextMenu4.AddItem("Join " + z2.from + "'s " + (object) (IMiniGame.GameType) z2.miniGameType + " game (Spectate if full)", (Action) (() => Client.AcceptSpectateMiniGame(z2.minigameID, false)), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
-          }
-          myContextMenu4.Rebuild();
-          return;
-        case ContentType.ColorScheme:
-          ColorSchemeUI.Create((ColorScheme) this.t.obj);
-          return;
-      }
+      case ContentType.Outfit:
+        MyContextMenu myContextMenu1 = MyContextMenu.Show();
+        this.nameOfPlayer = Server.SanitizeFilename(this.nameOfPlayer);
+        if (string.IsNullOrEmpty(this.nameOfPlayer))
+          this.nameOfPlayer = Server.RandomString(8);
+        string file = "Downloads/" + this.nameOfPlayer;
+        SettingsPlayer sp = (SettingsPlayer) this.t.obj;
+        myContextMenu1.AddItem("Save @ " + file, (Action) (() =>
+        {
+          sp.SaveAs(file, false);
+          ChatBox.Instance.NewChatMsg("Saved @ " + file, (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+        }), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+        myContextMenu1.AddItem("Save & Equip", (Action) (() =>
+        {
+          sp.SaveAs(file, false);
+          Client.AskToChangeOutfit(sp);
+          ChatBox.Instance.NewChatMsg("Saved @ " + file, (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+        }), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+        myContextMenu1.AddItem("Equip", (Action) (() => Client.AskToChangeOutfit(sp)), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+        myContextMenu1.Rebuild();
+        this.DisplayOutfit(myContextMenu1.transform, sp);
+        break;
+      case ContentType.SpellBook:
+        SpellLobbyChange.Create((SettingsPlayer) this.t.obj, (Action<SettingsPlayer>) (s => Client.AskToChangeSpells(s)));
+        break;
+      case ContentType.ArcTutorial:
+        MyContextMenu myContextMenu2 = MyContextMenu.Show();
+        this.nameOfPlayer = Server.SanitizeFilename(this.nameOfPlayer);
+        if (string.IsNullOrEmpty(this.nameOfPlayer))
+          this.nameOfPlayer = Server.RandomString(8);
+        myContextMenu2.AddItem("Save @ Downloads/" + this.nameOfPlayer, (Action) (() =>
+        {
+          Global.SaveTutorial("Downloads/" + this.nameOfPlayer, ((Tutorial) this.t.obj).ToJson().ToString());
+          ChatBox.Instance.NewChatMsg("Saved @ Downloads/" + this.nameOfPlayer, (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+        }), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+        myContextMenu2.Rebuild();
+        this.DisplayTutorial(myContextMenu2.transform, (Tutorial) this.t.obj);
+        break;
+      case ContentType.ClanInvite:
+        MyContextMenu myContextMenu3 = MyContextMenu.Show();
+        ClanInvite z1 = (ClanInvite) this.t.obj;
+        if ((double) z1.expire < (double) Time.realtimeSinceStartup)
+          myContextMenu3.AddItem("Invitation expired", (Action) (() => { }), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
+        else if (!string.IsNullOrEmpty(Client.MyAccount.clan))
+          myContextMenu3.AddItem(string.Equals(Client.MyAccount.clan, z1.clan) ? "You've already joined the clan" : "You're already in a clan", (Action) (() => { }), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
+        else
+          myContextMenu3.AddItem("Accept invite from the clan [" + z1.clan + "]", (Action) (() => Client.AcceptClanInvite(z1.clan)), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+        myContextMenu3.Rebuild();
+        break;
+      case ContentType.MiniGameInvite:
+        MyContextMenu myContextMenu4 = MyContextMenu.Show();
+        MinigameInvite z2 = (MinigameInvite) this.t.obj;
+        if (Client.miniGame != null && Client.miniGame.id == z2.minigameID)
+          myContextMenu4.AddSeperator("Already joined this game");
+        else if (z2.spectator)
+        {
+          myContextMenu4.AddItem("Spectate " + z2.from + "'s " + (object) (IMiniGame.GameType) z2.miniGameType + " game", (Action) (() => Client.AcceptSpectateMiniGame(z2.minigameID, true)), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+        }
+        else
+        {
+          myContextMenu4.AddItem("Spectate " + z2.from + "'s " + (object) (IMiniGame.GameType) z2.miniGameType + " game", (Action) (() => Client.AcceptSpectateMiniGame(z2.minigameID, true)), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+          myContextMenu4.AddSeperator();
+          myContextMenu4.AddItem("Join " + z2.from + "'s " + (object) (IMiniGame.GameType) z2.miniGameType + " game (Spectate if full)", (Action) (() => Client.AcceptSpectateMiniGame(z2.minigameID, false)), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+        }
+        myContextMenu4.Rebuild();
+        break;
+      case ContentType.ColorScheme:
+        ColorSchemeUI.Create((ColorScheme) this.t.obj);
+        break;
+      default:
+        MyContextMenu.Show(this.nameOfPlayer, this.t.msg);
+        break;
     }
-    MyContextMenu.Show(this.nameOfPlayer, this.t.msg);
   }
 
   public void OnPointerDown(PointerEventData eventData)

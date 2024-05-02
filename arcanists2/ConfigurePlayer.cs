@@ -54,7 +54,7 @@ public class ConfigurePlayer : MonoBehaviour
 
   public static void EquipAll(UIPlayerCharacter x, string name, SettingsPlayer settingsPlayer)
   {
-    ClanOufit clanOutfit = ClientResources.Instance.GetClanOutfit(Client.GetAccount(name).clan);
+    ClanOutfit clanOutfit = ClientResources.Instance.GetClanOutfit(Client.GetAccount(name).clan);
     if (settingsPlayer.custom == (byte) 0)
     {
       settingsPlayer.indexLeftFoot = settingsPlayer.FootIndex();
@@ -80,7 +80,7 @@ public class ConfigurePlayer : MonoBehaviour
 
   public void EquipAll(string name, SettingsPlayer settingsPlayer)
   {
-    ClanOufit clanOutfit = ClientResources.Instance.GetClanOutfit(Client.GetAccount(name).clan);
+    ClanOutfit clanOutfit = ClientResources.Instance.GetClanOutfit(Client.GetAccount(name).clan);
     if (settingsPlayer.custom == (byte) 0)
     {
       settingsPlayer.indexLeftFoot = settingsPlayer.FootIndex();
@@ -125,7 +125,7 @@ public class ConfigurePlayer : MonoBehaviour
     Color[] colors,
     bool destroy = true)
   {
-    ClanOufit clanOutfit = ClientResources.Instance.GetClanOutfit(Client.GetAccount(name).clan);
+    ClanOutfit clanOutfit = ClientResources.Instance.GetClanOutfit(Client.GetAccount(name).clan);
     settingsPlayer.indexLeftFoot = settingsPlayer.FootIndex();
     settingsPlayer.indexRightFoot = settingsPlayer.indexLeftFoot;
     this.spriteLeftFoot.sortingOrder = settingsPlayer.indexLeftFoot != (byte) 2 ? -18 : -16;
@@ -210,7 +210,7 @@ public class ConfigurePlayer : MonoBehaviour
 
   public static void EquipAll(string name, UIPlayerCharacter p, SettingsPlayer settingsPlayer)
   {
-    ClanOufit clanOutfit = ClientResources.Instance.GetClanOutfit(Client.GetAccount(name).clan);
+    ClanOutfit clanOutfit = ClientResources.Instance.GetClanOutfit(Client.GetAccount(name).clan);
     settingsPlayer.indexLeftFoot = settingsPlayer.FootIndex();
     settingsPlayer.indexRightFoot = settingsPlayer.indexLeftFoot;
     p.mouth.sprite = clanOutfit == null || !clanOutfit.OutfitNoMouth((int) settingsPlayer.indexHead) ? ClientResources.Instance._characterMouths[0] : ClientResources.Instance._characterMouths[ClientResources.Instance._characterMouths.Length - 1];
@@ -365,7 +365,7 @@ public class ConfigurePlayer : MonoBehaviour
 
   public static void ApplyOutfit(PanelPlayer p, SettingsPlayer settingsPlayer, string name)
   {
-    ClanOufit clanOutfit = ClientResources.Instance.GetClanOutfit(Client.GetAccount(name).clan);
+    ClanOutfit clanOutfit = ClientResources.Instance.GetClanOutfit(Client.GetAccount(name).clan);
     if (settingsPlayer.custom == (byte) 0)
     {
       settingsPlayer.indexLeftFoot = settingsPlayer.FootIndex();

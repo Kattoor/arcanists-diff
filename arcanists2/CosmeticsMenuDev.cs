@@ -145,14 +145,20 @@ public class CosmeticsMenuDev : MonoBehaviour
     this.ClickIndex(this.arrayIndex);
   }
 
+  public void ClickApplyAndExit()
+  {
+    this.ClickApply();
+    this.ClickClose();
+  }
+
   public void ClickApply()
   {
     using (MemoryStream memoryStream = new MemoryStream())
     {
-      using (myBinaryWriter w = new myBinaryWriter((Stream) memoryStream))
+      using (myBinaryWriter myBinaryWriter = new myBinaryWriter((Stream) memoryStream))
       {
-        w.Write((byte) 73);
-        w.Write(this.input_name.text);
+        myBinaryWriter.Write((byte) 73);
+        myBinaryWriter.Write(this.input_name.text);
         List<CosmeticData> cosmeticDataList = new List<CosmeticData>();
         for (byte index1 = 0; index1 < (byte) 8; ++index1)
         {
@@ -167,14 +173,13 @@ public class CosmeticsMenuDev : MonoBehaviour
               });
           }
         }
-        w.Write(cosmeticDataList.Count);
+        myBinaryWriter.Write(cosmeticDataList.Count);
         for (int index = 0; index < cosmeticDataList.Count; ++index)
         {
-          w.Write(cosmeticDataList[index].type);
-          w.Write(cosmeticDataList[index].index);
-          w.Write(cosmeticDataList[index].on ? (byte) 1 : (byte) 0);
+          myBinaryWriter.Write(cosmeticDataList[index].type);
+          myBinaryWriter.Write(cosmeticDataList[index].index);
+          myBinaryWriter.Write(cosmeticDataList[index].on ? (byte) 1 : (byte) 0);
         }
-        this.cosmetics.Serialize(w);
       }
       Client.connection?.SendBytes(memoryStream.ToArray());
     }

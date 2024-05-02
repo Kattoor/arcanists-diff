@@ -23,6 +23,7 @@ public class GameFacts
   public List<string> originalOrder = new List<string>();
   public HashSet<string> invitedPlayers = new HashSet<string>();
   public List<SettingsPlayer> settingsPlayer = new List<SettingsPlayer>();
+  public List<SpellsOnly> realSpells = new List<SpellsOnly>();
   public List<Account> accounts = new List<Account>();
   public InviteEnum rematchInvite = InviteEnum.Open;
   public bool tournamentWasSetByTO;
@@ -116,10 +117,15 @@ public class GameFacts
   public void CalculateGameType()
   {
     int timeInSeconds = this.GetTimeInSeconds();
-    if (this.IsNonStandard() || timeInSeconds < 8 || timeInSeconds > 90 || this.armageddonTurn != (byte) 10 || this.startHealth != (ushort) 250 || this.restrictions != null && this.restrictions.AnyRestricted() || this.GetArmageddon() != ~MapEnum.Dont_Mind || this.settings.customArmageddon != null)
+    if (this.IsNonStandard() || timeInSeconds < 7 || timeInSeconds > 90 || this.armageddonTurn != (byte) 10 || this.startHealth != (ushort) 250 || this.restrictions != null && this.restrictions.AnyRestricted() || this.GetArmageddon() != ~MapEnum.Dont_Mind || this.settings.customArmageddon != null)
       this.gameType = ZGame.GameType.Party;
     else
       this.gameType = this.GetTimeInSeconds() < 30 ? ZGame.GameType.LowStandard : ZGame.GameType.HighStandard;
+  }
+
+  public static bool AllowCustomArmageddon(SpellEnum s)
+  {
+    return s == SpellEnum.Rising_Lava || s == SpellEnum.Dense_Fog;
   }
 
   public string ToString(ZGame g, bool linked = false)
@@ -144,7 +150,7 @@ public class GameFacts
       for (int index = 0; index < this.settings.customArmageddon.Count; ++index)
       {
         Spell spell = Inert.GetSpell(this.settings.customArmageddon[index]);
-        if ((UnityEngine.Object) spell != (UnityEngine.Object) null && spell.level < 4)
+        if ((UnityEngine.Object) spell != (UnityEngine.Object) null && (spell.level < 4 || GameFacts.AllowCustomArmageddon(spell.spellEnum)))
           stringBuilder.Append("<sprite name=\"").Append(spell.name).Append("\">");
       }
       stringBuilder.Append("<br>");
@@ -251,40 +257,7 @@ public class GameFacts
       this.ieStart = Timing.RunCoroutine(this.startRatedLobby());
   }
 
-  public bool CheckRatingDiff()
-  {
-    if (!this.GetStyle().HasStyle(GameStyle.Shuffle_Players))
-    {
-      short num1 = 0;
-      short num2 = 0;
-      short num3 = (short) (this.connections.Count / 2);
-      int num4 = 10000;
-      int num5 = 0;
-      int num6 = 10000;
-      int num7 = 0;
-      if (num3 == (short) 0)
-        return false;
-      for (int index = 0; index < (int) num3; ++index)
-      {
-        num1 += this.connections[index].player.account[(int) this.gameType].rating;
-        if ((int) this.connections[index].player.account[(int) this.gameType].rating < num4)
-          num4 = (int) this.connections[index].player.account[(int) this.gameType].rating;
-        else if ((int) this.connections[index].player.account[(int) this.gameType].rating > num5)
-          num5 = (int) this.connections[index].player.account[(int) this.gameType].rating;
-      }
-      for (int index = (int) num3; index < this.connections.Count; ++index)
-      {
-        num2 += this.connections[index].player.account[(int) this.gameType].rating;
-        if ((int) this.connections[index].player.account[(int) this.gameType].rating < num6)
-          num6 = (int) this.connections[index].player.account[(int) this.gameType].rating;
-        else if ((int) this.connections[index].player.account[(int) this.gameType].rating > num7)
-          num7 = (int) this.connections[index].player.account[(int) this.gameType].rating;
-      }
-      if (Mathf.Abs((int) (short) ((int) num1 / (int) num3) - (int) (short) ((int) num2 / (int) num3)) > 300 || num5 - num4 > 300 || num7 - num6 > 300)
-        return false;
-    }
-    return true;
-  }
+  public bool CheckRatingDiff() => true;
 
   public void KillStart()
   {
@@ -326,10 +299,10 @@ public class GameFacts
       else
         this.SetTeamMode(TeamEnum.No);
     }
-    int num1 = (r.extraOptions & 8) != 0 ? 1 : 0;
-    int num2 = (r.extraOptions & 16) != 0 ? 1 : 0;
-    bool flag1 = (r.extraOptions & 2) != 0;
-    bool flag2 = (r.extraOptions & 8192) != 0;
+    bool flag1 = (r.extraOptions & 8) != 0;
+    int num = (r.extraOptions & 16) != 0 ? 1 : 0;
+    bool flag2 = (r.extraOptions & 2) != 0;
+    bool flag3 = (r.extraOptions & 8192) != 0;
     if ((r.extraOptions & 65536) != 0)
     {
       if (r.extraOptions == -1)
@@ -340,7 +313,7 @@ public class GameFacts
       else
         this.SetStyle(GameStyle.Watchtower);
     }
-    if (num2 != 0)
+    if (num != 0)
     {
       if (r.extraOptions == -1)
       {
@@ -350,7 +323,7 @@ public class GameFacts
       else
         this.SetStyle(GameStyle.Original_Spells_Only);
     }
-    if (num1 != 0)
+    if (flag1)
     {
       if (r.extraOptions == -1)
       {
@@ -360,7 +333,7 @@ public class GameFacts
       else
         this.SetStyle(GameStyle.Random_Spells);
     }
-    if (flag1)
+    if (flag2)
     {
       if (r.extraOptions == -1)
       {
@@ -370,7 +343,18 @@ public class GameFacts
       else
         this.SetStyle(GameStyle.Elementals);
     }
-    if (!flag2)
+    if (r.gameType == 2 && !this.GetStyle().HasStyle(GameStyle.Elementals | GameStyle.Random_Spells))
+    {
+      if (flag1)
+        this.SetStyle(GameStyle.Random_Spells);
+      else if (flag2)
+        this.SetStyle(GameStyle.Elementals);
+      else if (Server.random.Next(0, 1) == 0)
+        this.SetStyle(GameStyle.Random_Spells);
+      else
+        this.SetStyle(GameStyle.Elementals);
+    }
+    if (!flag3)
       return;
     if (r.extraOptions == -1)
     {
@@ -401,7 +385,7 @@ public class GameFacts
     if (e)
       this.gameModes |= 128;
     else
-      this.gameModes &= -32897;
+      this.gameModes &= -129;
   }
 
   public void SetTournamentMode(bool e)
@@ -409,7 +393,7 @@ public class GameFacts
     if (e)
       this.gameModes |= 32768;
     else
-      this.gameModes &= -32897;
+      this.gameModes &= -32769;
   }
 
   public void SetTimeMode(TimeEnum e)
@@ -466,7 +450,7 @@ public class GameFacts
 
   public static TimeEnum GetLowTimes()
   {
-    return TimeEnum.Twenty | TimeEnum.Fifteen | TimeEnum.Ten | TimeEnum.Eight;
+    return TimeEnum.Twenty | TimeEnum.Fifteen | TimeEnum.Ten | TimeEnum.Seven;
   }
 
   public static TimeEnum GetHighTimes()
@@ -476,7 +460,7 @@ public class GameFacts
 
   public static TimeEnum GetPartyTimes()
   {
-    return TimeEnum.Ninety | TimeEnum.Sixty | TimeEnum.Forty_Five | TimeEnum.Thirty | TimeEnum.Twenty | TimeEnum.Fifteen | TimeEnum.Ten | TimeEnum.Eight;
+    return TimeEnum.Ninety | TimeEnum.Sixty | TimeEnum.Forty_Five | TimeEnum.Thirty | TimeEnum.Twenty | TimeEnum.Fifteen | TimeEnum.Ten | TimeEnum.Seven;
   }
 
   public MapEnum GetMapMode() => (MapEnum) (this.gameModes4 & 1207928432);
@@ -565,8 +549,8 @@ public class GameFacts
         return 20;
       case TimeEnum.Ten:
         return 10;
-      case TimeEnum.Eight:
-        return 8;
+      case TimeEnum.Seven:
+        return 7;
       case TimeEnum.Fifteen:
         return 15;
       default:
@@ -579,7 +563,7 @@ public class GameFacts
     if (this.customTime <= (ushort) 6)
       return TimeEnum.Five;
     if (this.customTime <= (ushort) 9)
-      return TimeEnum.Eight;
+      return TimeEnum.Seven;
     if (this.customTime <= (ushort) 12)
       return TimeEnum.Ten;
     if (this.customTime <= (ushort) 18)
@@ -756,13 +740,13 @@ public class GameFacts
     switch (e)
     {
       case MapEnum.Jungle:
-        return "Summon Wolf";
+        return "Dark Totem";
       case MapEnum.Snowy_Hills:
         return "Presents!";
       case MapEnum.Ocean_Floor:
         return "Rain of Clams";
       case MapEnum.Dark_Fortress:
-        return "Dark Totem";
+        return "Rising Lava";
       case MapEnum.Wasteland:
         return "Acid Rain";
       case MapEnum.Grassy_Hills:

@@ -14,8 +14,6 @@ namespace UnityThreading
 
     public static Task RunAsync(this Action that, TaskDistributor target) => target.Dispatch(that);
 
-    public static Task AsTask(this Action that) => Task.Create(that);
-
     public static Task<T> RunAsync<T>(this Func<T> that)
     {
       return that.RunAsync<T>(UnityThreadHelper.TaskDistributor);

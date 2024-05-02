@@ -44,6 +44,6 @@ public static class SortedEnum
     TimeEnum.Fifteen,
     TimeEnum.Ten,
     TimeEnum.Five,
-    TimeEnum.Eight
+    TimeEnum.Seven
   };
 }

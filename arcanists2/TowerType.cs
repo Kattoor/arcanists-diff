@@ -14,4 +14,5 @@ public enum TowerType
   Seasons,
   Wooden,
   Cosmos,
+  Holiday,
 }

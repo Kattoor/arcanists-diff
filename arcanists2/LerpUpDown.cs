@@ -30,6 +30,6 @@ public class LerpUpDown : MonoBehaviour
         this.down = true;
       }
     }
-    this.transform.localPosition = Vector3.Slerp(this.top, this.bottom, this.cur);
+    this.transform.localPosition = Vector3.Lerp(this.top, this.bottom, Mathf.SmoothStep(0.0f, 1f, this.cur));
   }
 }

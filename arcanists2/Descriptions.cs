@@ -3,6 +3,7 @@
 using Hazel;
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 #nullable disable
 public static class Descriptions
@@ -66,8 +67,8 @@ public static class Descriptions
       "Blood spells focus on changing the flow of the battle and reaping the rewards."
     },
     {
-      "The Wilds",
-      "Wilds spells focus on close range attacks and hunting down your prey."
+      "Druidism",
+      "Druidism spells focus on increasing damage and hunting down your opponents, while sustaining yourself."
     },
     {
       "Cosmos",
@@ -86,7 +87,7 @@ public static class Descriptions
     },
     {
       "Stone",
-      "Pet Rock\n(drains 20 health per cast)\nProvides you and your minions with damage resistance. This damage resistance will only be applied to towers on their initial cast <sprite name=\"Resistant\"> (Subsequent casts of the same tower will not have it). Learn the spell Stepping Stone which has reduced cooldown per familiar level.\nAt Level 3: Learn the spell Summon Mountain Goat."
+      "Pet Rock\n(drains 20 health per cast)\nProvides you and your minions with damage resistance. This damage resistance will only be applied to towers on their initial cast <sprite name=\"Resistance\"> (Subsequent casts of the same tower will not have it). Learn the spell Stepping Stone which has reduced cooldown per familiar level.\nAt Level 3: Learn the spell Summon Mountain Goat."
     },
     {
       "Storm",
@@ -106,7 +107,7 @@ public static class Descriptions
     },
     {
       "Nature",
-      "Fungus\n(drains 20 health per cast)\nIncreases the effects of Vine and Thorn Bombs and also lets your Elves fire larger volleys of arrows.\nAt level 5: Learn the spell Forestation - Vine Bridge/Vine Bomb/Thorn Bomb have one extra use each."
+      "Fungus\n(drains 20 health per cast)\nIncreases the effects of Vine and Thorn Bombs and also lets your Elves fire larger volleys of arrows and Vine bridge's max distance increases.\nAt level 5: Learn the spell Forestation - "
     },
     {
       "Seas",
@@ -122,7 +123,7 @@ public static class Descriptions
     },
     {
       "Seasons",
-      "Harmony\n(drains 20 health per cast)\nLearn the spell: Butterfly Jar. Each level of Harmony gives an extra cast of Life Dew, makes Breeze last longer, causes more Autumn Leaves to fall, The Four Seasons lasts an extra turn before needing to be cast again or forever at level 5, and Snowmen get 5 more max health per level."
+      "Tranquility\n(drains 20 health per cast)\nLearn the spell: Butterfly Jar. Each level of Harmony gives an extra cast of Life Dew, makes Breeze last longer, causes more Autumn Leaves to fall, The Four Seasons lasts an extra turn before needing to be cast again or forever at level 5, and Snowmen get 5 more max health per level."
     },
     {
       "Illusion",
@@ -133,8 +134,8 @@ public static class Descriptions
       "Lifeless\n(drains 20 health per cast)\nIn order of level required: Each Level applies a stack of bleed to all Ball/Bolt/Bomb blood spells (stacks do not stack with each other but can refresh the duration). Learn the spell: Blood Craze. Infections through contact last a minimum of your familiar level and cannot be spread to you. Resurrected minions start with more health. Level 3: Blood Mist. Level 5: Blood Pact - Barrage of Bones recharges one turn faster."
     },
     {
-      "The Wilds",
-      "Raven\n(drains 20 health per cast)\nEach Level provides +15% base minion summon range as well as Spirit Link/Wild Mushroom cast range and +2 minion health and increases the maximum active rituals you can have. Any spell you empower will not be disabled for that turn."
+      "Druidism",
+      "Raven\n(drains 20 health per cast)\nEach Level provides +2 minion health, +4 Enchanted Axes max bonus damage, and +15% base minion/Druidism cast range. Tiger gets the Compete! spell."
     },
     {
       "Cosmos",
@@ -1020,63 +1021,55 @@ public static class Descriptions
       "{0} was a myth, {1} was a legend."
     },
     {
-      "Wild Mushrooms",
-      "{0} eat {1}'s poison mushrooms."
+      "Healing Spores",
+      "{0} ate {1}'s poison mushrooms."
     },
     {
-      "Commune With Nature",
+      "Harmony",
       ""
     },
     {
-      "Imbued Axes",
-      "{0} got enchanted by {1}'s imbued axes."
+      "Enchanted Axes",
+      "{0} got enchanted by {1}'s axes."
     },
     {
-      "Summon Spirit Owl",
+      "Summon Will o' the Wisp",
       ""
     },
     {
-      "Spear Throw",
-      "{0} was impaled by {1}'s spear."
+      "Verdant Javelin",
+      "{0} was impaled by {1}'s javelin."
     },
     {
-      "Devil's Snare",
-      "{0} got devilishly caught in {1}'s snare."
+      "Prickly Barrier",
+      "{0} ran into {1}'s barrier."
     },
     {
-      "Ferocious Strike",
-      "{0} died gloriously to {1}'s ferocious strike."
+      "Bear Claw",
+      "{0} died gloriously to {1}'s Bear Claw."
     },
     {
-      "Leap",
+      "Faerie Jump",
       "{0} was leaps and bounds behind {1}."
     },
     {
-      "Summon Wolf",
-      "{0} was thrown to {1}'s wolves."
+      "Summon Boar",
+      "{0} was gored by {1}'s boar."
     },
     {
-      "Summon Alpha Wolf",
-      "{0}, Listen, {1} IS the alpha wolf. Always has been, always will be."
-    },
-    {
-      "Pack Mentality",
+      "Herd Mentality",
       "{0} learned a valuable lesson from {1}: Strength in numbers."
     },
     {
-      "Pack Leader",
-      "{0} was thrown to {1}'s wolves."
-    },
-    {
-      "Summon Bear",
+      "Summon Tiger",
       ""
     },
     {
-      "Ritual",
+      "Grove Renewal",
       ""
     },
     {
-      "Werewolf Transformation",
+      "Bear Form",
       ""
     },
     {
@@ -1171,6 +1164,10 @@ public static class Descriptions
   private static Dictionary<string, string> spellDescriptions = new Dictionary<string, string>()
   {
     {
+      "Cancel",
+      ""
+    },
+    {
       "Arcane Arrow",
       "Arrow: 20-40 arcane damage\n{0}\nShoots four arrows of pure, bubbling, arcane energy. Good at digging through rock (and cleaning saucepans)."
     },
@@ -1192,7 +1189,7 @@ public static class Descriptions
     },
     {
       "Arcane Portal",
-      "Targeted:\n(1 active only per spell slot){0}\nCreates a two-way portal to allow travel between your current location and a selected destination, that will allow small objects to pass through once per turn. Also removes any active wormholes you have."
+      "Targeted:\n(1 active only per spell slot){0}\nCreates a two-way portal to allow travel between your current location and a selected destination, that will allow small objects to pass through once per turn. Shares a cooldown with Wormhole."
     },
     {
       "Summon Imps",
@@ -1624,7 +1621,7 @@ public static class Descriptions
     },
     {
       "Mechanical Arrow",
-      "Arrow: up to 80 damage\n{0}\nThis badly constructed arrow of copper flies lazily towards its target, bits casually falling off it as it goes."
+      "Arrow: up to 80 damage\n{0}\nThis badly constructed arrow of copper flies lazily towards its target, bits casually falling off it as it goes. After the first turn it will explode after 5 seconds of travel."
     },
     {
       "Cog Fall",
@@ -1828,7 +1825,7 @@ public static class Descriptions
     },
     {
       "Morning Sun",
-      "Targeted: up to 30 damage per turn\n{0}\nThe sun is able to break through the upper atmosphere with great intensity damaging anyone, except the caster, in its path with its three beams of pur3 awesomeness. Lasts five turns."
+      "Targeted: up to 30 damage per turn\n{0}\nThe sun is able to break through the upper atmosphere with great intensity damaging any enemy, in its path with its three beams of pur3 awesomeness. Lasts five turns."
     },
     {
       "Exploding Pinecone",
@@ -1845,6 +1842,10 @@ public static class Descriptions
     {
       "Snow Globe",
       "Tower: 75 health\n{0}\nComes with its own snow flurry. Shake it up for some extra fun."
+    },
+    {
+      "Tree House",
+      "Tower: 75 health\n{0}\nCreates leaves every turn. Shake it up for some extra fun."
     },
     {
       "The Four Seasons",
@@ -1872,7 +1873,7 @@ public static class Descriptions
     },
     {
       "Air Surge",
-      "Blast: 50 damage\n{0}\nA medium range, sudden burst of air, that travels in a straight line."
+      "Blast: 50 damage\n{0}\nA medium range, sudden burst of air which knocks non-phantom casters back and travels in a straight line."
     },
     {
       "Apparition",
@@ -1900,7 +1901,7 @@ public static class Descriptions
     },
     {
       "Summon Phantom",
-      "Arcane Minion: 25 health\n{0}\nIgnores terrain, cannot be hit directly as spells pass through it."
+      "Arcane Minion: 30 health\n{0}\nIgnores terrain, cannot be hit directly as spells pass through it. The phantom will lose this ability until its next turn whenever it attacks or is summoned."
     },
     {
       "Vortex",
@@ -1932,7 +1933,7 @@ public static class Descriptions
     },
     {
       "Barrage of Bones",
-      "Targeted: up to 200 damage\n{0}\nBouncing bones, what fun."
+      "Targeted: up to 160 damage\n{0}\nBouncing bones, what fun."
     },
     {
       "Flesh Wound",
@@ -1948,11 +1949,11 @@ public static class Descriptions
     },
     {
       "Summon Blood Bank",
-      "Arcane Minion: 40 health\n{0}\nA small fleshy minion that while alive all attacks from the player and their minions heal for 10%  of the damage dealt rounded down (1hp minimum IF the damage dealt is above 1). Any damage the blood bank takes is given to the caster as health if not pacted."
+      "Arcane Minion: 25\n{0}\nA small fleshy minion that while alive all attacks from the player and their minions heal for 20%  of the damage dealt. Any damage the blood bank takes is given to the caster as health if not pacted."
     },
     {
       "Summon Gargoyle",
-      "Minion: flying; 50 health\n{0}\nCan turn into stone without ending your turn in order to regenerate/increase max health by 25 up to 100 - Can cast Blood Lust."
+      "Minion: flying; 50 health\n{0}\nCan turn into stone without ending your turn: to regenerate/increase max health by 25 up to 100. Can cast Blood Lust."
     },
     {
       "Blood Craze",
@@ -2024,7 +2025,7 @@ public static class Descriptions
     },
     {
       "Summon Kraken",
-      "Arcane Minion: swimming; 1000 health\n{0}\nThe mighty Kraken - Can only be summoned on water - An immovable force of nature that can hydrate its allies, dive, summon ships and bring its enemies to their knees. Weak to fire and x4 health lost to Dark Defences."
+      "Arcane Minion: swimming; 1000 health\n{0}\nThe mighty Kraken - Can only be summoned on water - An immovable force of nature that can hydrate its allies, dive, summon ships and bring its enemies to their knees. Weak to fire and is not compatible with Dark Defences."
     },
     {
       "From the Depths",
@@ -2155,52 +2156,56 @@ public static class Descriptions
       "Personal:\n{0}\nNeed more time? well stop reading this description and use the spell already! Adds 5 seconds to your current turn per your Cogs familiar level."
     },
     {
-      "Wild Mushrooms",
-      "Targeted: 15 heal\n{0}\nStay happy and healthy with these nutritious mushrooms. If used on a minion it heals for x2. This spell does not end your turn. <i> Ritual Bonus: 25 heal and will also heal x2 on Werewolves."
+      "Healing Spores",
+      "Targeted: 15 heal\n{0}\nStay happy and healthy with these nutritious mushrooms. If used on a minion it heals for x2. This spell does not end your turn."
     },
     {
-      "Commune With Nature",
-      "Personal:\n{0}\nAt the end of your turn, until your next turn, you and your minions share all damage taken (The primary target takes 50% of that damage unless that damage is less then damage/communed in which case its shared amongst the healthiest communed). This spell does not end your turn. <i>Ritual Bonus: Lasts 2 turns."
+      "Harmony",
+      "Personal:\n{0}\nAt the end of your turn, until your next turn, you and your minions share all damage taken (The primary target takes 50% of that damage unless that damage is less then the total minions that are under the effect of harmony, in which case its shared amongst the healthiest). This spell does not end your turn."
     },
     {
-      "Imbued Axes",
-      "Bolt: 30x2 damage\n{0}\nThrow two axes in the directions of your choosing. <i>Ritual bonus: The axes ignore effectors which would influence its velocity: Flame Shield/Wind Shield/Spirit Shield/Vortex/Magical Barrier/Static Shield/Wrath/Clouds and any other movement inhibiting effector..."
+      "Enchanted Axes",
+      "Bolt: {1}x2 damage\n{0}\nThrow two axes in the directions of your choosing. These axes will deal +2 damage (per axe, up to a maximum of +30) for each turn since the last time they were used. This bonus damage does not begin until after the first cast of axes. The axes also ignore effectors which would influence its velocity: Flame Shield/Wind Shield/Spirit Shield/Vortex/Magical Barrier/Static Shield/Wrath/Clouds and any other movement inhibiting effector..."
     },
     {
-      "Summon Spirit Owl",
-      "Arcane Minion: 40 health\n{0}\nHas the spells: Spirit Walk & Spirit Link. <i>Ritual Bonus: Can summon your Wolf/Bear/Owl minions if they are in your spellbook, as well as the ability to cast spirit walk multiple times in one turn."
+      "Summon Will o' the Wisp",
+      "Arcane Minion: 25 health\n{0}\nHas the spells: Spirit Walk and Spirit Link."
     },
     {
-      "Spear Throw",
-      "Ball: 38-75 damage\n{0}\nDamage scales up quickly based off distance traveled. Missing will leave the spear in the terrain, as a reminder of your poor aim. <i> Ritual Bonus: 48-95 damage."
+      "Verdant Javelin",
+      "Ball: {1} damage\n{0}\nDamage scales up quickly based off distance traveled. Missing will leave the javelin in the terrain, allowing the caster to pick it back up and try again. Will be destroyed if it takes damage. Every time the javelin is cast: its bonus damage is increased by 7 unless it misses and fails to travel far enough to reach its max potential damage."
     },
     {
-      "Devil's Snare",
-      "Targeted: 30 damage\n{0}\nThis will damage anyone foolish enough to get to close. Will spread each turn, but all your controlled snares share the same damage source. The snare will only last 4 turns. <i>Ritual Bonus: each snare can deal damage individually."
+      "Prickly Barrier",
+      "Targeted: 30 damage\n{0}\nThis will damage anyone foolish enough to get to close. Will spread each turn, but all your barrier's snares share the same damage source. The snare will only last 4 turns."
     },
     {
-      "Ferocious Strike",
-      "Melee: 50 damage\n{0}\nWhether you're hacking through trees or enemies, it'll get the job done. <i>Ritual Bonus: Greatly increased area of effect."
+      "Bear Claw",
+      "Melee: 50 damage\n{0}\nWhether you're knocking down trees or enemies, it'll get the job done."
     },
     {
-      "Leap",
-      "Bolt: 0 damage\n{0}\n Leap in the chosen direction, allowing you to get to hard to reach places. This spell does not end your turn. <i>Ritual Bonus: one turn cooldown."
+      "Faerie Jump",
+      "Bolt: 0 damage\n{0}\n Jump in the chosen direction, allowing you to get to hard to reach places. This spell does not end your turn."
     },
     {
-      "Summon Wolf",
-      "Minion: 40 health\n{0}\nIf there is a nearby enemy at the start of your turn, the wolf will lunge towards it dealing 15 damage on impact. <i>Ritual Bonus: Summons a larger, mountable, Alpha Wolf with more hitpoints, agility and damage."
+      "Summon Boar",
+      "Minion: 40 health\n{0}\nCharges at the closest enemy and then lunges towards that enemy dealing 15 damage on impact."
     },
     {
-      "Summon Bear",
-      "Minion: 100 health\n{0}\nHas the spells: Bite/Leap and the passive 'Provoke' allowing it to deal extra damage for every 2 missing health it has which maxes out at double the base damage. <i>Ritual Bonus: +35 health and better jump."
+      "Summon Tiger",
+      "Minion: 75 health\n{0}\nHas the spells: Stalk and pounce."
     },
     {
-      "Ritual",
-      "Personal:\n{0}\nPick a Wilds level one or two spells to boost its effectiveness until the end of the battle. Maximum 3 active rituals so choose wisely as these cannot be changed; increases with the Raven familiar. This spell does not end your turn, however without the raven familiar the spell you empower is disabled until end of turn."
+      "Compete!",
+      "Minions: 2x minions; 40 health each\n{0}\nFeeding Frenzy? Well here's two more mouths to feed. Still in the learning phase, so can only stalk their prey."
     },
     {
-      "Werewolf Transformation",
-      "Personal:\n{0}\nTransform into a werewolf, gaining 100 health and for the next 5 turns: Gives you the spells Rampage and Swipe and allows you to move faster and jump further. Restricts you to The Wilds and Arcane spellbooks."
+      "Grove Renewal",
+      "Targeted:\n{0}\nCreates a living grove at the targeted location, which blocks projectiles and absorbs all damage and heals units within for 20 hitpoints. The grove cannot be created where existing units stand and will die after 5 turns."
+    },
+    {
+      "Bear Form",
+      "Personal:\n{0}\nTransform into a bear for the next 2 turns giving you the spells Rampage, Swipe and the passive 'Provoke' allowing you to deal bonus damage for each percentage of health you are missing.. Restricts you to Druidism and Arcane spellbooks."
     },
     {
       "Rampage",
@@ -2219,8 +2224,8 @@ public static class Descriptions
       "Melee: 55 damage\n{0}\nTheir bite is so much worse than their bark."
     },
     {
-      "Pack Mentality",
-      "Minion: 40 health\n{0}\nSummons another wolf to fight alongside. This spell does not end your turn."
+      "Herd Mentality",
+      "Minion: 40 health\n{0}\nSummons another boar to fight alongside. This spell does not end your turn."
     },
     {
       "Pack Leader",
@@ -2228,11 +2233,11 @@ public static class Descriptions
     },
     {
       "Spirit Link",
-      "Targeted:\n{0}\nSacrifice the owl and teleport the nearby allied target to its location. This spell does not end your turn."
+      "Targeted:\n{0}\nSacrifice the wisp and teleport the nearby allied target to its location. This spell does not end your turn. Cannot be used in close proximity of another entity."
     },
     {
       "Wormhole",
-      "Arena:\n(1 active per player){0}\nOne way portal to anywhere. Any size unit can go through but spells do not go through. Permanent until recast. Going through the wormhole will apply gravity until the start of your next turn. Also removes any active portals you have."
+      "Arena:\n(1 active per player){0}\nOne way portal to anywhere. Any size unit can go through but spells do not go through. Permanent until recast. Going through the wormhole will apply gravity until the start of your next turn. Shares a cooldown with Arcane Portal."
     },
     {
       "Dark Matter Bomb",
@@ -2248,7 +2253,7 @@ public static class Descriptions
     },
     {
       "MACAIR",
-      "Tower: 50 health\n{0}\nHovers in midair, can move left, right, up, and down."
+      "Tower: 50 health\n{0}\nA Mechanically Advanced Craft Allowing Intergalactic Reconnaissance which hovers in midair allowing you to move left, right, up, and down."
     },
     {
       "Drone Strike",
@@ -2276,11 +2281,11 @@ public static class Descriptions
     },
     {
       "Black Hole",
-      "Targeted:\n{0}\nStays until moved or the caster is destroyed. Pulls spells and units alike into its center. Units that fall into the center have Gravity applied for the rest of their turn and are teleported out of a random Wormhole or sunk if one does not exist. Spells and Towers are destroyed."
+      "Targeted:\n{0}\nStays until moved or the caster is destroyed. Pulls spells and units alike into its center. Units that fall into the center will sunk unless they are an allied unit and an active wormhole is on the battle field they will instead be sent through the wormhole. Spells and Towers are destroyed."
     },
     {
       "Supernova",
-      "Targeted: up to 3600 damage\n{0}\nOver the next 5 turns, the Supernova spews out waves of Starfire in every direction outwards. Increases in intensity over the course of its lifetime."
+      "Targeted: up to 2880 damage\n{0}\nOver the next 5 turns, the Supernova spews out waves of Starfire in every direction outwards. Increases in intensity over the course of its lifetime."
     },
     {
       "Summon Drone",
@@ -2304,7 +2309,7 @@ public static class Descriptions
     },
     {
       "Spirit Walk",
-      "Targeted:\n{0}\nSeparate mind and body, moving the owl a short distance, allowing it to navigate around obstacles. Does not end your turn."
+      "Targeted:\n{0}\nSeparate mind and body, becoming a phantom-like creature allowing the wisp to move through terrain. Does not end your turn."
     },
     {
       "Retribution",
@@ -2321,6 +2326,14 @@ public static class Descriptions
     {
       "Summon Titan",
       "Minion: Level 3\n{0}\nAllows you to harness the greatest powers known to you."
+    },
+    {
+      "Pounce",
+      "Bolt: 50 damage\n{0}\n Jump in the target direction, dealing damage when you land."
+    },
+    {
+      "Stalk",
+      "Targeted: 25 damage\n{0}\nDisappear from sight, pouncing on the closest enemy at the start of your next turn. This spell does not end your turn."
     }
   };
 
@@ -2334,6 +2347,11 @@ public static class Descriptions
   {
     if ((ZComponent) died == (object) null)
       return "";
+    if (spellEnum == SpellEnum.Mine && (ZComponent) enemy != (object) null && enemy.type == CreatureType.Boar)
+    {
+      spellEnum = SpellEnum.Summon_Boar;
+      spell = (ISpellBridge) null;
+    }
     string format = (string) null;
     string key1 = spell != null ? (spell.GetName.EndsWith("(Clone)") ? spell.GetName.Substring(0, spell.GetName.Length - 7) : spell.GetName) : "Attack";
     if (spell == null || !Descriptions.deathMessages.TryGetValue(key1, out format))
@@ -2355,7 +2373,12 @@ public static class Descriptions
     format = !string.IsNullOrEmpty(format) ? string.Format(format, (object) died.parent.name, (ZComponent) enemy != (object) null ? (enemy.parent == died.parent ? (object) "their own" : (object) enemy.parent.name) : (object) "a") : string.Format("{0} died to {1}'s " + key1 + ".", (object) died.parent.name, (ZComponent) enemy != (object) null ? (enemy.parent == died.parent ? (object) "their own" : (object) enemy.parent.name) : (object) "a");
     if ((ZComponent) enemy == (object) null)
       return format.Replace("a's", "a");
-    return enemy.parent == died.parent ? format.Replace("their own's", "their own") : format;
+    if (enemy.parent != died.parent)
+      return format;
+    format = format.Replace("their own's", "their own");
+    if (format.EndsWith("by their own."))
+      format = format.Substring(0, format.Length - "by their own.".Length) + ".";
+    return format;
   }
 
   public static bool GetRunTimeDescription(string name, out string s)
@@ -2434,9 +2457,9 @@ public static class Descriptions
       {
         if (str.Length > 0)
           str += "\n";
-        str = str + "Available: Turn " + (object) (spell.TurnsTillFirstUse + 1);
+        str = str + "Available: Turn " + (object) (float) ((double) (spell.TurnsTillFirstUse + 1) + (spell.halfFirstTurn ? -0.5 : 0.0));
         if (spell.spellEnum == SpellEnum.Forest_Seed)
-          str += " (0 if time < 20s)";
+          str += " (0 if time < 21s)";
       }
       if (spell.MaxMinionCount > 0)
       {
@@ -2456,6 +2479,13 @@ public static class Descriptions
           str += "\n";
         str += "Directional";
       }
+    }
+    if (string.Equals(name, "Enchanted Axes"))
+      return combined ? (string.Format(s, (object) str, (object) (slot == null || !((UnityEngine.Object) Player.Instance != (UnityEngine.Object) null) || slot.bonusDmg <= 0 ? spell.damage : spell.damage + Mathf.Min((Player.Instance.person.localTurn - slot.bonusDmg) * 2, 30 + Player.Instance.person.familiarLevels[13] * 2))), str) : (string.Format(s, (object) "", (object) (slot == null || !((UnityEngine.Object) Player.Instance != (UnityEngine.Object) null) || slot.bonusDmg <= 0 ? spell.damage : spell.damage + Mathf.Min((Player.Instance.person.localTurn - slot.bonusDmg) * 2, 30 + Player.Instance.person.familiarLevels[13] * 2))), str);
+    if (string.Equals(name, "Verdant Javelin"))
+    {
+      int num = slot != null ? spell.damage + slot.bonusDmg : spell.damage;
+      return combined ? (string.Format(s, (object) str, (object) ((num - num / 2).ToString() + "-" + (object) num)), str) : (string.Format(s, (object) "", (object) ((num - num / 2).ToString() + "-" + (object) num)), str);
     }
     return combined ? (string.Format(s, (object) str), str) : (string.Format(s, (object) ""), str);
   }

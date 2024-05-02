@@ -12,6 +12,6 @@ public enum TimeEnum
   Thirty = 4096, // 0x00001000
   Twenty = 8192, // 0x00002000
   Ten = 16384, // 0x00004000
-  Eight = 262144, // 0x00040000
+  Seven = 262144, // 0x00040000
   Fifteen = 1048576, // 0x00100000
 }

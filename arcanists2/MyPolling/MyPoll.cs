@@ -9,6 +9,7 @@ using Newtonsoft.Json.Serialization;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Text.RegularExpressions;
 using UnityEngine;
@@ -67,6 +68,7 @@ namespace MyPolling
         {
           if (this.items[index1].answers[index2].allowUserInput && !string.IsNullOrEmpty(this.items[index1].answers[index2].userInput))
           {
+            this.items[index1].answers[index2].userInput = WordFilter.FilterRealBadWords(this.items[index1].answers[index2].userInput);
             this.items[index1].answers[index2].userInput = WordFilter.FilterBadWords(this.items[index1].answers[index2].userInput);
             this.items[index1].answers[index2].userInput = WordFilter.FilterForbiddenWords(this.items[index1].answers[index2].userInput);
             this.items[index1].answers[index2].userInput = MyPoll.sanitize.Replace(this.items[index1].answers[index2].userInput, " ");

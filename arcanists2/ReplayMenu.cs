@@ -82,6 +82,13 @@ public class ReplayMenu : Catalogue
     myContextMenu.AddInput(a);
   }
 
+  public static string GetName(string n)
+  {
+    if (string.Equals("Strelizia", n))
+      return "Mind Flayer";
+    return string.Equals("Cyclops", n) ? "Sakuna" : n;
+  }
+
   public void ViewGame(string s)
   {
     this.lastClicked = s;
@@ -288,6 +295,13 @@ public class ReplayMenu : Catalogue
   }
 
   public void OpenFileLocation() => Global.OpenFileLocation("SavedReplays");
+
+  public class OldTeams
+  {
+    public int low;
+    public int high;
+    public int party;
+  }
 
   public class CleanReplayName
   {

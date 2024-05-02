@@ -41,4 +41,5 @@ public enum DamageType
   Heal50,
   Sting,
   Gravity,
+  SunderLight,
 }

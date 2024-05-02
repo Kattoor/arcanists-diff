@@ -17,6 +17,7 @@ public class ZEffector : ZComponent
   private MyLocation _position;
   [NonSerialized]
   public bool followParent;
+  public bool halved;
   public EffectorType type;
   public ZCreature whoSummoned;
   public ZCreature infector;
@@ -27,9 +28,11 @@ public class ZEffector : ZComponent
   public int MaxTurnsAlive = 5;
   public int delayDeath;
   public int variable;
+  public int clientSpriteIndex;
   internal ZSpell spell;
   internal bool fromArmageddon;
   internal bool doNotCreateObjectOnResync;
+  internal FixedInt rotation = (FixedInt) 0;
   private IEnumerator<float> coro;
 
   internal bool dead => this.isNull;
@@ -112,14 +115,29 @@ public class ZEffector : ZComponent
 
   internal static bool HasCreatureSerialization(EffectorType type)
   {
-    return type == EffectorType.Butterfly_Jar || type == EffectorType.Forest_Seed;
+    return type == EffectorType.Butterfly_Jar || type == EffectorType.Forest_Seed || type == EffectorType.Grove_Renewal;
   }
 
   internal static SpellEnum FromType(EffectorType type)
   {
-    if (type == EffectorType.Forest_Seed)
-      return SpellEnum.Forest_Seed;
-    return type == EffectorType.Butterfly_Jar ? SpellEnum.Butterfly_Jar : SpellEnum.None;
+    switch (type)
+    {
+      case EffectorType.Forest_Seed:
+        return SpellEnum.Forest_Seed;
+      case EffectorType.Butterfly_Jar:
+        return SpellEnum.Butterfly_Jar;
+      case EffectorType.Grove_Renewal:
+        return SpellEnum.Grove_Renewal;
+      default:
+        return SpellEnum.None;
+    }
+  }
+
+  public void SetRotation()
+  {
+    if (!((UnityEngine.Object) this.transform != (UnityEngine.Object) null))
+      return;
+    this.transform.rotation = Quaternion.Euler(0.0f, 0.0f, this.rotation.ToFloat());
   }
 
   public void Serialize(myBinaryWriter writer, bool fromPartner = false)
@@ -165,6 +183,7 @@ public class ZEffector : ZComponent
     writer.Write((ZComponent) this.collider != (object) null);
     this.collider?.Serialize(this.game, writer);
     writer.Write(this.followParent);
+    writer.Write(this.halved);
     writer.Write(ZGame.GetID(this.whoSummoned));
     writer.Write(ZGame.GetID(this.infector));
     writer.Write((ZComponent) this.partner != (object) null ? this.partner.id : -1);
@@ -175,12 +194,14 @@ public class ZEffector : ZComponent
     writer.Write(this.MaxTurnsAlive);
     writer.Write(this.delayDeath);
     writer.Write(this.variable);
+    writer.Write(this.clientSpriteIndex);
     writer.Write(ZGame.GetID(this.spell));
     writer.Write(this.fromArmageddon);
+    writer.Write(this.rotation.RawValue);
     if (Inert._Version <= 57)
       return;
-    writer.Write((ZComponent) this.partner != (object) null && !fromPartner);
-    if (!((ZComponent) this.partner != (object) null) || fromPartner)
+    writer.Write((ZComponent) this.partner != (object) null && !fromPartner && this.type != EffectorType.Fake_Portal);
+    if (!((ZComponent) this.partner != (object) null) || fromPartner || this.type == EffectorType.Fake_Portal)
       return;
     this.partner.Serialize(writer, true);
   }
@@ -286,6 +307,7 @@ public class ZEffector : ZComponent
     z.type = type;
     z.doNotCreateObjectOnResync = flag2;
     z.followParent = reader.ReadBoolean();
+    z.halved = reader.ReadBoolean();
     int i1 = reader.ReadInt32();
     int i2 = reader.ReadInt32();
     int i3 = reader.ReadInt32();
@@ -296,8 +318,10 @@ public class ZEffector : ZComponent
     z.MaxTurnsAlive = reader.ReadInt32();
     z.delayDeath = reader.ReadInt32();
     z.variable = reader.ReadInt32();
+    z.clientSpriteIndex = reader.ReadInt32();
     int i4 = reader.ReadInt32();
     z.fromArmageddon = reader.ReadBoolean();
+    z.rotation = (FixedInt) reader.ReadInt64();
     game.helper.effector_whoSummoned.Add(new ZGame.IDEffector(z, i1));
     game.helper.effector_infector.Add(new ZGame.IDEffector(z, i2));
     game.helper.effector_partners.Add(new ZGame.IDEffector(z, i3));
@@ -305,7 +329,7 @@ public class ZEffector : ZComponent
     game.helper.effectorID.Add(num2, z);
     if (Inert._Version > 57 && reader.ReadBoolean())
       ZEffector.Deserialze(game, creature, reader, (ZEffector) null);
-    if (z.type == EffectorType.Devils_Snare && game.isClient)
+    if (z.type == EffectorType.Prickly_Barrier && game.isClient && (UnityEngine.Object) z.transform != (UnityEngine.Object) null)
     {
       Color clientColor = creature.parent.clientColor with
       {
@@ -381,6 +405,7 @@ public class ZEffector : ZComponent
     this.type = c.type;
     this.active = c.active;
     this.fromArmageddon = c.fromArmageddon;
+    this.rotation = c.rotation;
     this.followParent = c.followParent;
     this.gameObjectActive = c.gameObjectActive;
     this.game = game;
@@ -424,6 +449,7 @@ public class ZEffector : ZComponent
       case EffectorType.Miner_Map:
       case EffectorType.Wormhole:
       case EffectorType.AutumnLeaves:
+      case EffectorType.Grove_Renewal:
         return true;
       case EffectorType.Static_Ball:
         return !this.followParent;
@@ -482,6 +508,7 @@ public class ZEffector : ZComponent
       case EffectorType.Rising_Star:
         return false;
       case EffectorType.Forest_Seed:
+      case EffectorType.Grove_Renewal:
         return false;
       case EffectorType.Sanctuary:
         return false;
@@ -528,19 +555,22 @@ public class ZEffector : ZComponent
       spell.MoveOtherLeaves2();
     this.isNull = true;
     this.active = false;
-    if (this.type == EffectorType.Forest_Seed)
+    if (this.type == EffectorType.Forest_Seed || this.type == EffectorType.Grove_Renewal)
     {
+      if ((ZComponent) this.collider != (object) null && (ZComponent) this.collider.creature != (object) null)
+        this.collider.creature.health = 1;
       this.collider?.creature?.ApplyDamage(SpellEnum.Fire_Ball, DamageType.None, 100, (ZCreature) null, 0);
     }
     else
     {
-      if (this.type == EffectorType.Phantom)
+      if (this.type == EffectorType.Apparition)
       {
         if (!ZComponent.IsNull((ZComponent) this.whoSummoned))
         {
           this.whoSummoned.effectors.RemoveAt(indexInParent);
           this.whoSummoned.phantom = false;
           this.whoSummoned.flying = false;
+          this.whoSummoned.collider.gameObjectLayer = 8;
           this.whoSummoned.collider.layer = 256;
           if (this.whoSummoned.ShouldFall())
             this.whoSummoned.Fall();
@@ -577,7 +607,7 @@ public class ZEffector : ZComponent
         this.whoSummoned.retribution = 0;
       if ((ZComponent) this.collider != (object) null)
         this.collider.Disable();
-      if ((ZComponent) this.partner != (object) null && indexInParent >= 0)
+      if ((ZComponent) this.partner != (object) null && indexInParent >= 0 && this.type != EffectorType.Fake_Portal)
         this.partner.Die(-1, false, global);
       if (ZComponent.IsNull((ZComponent) this.whoSummoned))
       {
@@ -629,7 +659,7 @@ public class ZEffector : ZComponent
     ++this.turnsAlive;
     if (this.turnsAlive >= this.MaxTurnsAlive && this.MaxTurnsAlive > 0)
       this.Die(indexInParent, destroyable, global);
-    else if (!this.active || this.type == EffectorType.Devils_Snare || (this.type == EffectorType.Storm_Shield || this.type == EffectorType.Troll) && this.variable > 0)
+    else if (!this.active || this.type == EffectorType.Prickly_Barrier || (this.type == EffectorType.Storm_Shield || this.type == EffectorType.Troll) && this.variable > 0)
     {
       this.active = true;
       switch (this.type)
@@ -726,7 +756,7 @@ public class ZEffector : ZComponent
           {
             this.active = false;
             this.gameObjectActive = false;
-            if (this.game.isClient)
+            if (this.game.isClient && (UnityEngine.Object) this.transform != (UnityEngine.Object) null)
             {
               this.gameObject.SetActive(false);
               this.VisualUpdate();
@@ -798,18 +828,18 @@ public class ZEffector : ZComponent
             position4.y -= 55;
           else
             position4.y -= 55;
-          Spell spell = this.type == EffectorType.English_Summer ? Inert.Instance.rain : Inert.Instance.acidRain;
+          Spell spell1 = this.type == EffectorType.English_Summer ? Inert.Instance.rain : Inert.Instance.acidRain;
           if (this.turnsAlive == 1)
-            this.game.ongoing.RunSpell(ZSpell.IEnumeratorBlizzard(this.whoSummoned, spell, position4, -150, 150, 10));
+            this.game.ongoing.RunSpell(ZSpell.IEnumeratorBlizzard(this.whoSummoned, spell1, position4, -150, 150, 10));
           if (this.turnsAlive == 2)
-            this.game.ongoing.RunSpell(ZSpell.IEnumeratorBlizzard(this.whoSummoned, spell, position4, -150, 150, 21));
+            this.game.ongoing.RunSpell(ZSpell.IEnumeratorBlizzard(this.whoSummoned, spell1, position4, -150, 150, 21));
           if (this.turnsAlive == 3)
-            this.game.ongoing.RunSpell(ZSpell.IEnumeratorBlizzard(this.whoSummoned, spell, position4, -150, 150, 32));
+            this.game.ongoing.RunSpell(ZSpell.IEnumeratorBlizzard(this.whoSummoned, spell1, position4, -150, 150, 32));
           if (this.turnsAlive == 4)
-            this.game.ongoing.RunSpell(ZSpell.IEnumeratorBlizzard(this.whoSummoned, spell, position4, -150, 150, 55));
+            this.game.ongoing.RunSpell(ZSpell.IEnumeratorBlizzard(this.whoSummoned, spell1, position4, -150, 150, 55));
           if (this.turnsAlive != 5)
             break;
-          this.game.ongoing.RunSpell(ZSpell.IEnumeratorBlizzard(this.whoSummoned, spell, position4, -150, 150, 75));
+          this.game.ongoing.RunSpell(ZSpell.IEnumeratorBlizzard(this.whoSummoned, spell1, position4, -150, 150, 75));
           this.Die(indexInParent, false, global);
           break;
         case EffectorType.Clockwork_Bomb:
@@ -863,29 +893,29 @@ public class ZEffector : ZComponent
         case EffectorType.Call_of_the_Void:
           this.active = false;
           this.variable += 25;
-          int num = 64;
+          int num1 = 64;
           if (this.variable == 50)
-            num = 136;
+            num1 = 136;
           else if (this.variable == 75)
-            num = 208;
+            num1 = 208;
           else if (this.variable == 100)
-            num = 280;
+            num1 = 280;
           else if (this.variable == 125)
-            num = 355;
-          ZSpell.ApplyExplosionForce(SpellEnum.Call_of_the_Void, this.world, this.position, this.variable, Curve.None, 10, num, (FixedInt) 1, DamageType.None, this.whoSummoned, this.game.turn);
+            num1 = 355;
+          ZSpell.ApplyExplosionForce(SpellEnum.Call_of_the_Void, this.world, this.position, this.variable, Curve.None, 10, num1, (FixedInt) 1, DamageType.None, this.whoSummoned, this.game.turn);
           if (this.game.isClient && (UnityEngine.Object) this.gameObject != (UnityEngine.Object) null)
           {
-            this.game.map.CallOfTheVoid((int) this.position.x, (int) this.position.y, num);
+            this.game.map.CallOfTheVoid((int) this.position.x, (int) this.position.y, num1);
             ParticleSystem.ShapeModule shape = this.gameObject.GetComponent<ParticleSystem>().shape with
             {
-              radius = (float) (num - 44)
+              radius = (float) (num1 - 44)
             };
             ParticleSystem component = this.transform.GetChild(0).GetComponent<ParticleSystem>();
             shape = component.shape with
             {
-              radius = (float) num
+              radius = (float) num1
             };
-            component.emission.rateOverTime = (ParticleSystem.MinMaxCurve) (float) num;
+            component.emission.rateOverTime = (ParticleSystem.MinMaxCurve) (float) num1;
           }
           if (this.variable == 75 && (ZComponent.IsNull((ZComponent) this.whoSummoned) || this.whoSummoned.parent.localTurn < 20))
           {
@@ -952,7 +982,7 @@ public class ZEffector : ZComponent
           this.isNull = true;
           ZComponent.Destroy<GameObject>(this.gameObject);
           break;
-        case EffectorType.Devils_Snare:
+        case EffectorType.Prickly_Barrier:
           if ((ZComponent) this.whoSummoned == (object) null)
             break;
           this.VisualUpdate();
@@ -960,7 +990,7 @@ public class ZEffector : ZComponent
           {
             this.active = false;
             this.VisualUpdate();
-            ZFlameWallSpell zflameWallSpell = ZSpell.FireFlameWall(Inert.GetSpell(SpellEnum.Devils_Snare), this.whoSummoned, new MyLocation((FixedInt) this.game.RandomInt(-150, 150) + this.position.x, (FixedInt) this.game.RandomInt(-150, 150) + this.position.y), (FixedInt) 0, (FixedInt) 0, this.active || (ZComponent) this.whoSummoned != (object) null && this.whoSummoned.parent.ritualEnum.Contains(SpellEnum.Devils_Snare));
+            ZFlameWallSpell zflameWallSpell = ZSpell.FireFlameWall(Inert.GetSpell(SpellEnum.Prickly_Barrier), this.whoSummoned, new MyLocation((FixedInt) this.game.RandomInt(-150, 150) + this.position.x, (FixedInt) this.game.RandomInt(-150, 150) + this.position.y), (FixedInt) 0, (FixedInt) 0, this.active);
             zflameWallSpell.effector.turnsAlive = this.turnsAlive;
             zflameWallSpell.effector2.turnsAlive = this.turnsAlive;
             break;
@@ -970,29 +1000,29 @@ public class ZEffector : ZComponent
             zmyColliderList1.Sort((Comparison<ZMyCollider>) ((a, b) => MyLocation.FastDistance(a.position, this.position) - MyLocation.FastDistance(b.position, this.position)));
           foreach (ZMyCollider zmyCollider in zmyColliderList1)
             this.EffectCreature((ZComponent) zmyCollider.tower != (object) null ? zmyCollider.tower.creature : zmyCollider.creature, true);
-          ZFlameWallSpell zflameWallSpell1 = ZSpell.FireFlameWall(Inert.GetSpell(SpellEnum.Devils_Snare), this.whoSummoned, new MyLocation((FixedInt) this.game.RandomInt(-150, 150) + this.position.x, (FixedInt) this.game.RandomInt(-150, 150) + this.position.y), (FixedInt) 0, (FixedInt) 0, this.active || (ZComponent) this.whoSummoned != (object) null && this.whoSummoned.parent.ritualEnum.Contains(SpellEnum.Devils_Snare));
+          ZFlameWallSpell zflameWallSpell1 = ZSpell.FireFlameWall(Inert.GetSpell(SpellEnum.Prickly_Barrier), this.whoSummoned, new MyLocation((FixedInt) this.game.RandomInt(-150, 150) + this.position.x, (FixedInt) this.game.RandomInt(-150, 150) + this.position.y), (FixedInt) 0, (FixedInt) 0, this.active);
           zflameWallSpell1.effector.turnsAlive = this.turnsAlive;
           zflameWallSpell1.effector2.turnsAlive = this.turnsAlive;
           break;
-        case EffectorType.Werewolf:
+        case EffectorType.Bear:
           this.active = false;
           if (this.turnsAlive < 5)
             break;
           this.isNull = true;
           if (!((ZComponent) this.whoSummoned != (object) null))
             break;
-          ZComponent.Destroy<GameObject>(this.whoSummoned.werewolfObj);
-          int childCount = this.whoSummoned.transform.GetChild(0).childCount;
-          for (int index = 2; index < childCount; ++index)
-            this.whoSummoned.transform.GetChild(0).GetChild(index).gameObject.SetActive(true);
-          this.whoSummoned.animator = this.whoSummoned.gameObject.GetComponent<IAnimator>();
+          if ((UnityEngine.Object) this.whoSummoned.transform != (UnityEngine.Object) null)
+          {
+            ZComponent.Destroy<GameObject>(this.whoSummoned.werewolfObj);
+            int childCount = this.whoSummoned.transform.GetChild(0).childCount;
+            for (int index = 2; index < childCount; ++index)
+              this.whoSummoned.transform.GetChild(0).GetChild(index).gameObject.SetActive(true);
+            this.whoSummoned.animator = this.whoSummoned.gameObject.GetComponent<IAnimator>();
+          }
           this.whoSummoned.race = this.whoSummoned.baseCreature.race;
           this.whoSummoned.type = this.whoSummoned.baseCreature.type;
           this.whoSummoned.RemoveSpell(SpellEnum.Rampage);
           this.whoSummoned.RemoveSpell(SpellEnum.Swipe);
-          this.whoSummoned.maxHealth -= 100;
-          if (this.whoSummoned.health > this.whoSummoned.maxHealth)
-            this.whoSummoned.health = this.whoSummoned.maxHealth;
           this.whoSummoned.UpdateHealthTxt();
           this.whoSummoned.SetRadius(this.whoSummoned.TrueSize);
           this.whoSummoned.HighJumpData.y -= 2;
@@ -1015,7 +1045,7 @@ public class ZEffector : ZComponent
           MyLocation pos2 = (ZComponent) this.spell.parent != (object) null ? this.spell.parent.position : this.position;
           int y2 = (int) pos2.y;
           pos2.y = (FixedInt) (this.map.Height + 1000);
-          ZSpell.BaseFire(Inert.GetSpell(SpellEnum.Starfire), this.whoSummoned, pos2, Quaternion.identity, new MyLocation(0, -40));
+          ZSpell.BaseFire(Inert.GetSpell(SpellEnum.Starfire), this.whoSummoned, pos2, Quaternion.identity, new MyLocation(0, -40), isChild: true);
           if (this.turnsAlive != 2)
             break;
           this.Die(indexInParent, destroyable, global);
@@ -1026,7 +1056,7 @@ public class ZEffector : ZComponent
         case EffectorType.GravityWell:
           this.VisualUpdate();
           break;
-        case EffectorType.Wolf_Leap:
+        case EffectorType.Boar_Charge:
           this.active = false;
           if ((ZComponent) this.whoSummoned == (object) null)
             break;
@@ -1039,7 +1069,7 @@ public class ZEffector : ZComponent
           List<ZMyCollider> zmyColliderList2;
           if (this.whoSummoned.team != 24)
           {
-            zmyColliderList2 = this.game.world.OverlapCircleAll(new Point(this.position), 500, this.whoSummoned.collider, Inert.mask_entity_movement | Inert.mask_Phantom);
+            zmyColliderList2 = this.game.world.OverlapCircleAll(new Point(this.position), 750, this.whoSummoned.collider, Inert.mask_entity_movement | Inert.mask_Phantom);
           }
           else
           {
@@ -1047,7 +1077,7 @@ public class ZEffector : ZComponent
             zmyColliderList2.Add(this.game.ClosestCreature(this.whoSummoned, false)?.collider);
           }
           List<ZMyCollider> zmyColliderList3 = zmyColliderList2;
-          zmyColliderList3.Sort((Comparison<ZMyCollider>) ((a, b) => MyLocation.FastDistance(a.position, this.whoSummoned.position) - MyLocation.FastDistance(b.position, this.whoSummoned.position)));
+          zmyColliderList3.Sort((Comparison<ZMyCollider>) ((a, b) => MyLocation.Distance(a.position, this.whoSummoned.position) - MyLocation.Distance(b.position, this.whoSummoned.position)));
           for (int index = 0; index < zmyColliderList3.Count; ++index)
           {
             ZCreature creature = zmyColliderList3[index].creature;
@@ -1055,23 +1085,9 @@ public class ZEffector : ZComponent
               creature = zmyColliderList3[index].tower.creature;
             if ((ZComponent) creature != (object) null && creature.parent.team != this.whoSummoned.team)
             {
-              FixedInt fixedInt1 = (FixedInt) (this.whoSummoned.team == 24 ? 26 : 20);
-              bool smallAngle = true;
-              FixedInt d = FixedInt.Abs(this.whoSummoned.position.x - creature.position.x);
-              FixedInt fixedInt2 = ZSpell.AngleToGoDistance(fixedInt1, -this.map.Gravity, d, creature.position.y - this.whoSummoned.position.y, smallAngle);
-              if (d > 10 && FixedInt.InvalidAngle(fixedInt2))
-              {
-                MyLocation myLocation = creature.position - this.whoSummoned.position;
-                myLocation.Normalize();
-                fixedInt2 = FixedInt.Atan2(myLocation.y, myLocation.x) * FixedInt.Rad2Deg;
-              }
-              else if ((FixedInt) zmyColliderList3[index].x < this.whoSummoned.position.x)
-                fixedInt2 = (FixedInt) 180 - fixedInt2;
-              if (this.whoSummoned.isMoving)
-                this.whoSummoned.KillMovement();
-              this.whoSummoned.velocity = Inert.Velocity(fixedInt2, fixedInt1);
-              this.whoSummoned.SetScale(this.whoSummoned.velocity.x.ToFloat());
-              this.whoSummoned.moving = this.game.ongoing.RunSpell(this.whoSummoned.WolfLeap());
+              Spell spell2 = Inert.GetSpell(SpellEnum.Mine);
+              ZSpell.FireMine(spell2, this.whoSummoned, creature.position, -(spell2.maxDuration / 2), true);
+              this.whoSummoned.game.ongoing.RunCoroutine(ZSpell.IEWolfJump(this.whoSummoned.game, this.whoSummoned, creature, spell2.maxDuration / 2 + 1, 15), false);
               break;
             }
           }
@@ -1081,6 +1097,152 @@ public class ZEffector : ZComponent
           if (ZComponent.IsNull((ZComponent) this.whoSummoned) || this.whoSummoned.parent == null || this.whoSummoned.parent.controlled.Count <= 0)
             break;
           ZSpell.ApparitionArmageddon(this.whoSummoned);
+          break;
+        case EffectorType.AutumnLeaves:
+          this.VisualUpdate();
+          break;
+        case EffectorType.Grove_Renewal:
+          this.active = false;
+          if (ZComponent.IsNull((ZComponent) this.whoSummoned) || this.whoSummoned.parent.localTurn > this.variable)
+          {
+            ++this.variable;
+            List<ZMyCollider> zmyColliderList4 = this.world.OverlapCircleAll(new Point((int) this.position.x + 7, (int) this.position.y - 24), 95, this.collider, Inert.mask_movement_NoEffector | Inert.mask_Phantom);
+            for (int index = 0; index < zmyColliderList4.Count; ++index)
+            {
+              if ((ZComponent) zmyColliderList4[index].creature != (object) null)
+              {
+                int team1 = zmyColliderList4[index].creature.team;
+                int? team2 = this.whoSummoned?.parent?.team;
+                int valueOrDefault = team2.GetValueOrDefault();
+                if (team1 == valueOrDefault & team2.HasValue)
+                {
+                  zmyColliderList4[index].creature.DoHeal(25);
+                  if (zmyColliderList4[index].creature.type == CreatureType.Boar && !zmyColliderList4[index].creature.flying)
+                    ZSpell.WhenPigsFly(Inert.GetSpell(SpellEnum.When_Pigs_Fly), zmyColliderList4[index].creature);
+                }
+              }
+            }
+            if (this.turnsAlive < this.MaxTurnsAlive - 1 || this.MaxTurnsAlive <= 0)
+              break;
+            this.Die(indexInParent, destroyable, global);
+            break;
+          }
+          ++this.MaxTurnsAlive;
+          break;
+        case EffectorType.Stalk:
+          this.whoSummoned.controllable = true;
+          List<ZMyCollider> zmyColliderList5;
+          if (this.whoSummoned.team != 24)
+          {
+            zmyColliderList5 = this.game.world.OverlapCircleAll(new Point(this.position), 750, this.whoSummoned.collider, Inert.mask_entity_movement | Inert.mask_Phantom);
+          }
+          else
+          {
+            zmyColliderList5 = new List<ZMyCollider>();
+            zmyColliderList5.Add(this.game.ClosestCreature(this.whoSummoned, false)?.collider);
+          }
+          List<ZMyCollider> zmyColliderList6 = zmyColliderList5;
+          zmyColliderList6.Sort((Comparison<ZMyCollider>) ((a, b) => MyLocation.Distance(a.position, this.whoSummoned.position) - MyLocation.Distance(b.position, this.whoSummoned.position)));
+          if (this.game.isClient && !this.game.resyncing)
+            AudioManager.Play(AudioManager.instance.stalkAppear);
+          ZSpell.FireTeleport(Inert.GetSpell(SpellEnum.Pounce), this.whoSummoned, this.position, (FixedInt) 0, (FixedInt) 0, this.position);
+          if (this.whoSummoned.isDead)
+            break;
+          for (int index = 0; index < zmyColliderList6.Count; ++index)
+          {
+            ZCreature creature = zmyColliderList6[index].creature;
+            if ((ZComponent) creature == (object) null && (ZComponent) zmyColliderList6[index].tower != (object) null)
+              creature = zmyColliderList6[index].tower.creature;
+            if ((ZComponent) creature != (object) null && creature.parent.team != this.whoSummoned.team)
+            {
+              this.whoSummoned.game.ongoing.RunSpell(ZSpell.IEWolfJump(this.whoSummoned.game, this.whoSummoned, creature, -1, 25));
+              this.Die(indexInParent, destroyable, global);
+              return;
+            }
+          }
+          this.Die(indexInParent, destroyable, global);
+          break;
+        case EffectorType.Rising_Lava:
+          this.active = false;
+          int variable1 = this.variable;
+          int? localTurn1 = this.game.CurrentPlayer()?.localTurn;
+          int valueOrDefault1 = localTurn1.GetValueOrDefault();
+          if (variable1 < valueOrDefault1 & localTurn1.HasValue)
+          {
+            ZPerson zperson = this.game.CurrentPlayer();
+            this.variable = zperson != null ? zperson.localTurn : 0;
+          }
+          int width1 = this.map.Width;
+          int y3 = this.map.Height * this.variable / 75;
+          int num2 = this.map.Width / 2;
+          int num3 = 0;
+          if (this.halved)
+            y3 /= 2;
+          Coords coords1 = new Coords(-width1, -y3);
+          Coords coords2 = new Coords(width1, y3);
+          List<ZMyCollider> zmyColliderList7 = this.world.OverlapRectangleAll(new MyCollider.Bounds()
+          {
+            x1 = coords1.x + num2,
+            x2 = coords2.x + num2,
+            y1 = coords1.y + num3,
+            y2 = coords2.y + num3
+          }, (ZMyCollider) null, Inert.mask_Phantom | Inert.mask_movement_NoEffector);
+          for (int index = 0; index < zmyColliderList7.Count; ++index)
+          {
+            if (zmyColliderList7[index].gameObjectLayer == 13)
+              zmyColliderList7[index].tower.ApplyDamage(SpellEnum.Rising_Lava, DamageType.None, this.variable * 2, (ZCreature) null, this.variable);
+            else
+              zmyColliderList7[index].creature?.ApplyDamage(SpellEnum.Rising_Lava, DamageType.None, this.variable, (ZCreature) null, this.variable);
+          }
+          this.VisualUpdate();
+          break;
+        case EffectorType.Phantom:
+          this.active = false;
+          this.whoSummoned.collider.gameObjectLayer = 16;
+          this.whoSummoned.collider.layer = 65536;
+          break;
+        case EffectorType.Fake_Portal:
+          if (ZComponent.IsNull((ZComponent) this.partner) || this.partner.dead)
+          {
+            this.Die(indexInParent, destroyable, global);
+            break;
+          }
+          this.active = false;
+          this.partner.TurnPassed(this.game.globalEffectors.FindIndex((Predicate<ZEffector>) (z => (ZComponent) z == (object) this.partner)), true, true);
+          break;
+        case EffectorType.Dense_Fog:
+          this.active = false;
+          int variable2 = this.variable;
+          int? localTurn2 = this.game.CurrentPlayer()?.localTurn;
+          int valueOrDefault2 = localTurn2.GetValueOrDefault();
+          if (variable2 < valueOrDefault2 & localTurn2.HasValue)
+          {
+            ZPerson zperson = this.game.CurrentPlayer();
+            this.variable = zperson != null ? zperson.localTurn : 0;
+          }
+          int width2 = this.map.Width;
+          int y4 = this.map.Height * this.variable / 75;
+          int num4 = this.map.Width / 2;
+          int height = this.map.Height;
+          if (this.halved)
+            y4 /= 2;
+          Coords coords3 = new Coords(-width2, -y4);
+          Coords coords4 = new Coords(width2, y4);
+          List<ZMyCollider> zmyColliderList8 = this.world.OverlapRectangleAll(new MyCollider.Bounds()
+          {
+            x1 = coords3.x + num4,
+            x2 = coords4.x + num4,
+            y1 = coords3.y + height,
+            y2 = coords4.y + height
+          }, (ZMyCollider) null, Inert.mask_Phantom | Inert.mask_movement_NoEffector);
+          for (int index = 0; index < zmyColliderList8.Count; ++index)
+          {
+            if (zmyColliderList8[index].gameObjectLayer == 13)
+              zmyColliderList8[index].tower.ApplyDamage(SpellEnum.Dense_Fog, DamageType.None, this.variable * 2, (ZCreature) null, this.variable);
+            else
+              zmyColliderList8[index].creature?.ApplyDamage(SpellEnum.Dense_Fog, DamageType.None, this.variable, (ZCreature) null, this.variable);
+          }
+          this.VisualUpdate();
           break;
       }
     }
@@ -1630,6 +1792,8 @@ public class ZEffector : ZComponent
 
   public void PortalDisable()
   {
+    if (!((UnityEngine.Object) this.transform != (UnityEngine.Object) null))
+      return;
     this.transform.GetChild(0).gameObject.SetActive(false);
     this.transform.GetChild(1).gameObject.SetActive(false);
     this.transform.GetChild(2).gameObject.SetActive(false);
@@ -1741,44 +1905,82 @@ public class ZEffector : ZComponent
     ZEffector start,
     bool fullBlood = false)
   {
-    if (ZComponent.IsNull((ZComponent) c) || c.isDead || c.race == CreatureRace.Effector || !fullBlood && c.familiarLevelBlood > 0 && !c.isPawn || (ZComponent) start != (object) null && start.turnsAlive >= 5)
-      return;
-    for (int index = 0; index < c.followingColliders.Count; ++index)
+    HashSet<ZCreature> zcreatureSet = new HashSet<ZCreature>();
+    List<ZCreature> zcreatureList = new List<ZCreature>();
+    int index1 = 0;
+    List<(ZCreature, ZEffector)> valueTupleList = new List<(ZCreature, ZEffector)>();
+    zcreatureSet.Add(c);
+    zcreatureList.Add(c);
+    while (true)
     {
-      if ((ZComponent) c.followingColliders[index] != (object) null)
+      if (!ZComponent.IsNull((ZComponent) c) && !c.isDead && c.race != CreatureRace.Effector && (fullBlood || c.familiarLevelBlood <= 0 || c.isPawn) && (!((ZComponent) start != (object) null) || start.turnsAlive < 5))
       {
-        ZEffector effector = c.followingColliders[index].effector;
-        if ((ZComponent) effector != (object) null && effector.type == EffectorType.Lich_Aura_of_decay && effector.damageType == DamageType.Infection)
-          return;
+        for (int index2 = 0; index2 < c.followingColliders.Count; ++index2)
+        {
+          if ((ZComponent) c.followingColliders[index2] != (object) null)
+          {
+            ZEffector effector = c.followingColliders[index2].effector;
+            if ((ZComponent) effector != (object) null && effector.type == EffectorType.Lich_Aura_of_decay && effector.damageType == DamageType.Infection)
+              goto label_18;
+          }
+        }
+        ZEffector zeffector = ZEffector.Create(c.game, Inert.Instance.infectedBloodAura, c.transform.position, Quaternion.identity, c.transform);
+        zeffector.game = c.game;
+        zeffector.whoSummoned = c;
+        zeffector.infector = infector;
+        zeffector.followParent = true;
+        zeffector.collider.world = zeffector.world;
+        zeffector.collider.Move(c.position);
+        c.effectors.Add(zeffector);
+        c.followingColliders.Add(zeffector.collider);
+        zeffector.active = false;
+        c.game.forceRysncPause = true;
+        if ((UnityEngine.Object) c.transform != (UnityEngine.Object) null)
+        {
+          c.notScaled.Add((ZCreature.NotScaled) new ZCreature.OneScaled(zeffector.transform));
+          if (c.game.isClient && (double) c.scale != 1.0)
+          {
+            float num = 1f / c.scale;
+            zeffector.transform.localScale = new Vector3(num, num, num);
+          }
+        }
+        valueTupleList.Add((c, zeffector));
+        List<ZMyCollider> zmyColliderList = zeffector.world.OverlapCircleAll((Point) c.position, zeffector.collider.radius, (ZMyCollider) null, Inert.mask_movement_NoEffector | Inert.mask_Phantom);
+        for (int index3 = 0; index3 < zmyColliderList.Count; ++index3)
+        {
+          if (zmyColliderList[index3].gameObjectLayer == 13)
+          {
+            ZTower tower = zmyColliderList[index3].tower;
+            if ((ZComponent) tower != (object) null && tower.type != TowerType.Nature && (ZComponent) tower.creature != (object) null && zcreatureSet.Add(tower.creature))
+              zcreatureList.Add(tower.creature);
+          }
+          else
+          {
+            ZCreature creature = zmyColliderList[index3].creature;
+            if ((ZComponent) creature != (object) null && (creature.race != CreatureRace.Effector || creature.GetType() == typeof (ZCreatureTree)) && creature.type != CreatureType.Dryad && zcreatureSet.Add(creature))
+              zcreatureList.Add(creature);
+          }
+        }
+      }
+label_18:
+      if (zcreatureList.Count > index1)
+      {
+        c = zcreatureList[index1];
+        ++index1;
+      }
+      else
+        break;
+    }
+    foreach ((ZCreature, ZEffector) valueTuple in valueTupleList)
+    {
+      valueTuple.Item2.TurnPassed(valueTuple.Item1.effectors.Count - 1, false, false);
+      if ((ZComponent) start != (object) null)
+      {
+        valueTuple.Item2.SetTurnsAlive(start.turnsAlive);
+        if ((ZComponent) infector != (object) null)
+          valueTuple.Item2.MaxTurnsAlive = Mathf.Max(start.turnsAlive + infector.familiarLevelBlood, 5);
       }
     }
-    ZEffector zeffector = ZEffector.Create(c.game, Inert.Instance.infectedBloodAura, c.transform.position, Quaternion.identity, c.transform);
-    zeffector.game = c.game;
-    zeffector.whoSummoned = c;
-    zeffector.infector = infector;
-    zeffector.followParent = true;
-    zeffector.collider.world = zeffector.world;
-    zeffector.collider.Move(c.position);
-    c.effectors.Add(zeffector);
-    c.followingColliders.Add(zeffector.collider);
-    zeffector.active = false;
-    zeffector.TurnPassed(c.effectors.Count - 1, false, false);
-    c.game.forceRysncPause = true;
-    if ((UnityEngine.Object) c.transform != (UnityEngine.Object) null)
-    {
-      c.notScaled.Add((ZCreature.NotScaled) new ZCreature.OneScaled(zeffector.transform));
-      if (c.game.isClient && (double) c.scale != 1.0)
-      {
-        float num = 1f / c.scale;
-        zeffector.transform.localScale = new Vector3(num, num, num);
-      }
-    }
-    if (!((ZComponent) start != (object) null))
-      return;
-    zeffector.SetTurnsAlive(start.turnsAlive);
-    if (!((ZComponent) infector != (object) null))
-      return;
-    zeffector.MaxTurnsAlive = Mathf.Max(start.turnsAlive + infector.familiarLevelBlood, 5);
   }
 
   public bool OnTeam(ZCreature c)
@@ -1831,7 +2033,40 @@ label_5:
       this.spell.position = new MyLocation(this.position.x, y);
       this.collider.Move(this.spell.position);
     }
-    return false;
+    if (c.type == CreatureType.Tree)
+      return false;
+    this.active = false;
+    if (c.game.isClient)
+      this.ToggleMorningSun();
+    return true;
+  }
+
+  public IEnumerator<float> RetroactiveDisableLeaf(int radius)
+  {
+    MyLocation position = this.position;
+    for (int i = 0; i < 60; ++i)
+      yield return 0.0f;
+    List<ZMyCollider> zmyColliderList = new List<ZMyCollider>();
+    HashSet<ZMyCollider> zmyColliderSet = new HashSet<ZMyCollider>();
+    int index1 = 0;
+    while (this.world != null)
+    {
+      List<ZMyCollider> list = this.world.OverlapCircleAll((Point) position, radius + 50, this.collider, 512);
+      for (int index2 = 0; index2 < list.Count; ++index2)
+      {
+        if ((ZComponent) list[index2] != (object) null && (ZComponent) list[index2].effector != (object) null && (ZComponent) list[index2].spell != (object) null && list[index2].spell.spellEnum == SpellEnum.Autumn_Leaves && list[index2].effector.active && zmyColliderSet.Add(list[index2]))
+        {
+          list[index2].effector.active = false;
+          list[index2].effector.VisualUpdate();
+          zmyColliderList.Add(list[index2]);
+        }
+      }
+      this.world.listPool.ReturnList(list);
+      if (index1 >= zmyColliderList.Count || (ZComponent) zmyColliderList[index1] == (object) null)
+        break;
+      position = zmyColliderList[index1].position;
+      ++index1;
+    }
   }
 
   public void EffectCreature(ZCreature c, bool fromTurnStart = false)
@@ -1841,489 +2076,513 @@ label_5:
     if (!this.active)
     {
       if (this.game.isClient && (this.type == EffectorType.Aura_of_decay || this.type == EffectorType.Lich_Aura_of_decay || this.type == EffectorType.Dragon_Aura_of_Decay) && ((ZComponent) c != (object) this.whoSummoned || this.type == EffectorType.Aura_of_decay))
-      {
         ZEffector.SpawnIndicatorOfDecay(c, this);
-      }
-      else
+      else if (this.type == EffectorType.Morning_Sun && this.spell.position.y != c.position.y)
       {
-        if (this.type != EffectorType.Morning_Sun || !(this.spell.position.y != c.position.y))
-          return;
         this.spell.position = new MyLocation(this.position.x, c.position.y);
         this.collider.Move(this.spell.position);
       }
-    }
-    else
-    {
-      if ((ZComponent) c != (object) null && c.race == CreatureRace.Effector && this.type != EffectorType.Sanctuary && this.type != EffectorType.Storm_Shield && c.type != CreatureType.Tree)
+      if (this.type != EffectorType.Miner_Map)
         return;
-      switch (this.type)
-      {
-        case EffectorType.None:
+    }
+    if ((ZComponent) c != (object) null && c.race == CreatureRace.Effector && this.type != EffectorType.Sanctuary && this.type != EffectorType.Storm_Shield && c.type != CreatureType.Tree)
+      return;
+    switch (this.type)
+    {
+      case EffectorType.None:
+        break;
+      case EffectorType.Glyph:
+        this.active = false;
+        int damage = 10;
+        if (!ZComponent.IsNull((ZComponent) this.whoSummoned) && this.whoSummoned.HasArcaneEnergizer)
+          damage = 15;
+        this.map.ServerBitBlt(36, (int) this.position.x, (int) this.position.y);
+        if (ZComponent.IsNull((ZComponent) c) || (ZComponent) c != (object) this.whoSummoned || c.type == CreatureType.Imp)
+          ZSpell.ApplyExplosionForce(SpellEnum.Arcane_Glyph, this.world, this.position, damage, Curve.Generic, 16, 35, (FixedInt) 4, DamageType.Arcane, this.whoSummoned, this.TurnCreated, spellRef: (ISpellBridge) Inert.GetSpell("Arcane Glyph"), firstHit: c);
+        else if ((ZComponent) c != (object) null && c.FullArcane)
+        {
+          c.ApplyDamage(SpellEnum.Arcane_Glyph, DamageType.Arcane, damage, c, 0, (ISpellBridge) Inert.GetSpell("Arcane Glyph"));
+          c.KillMovement();
+          c.velocity = new MyLocation(0, -2);
+          c.StartMoving(false);
+        }
+        else if ((ZComponent) c != (object) null && (ZComponent) c.tower != (object) null && c.tower.type == TowerType.Arcane)
+          c.tower.ApplyDamage(SpellEnum.Arcane_Gate, DamageType.Arcane, damage, c, 0, (ISpellBridge) Inert.GetSpell("Arcane Glyph"));
+        else if ((ZComponent) c != (object) null)
+        {
+          c.KillMovement();
+          c.velocity = new MyLocation(0, -2);
+          c.StartMoving(false);
+        }
+        this.Destroy();
+        break;
+      case EffectorType.Flame_WallBase:
+        this.active = false;
+        this.spell.effector2.active = false;
+        this.VisualUpdate();
+        this.map.ServerBitBlt(5, (int) this.collider.position.x, (int) this.collider.position.y);
+        this.spell.ApplyExplosionForce(this.collider.position, firstHit: c);
+        this.spell.Fall();
+        this.spell.Undie();
+        AudioManager.Play(this.spell.explosionClip);
+        break;
+      case EffectorType.Natures_Wrath:
+        if ((ZComponent) c == (object) null || c.type == CreatureType.Tree || c.UnaffectedByNaturesWraith || !c.isMoving || MyLocation.Distance(c.velocity, MyLocation.zero) >= 15 || (double) this.game.serverState.turnTime >= 150.0 && !this.game.isSandbox || !(Mathd.Abs(c.position.x + c.velocity.x - this.position.x) < Mathd.Abs(c.position.x - this.position.x)) || !(Mathd.Abs(c.position.x - this.position.x) > c.radius))
           break;
-        case EffectorType.Glyph:
-          this.active = false;
-          int damage = 10;
-          if (!ZComponent.IsNull((ZComponent) this.whoSummoned) && this.whoSummoned.HasArcaneEnergizer)
-            damage = 15;
-          this.map.ServerBitBlt(36, (int) this.position.x, (int) this.position.y);
-          if (ZComponent.IsNull((ZComponent) c) || (ZComponent) c != (object) this.whoSummoned || c.type == CreatureType.Imp)
-            ZSpell.ApplyExplosionForce(SpellEnum.Arcane_Glyph, this.world, this.position, damage, Curve.Generic, 16, 35, (FixedInt) 4, DamageType.Arcane, this.whoSummoned, this.TurnCreated, spellRef: (ISpellBridge) Inert.GetSpell("Arcane Glyph"), firstHit: c);
-          else if ((ZComponent) c != (object) null && c.FullArcane)
-            c.ApplyDamage(SpellEnum.Arcane_Glyph, DamageType.Arcane, damage, c, 0, (ISpellBridge) Inert.GetSpell("Arcane Glyph"));
-          else if ((ZComponent) c != (object) null && (ZComponent) c.tower != (object) null && c.tower.type == TowerType.Arcane)
-            c.tower.ApplyDamage(SpellEnum.Arcane_Gate, DamageType.Arcane, damage, c, 0, (ISpellBridge) Inert.GetSpell("Arcane Glyph"));
-          this.Destroy();
-          break;
-        case EffectorType.Flame_WallBase:
-          this.active = false;
-          this.spell.effector2.active = false;
-          this.VisualUpdate();
-          this.map.ServerBitBlt(5, (int) this.collider.position.x, (int) this.collider.position.y);
-          this.spell.ApplyExplosionForce(this.collider.position, firstHit: c);
-          this.spell.Fall();
-          this.spell.Undie();
-          AudioManager.Play(this.spell.explosionClip);
-          break;
-        case EffectorType.Natures_Wrath:
-          if ((ZComponent) c == (object) null || c.type == CreatureType.Tree || c.UnaffectedByNaturesWraith || !c.isMoving || MyLocation.Distance(c.velocity, MyLocation.zero) >= 15 || (double) this.game.serverState.turnTime >= 150.0 && !this.game.isSandbox || !(Mathd.Abs(c.position.x + c.velocity.x - this.position.x) < Mathd.Abs(c.position.x - this.position.x)) || !(Mathd.Abs(c.position.x - this.position.x) > c.radius))
-            break;
-          if (c.flying)
+        if (c.flying)
+        {
+          if (Mathd.Abs(c.addedVelocity.x) < 15)
           {
-            if (Mathd.Abs(c.addedVelocity.x) < 15)
+            if (c.position.x < this.spell.position.x)
             {
-              if (c.position.x < this.spell.position.x)
-              {
-                ZCreature zcreature = c;
-                zcreature.addedVelocity = zcreature.addedVelocity + new MyLocation(-15, 0);
-              }
-              else
-              {
-                ZCreature zcreature = c;
-                zcreature.addedVelocity = zcreature.addedVelocity + new MyLocation(15, 0);
-              }
+              ZCreature zcreature = c;
+              zcreature.addedVelocity = zcreature.addedVelocity + new MyLocation(-15, 0);
             }
-            c.addVelocity = true;
-            break;
+            else
+            {
+              ZCreature zcreature = c;
+              zcreature.addedVelocity = zcreature.addedVelocity + new MyLocation(15, 0);
+            }
           }
-          MyLocation myLocation1 = c.position - this.spell.position;
-          myLocation1.Normalize();
-          myLocation1 *= 15728L;
-          if (myLocation1.x == 0)
-            myLocation1.x = (FixedInt) 10485L;
-          if (myLocation1.y > Mathd.Abs(myLocation1.x))
-          {
-            FixedInt x = myLocation1.x;
-            myLocation1.x = myLocation1.y * (x > 0 ? 1 : -1);
-            myLocation1.y = Mathd.Abs(x);
-          }
-          ZCreature zcreature1 = c;
-          zcreature1.addedVelocity = zcreature1.addedVelocity + myLocation1;
           c.addVelocity = true;
           break;
-        case EffectorType.Naplem:
+        }
+        MyLocation myLocation1 = c.position - this.spell.position;
+        myLocation1.Normalize();
+        myLocation1 *= 15728L;
+        if (myLocation1.x == 0)
+          myLocation1.x = (FixedInt) 10485L;
+        if (myLocation1.y > Mathd.Abs(myLocation1.x))
+        {
+          FixedInt x = myLocation1.x;
+          myLocation1.x = myLocation1.y * (x > 0 ? 1 : -1);
+          myLocation1.y = Mathd.Abs(x);
+        }
+        ZCreature zcreature1 = c;
+        zcreature1.addedVelocity = zcreature1.addedVelocity + myLocation1;
+        c.addVelocity = true;
+        break;
+      case EffectorType.Naplem:
+        this.active = false;
+        ZSpell spell1 = this.spell;
+        this.map.ServerBitBlt(5, (int) this.position.x, (int) this.position.y);
+        spell1.isDead = true;
+        spell1.isNull = true;
+        ZSpell.ApplyExplosionForce(SpellEnum.Napalm, this.world, this.collider.position, spell1.damage, spell1.forceOverDistance, spell1.radius, spell1.EXORADIUS, spell1.explisiveForce, spell1.damageType, this.whoSummoned, this.TurnCreated, spellRef: (ISpellBridge) Inert.GetSpell("Napalm"), firstHit: c);
+        if (this.game.isClient)
+          AudioManager.Play(this.soundClip);
+        this.DestroyNoExplosion();
+        break;
+      case EffectorType.Portal:
+      case EffectorType.Wormhole:
+        this.EffectEntity((ZEntity) c);
+        break;
+      case EffectorType.Storm_Shield:
+      case EffectorType.Electrostatic_Charge:
+        if (!((ZComponent) c != (object) null) || c.isDead || !((ZComponent) this.whoSummoned != (object) null) || this.whoSummoned.isDead || c.parent == null || c.parent == this.whoSummoned.parent || c.parent.team == this.whoSummoned.parent.team || c.race == CreatureRace.Effector && !(c.GetType() == typeof (ZCreatureTree)) || c.health <= 0)
+          break;
+        this.variable -= 5;
+        if (this.variable <= 0)
+        {
           this.active = false;
-          ZSpell spell1 = this.spell;
-          this.map.ServerBitBlt(5, (int) this.position.x, (int) this.position.y);
-          spell1.isDead = true;
-          spell1.isNull = true;
-          ZSpell.ApplyExplosionForce(SpellEnum.Napalm, this.world, this.collider.position, spell1.damage, spell1.forceOverDistance, spell1.radius, spell1.EXORADIUS, spell1.explisiveForce, spell1.damageType, this.whoSummoned, this.TurnCreated, spellRef: (ISpellBridge) Inert.GetSpell("Napalm"), firstHit: c);
           if (this.game.isClient)
+          {
+            this.VisualUpdate();
             AudioManager.Play(this.soundClip);
-          this.DestroyNoExplosion();
+          }
+        }
+        if ((ZComponent) c != (object) null)
+          c.ApplyDamage(SpellEnum.Storm_Shield, DamageType.Shock, 5, this.whoSummoned, this.TurnCreated, this.type == EffectorType.Storm_Shield ? (ISpellBridge) Inert.GetSpell("Storm Shield") : (ISpellBridge) Inert.GetSpell("Electrostatic Charge"));
+        if ((ZComponent) c != (object) null)
+        {
+          if (Mathd.Abs(c.position.x - this.whoSummoned.position.x) < 2 && (Mathd.Abs(c.velocity.x) < 3 || c.velocity.x < 0 && c.position.x < c.map.Width / 2 || c.velocity.x > 0 && c.position.x > c.map.Width / 2))
+            c.ApplyExplosionForce(10, new MyLocation(c.position.x + (c.position.x > c.map.Width / 2 ? 5 : -5), c.position.y - 10), (FixedInt) 1572864L, 10, Curve.Generic);
+          else
+            c.ApplyExplosionForce(10, new MyLocation(c.position.x + (c.position.x > this.whoSummoned.position.x ? 5 : -5), c.position.y - 10), (FixedInt) 1572864L, 10, Curve.Generic);
+        }
+        if (!((ZComponent) c != (object) null))
           break;
-        case EffectorType.Portal:
-        case EffectorType.Wormhole:
-          this.EffectEntity((ZEntity) c);
-          break;
-        case EffectorType.Storm_Shield:
-        case EffectorType.Electrostatic_Charge:
-          if (!((ZComponent) c != (object) null) || c.isDead || !((ZComponent) this.whoSummoned != (object) null) || this.whoSummoned.isDead || c.parent == null || c.parent == this.whoSummoned.parent || c.parent.team == this.whoSummoned.parent.team || c.race == CreatureRace.Effector && !(c.GetType() == typeof (ZCreatureTree)) || c.health <= 0)
-            break;
-          this.variable -= 5;
-          if (this.variable <= 0)
+        c.StartMoving(false);
+        break;
+      case EffectorType.Aura_of_decay:
+      case EffectorType.Dragon_Aura_of_Decay:
+        if (!this.gameObjectActive)
+        {
+          this.gameObjectActive = true;
+          if ((UnityEngine.Object) this.gameObject != (UnityEngine.Object) null)
+            this.gameObject.SetActive(true);
+          this.game.forceRysncPause = true;
+        }
+        List<ZMyCollider> zmyColliderList1 = this.world.OverlapCircleAll((Point) this.position, this.variable, (ZMyCollider) null, Inert.mask_movement_NoEffector | Inert.mask_Phantom);
+        List<ZCreature> zcreatureList1 = new List<ZCreature>();
+        Spell auraSpell = ZEffector.GetAuraSpell(this.damageType);
+        for (int index = 0; index < zmyColliderList1.Count; ++index)
+        {
+          if (zmyColliderList1[index].gameObjectLayer == 13)
           {
-            this.active = false;
-            if (this.game.isClient)
+            ZTower tower = zmyColliderList1[index].tower;
+            if ((ZComponent) tower != (object) null && tower.type != TowerType.Nature)
             {
-              this.VisualUpdate();
-              AudioManager.Play(this.soundClip);
+              this.active = false;
+              if (this.game.isClient && !this.game.resyncing && (UnityEngine.Object) tower.transform != (UnityEngine.Object) null)
+                ZEffector.SpawnAuraExplosion(tower.transform.position, this.damageType);
+              if (this.damageType != DamageType.Arcane || (ZComponent) this.whoSummoned != (object) tower.creature || tower.type == TowerType.Arcane || tower.creature.FullArcane || tower.creature.type == CreatureType.Imp || tower.creature.type == CreatureType.Egg)
+                tower.ApplyDamage(auraSpell.spellEnum, this.damageType, this.GetAuraDamage(this.damageType), this.whoSummoned, this.TurnCreated, (ISpellBridge) auraSpell);
+              ZCreature zcreature2 = this.map.PhysicsCollideCreature(tower.creature, (int) tower.position.x, (int) tower.position.y - 25);
+              if (this.damageType == DamageType.Death && (ZComponent) zcreature2 != (object) null && (ZComponent) zcreature2 != (object) this.whoSummoned && (ZComponent.IsNull((ZComponent) zcreature2.tower) || zcreature2.tower.type != TowerType.Nature) && (zcreature2.race != CreatureRace.Effector || zcreature2.GetType() == typeof (ZCreatureTree)) && this.damageType != DamageType.Infection)
+                zcreatureList1.Add(zcreature2);
+              ZEffector.SpawnIndicatorOfDecay(tower.creature, this);
             }
           }
-          if ((ZComponent) c != (object) null)
-            c.ApplyDamage(SpellEnum.Storm_Shield, DamageType.Shock, 5, this.whoSummoned, this.TurnCreated, this.type == EffectorType.Storm_Shield ? (ISpellBridge) Inert.GetSpell("Storm Shield") : (ISpellBridge) Inert.GetSpell("Electrostatic Charge"));
-          if ((ZComponent) c != (object) null)
+          else
           {
-            if (Mathd.Abs(c.position.x - this.whoSummoned.position.x) < 2 && (Mathd.Abs(c.velocity.x) < 3 || c.velocity.x < 0 && c.position.x < c.map.Width / 2 || c.velocity.x > 0 && c.position.x > c.map.Width / 2))
-              c.ApplyExplosionForce(10, new MyLocation(c.position.x + (c.position.x > c.map.Width / 2 ? 5 : -5), c.position.y - 10), (FixedInt) 1572864L, 10, Curve.Generic);
-            else
-              c.ApplyExplosionForce(10, new MyLocation(c.position.x + (c.position.x > this.whoSummoned.position.x ? 5 : -5), c.position.y - 10), (FixedInt) 1572864L, 10, Curve.Generic);
-          }
-          if (!((ZComponent) c != (object) null))
-            break;
-          c.StartMoving(false);
-          break;
-        case EffectorType.Aura_of_decay:
-        case EffectorType.Dragon_Aura_of_Decay:
-          if (!this.gameObjectActive)
-          {
-            this.gameObjectActive = true;
-            if ((UnityEngine.Object) this.gameObject != (UnityEngine.Object) null)
-              this.gameObject.SetActive(true);
-            this.game.forceRysncPause = true;
-          }
-          List<ZMyCollider> zmyColliderList1 = this.world.OverlapCircleAll((Point) this.position, this.variable, (ZMyCollider) null, Inert.mask_movement_NoEffector | Inert.mask_Phantom);
-          List<ZCreature> zcreatureList1 = new List<ZCreature>();
-          Spell auraSpell = ZEffector.GetAuraSpell(this.damageType);
-          for (int index = 0; index < zmyColliderList1.Count; ++index)
-          {
-            if (zmyColliderList1[index].gameObjectLayer == 13)
+            ZCreature creature = zmyColliderList1[index].creature;
+            if ((ZComponent) creature != (object) null && (creature.race != CreatureRace.Effector || creature.GetType() == typeof (ZCreatureTree)))
             {
-              ZTower tower = zmyColliderList1[index].tower;
-              if ((ZComponent) tower != (object) null && tower.type != TowerType.Nature)
+              this.active = false;
+              if (this.game.isClient && !this.game.resyncing && (UnityEngine.Object) creature.transform != (UnityEngine.Object) null)
+                ZEffector.SpawnAuraExplosion(creature.transform.position, this.damageType);
+              bool flag = true;
+              if ((this.damageType != DamageType.Arcane || (ZComponent) this.whoSummoned != (object) creature || (ZComponent) creature.tower != (object) null && creature.tower.type == TowerType.Arcane || creature.FullArcane || creature.type == CreatureType.Imp || creature.type == CreatureType.Egg) && creature.type != CreatureType.Dryad)
+                creature.ApplyDamage(auraSpell.spellEnum, this.damageType, this.GetAuraDamage(this.damageType), this.whoSummoned, this.TurnCreated, (ISpellBridge) auraSpell);
+              else
+                flag = false;
+              if (creature.flying && !creature.isMoving)
+                creature.SetVelocity(0, 3);
+              else if (ZComponent.IsNull((ZComponent) creature.tower) && ZComponent.IsNull((ZComponent) creature.mount) && !creature.isMoving)
+                creature.ApplyExplosionForce(128, this.AuraForce(creature), (FixedInt) 692060L, 128, Curve.None, true);
+              if (flag && (creature.race != CreatureRace.Effector || creature.type == CreatureType.Tree))
               {
-                this.active = false;
-                if (this.game.isClient && !this.game.resyncing && (UnityEngine.Object) tower.transform != (UnityEngine.Object) null)
-                  ZEffector.SpawnAuraExplosion(tower.transform.position, this.damageType);
-                if (this.damageType != DamageType.Arcane || (ZComponent) this.whoSummoned != (object) tower.creature || tower.type == TowerType.Arcane || tower.creature.FullArcane || tower.creature.type == CreatureType.Imp || tower.creature.type == CreatureType.Egg)
-                  tower.ApplyDamage(auraSpell.spellEnum, this.damageType, this.GetAuraDamage(this.damageType), this.whoSummoned, this.TurnCreated, (ISpellBridge) auraSpell);
-                ZCreature zcreature2 = this.map.PhysicsCollideCreature(tower.creature, (int) tower.position.x, (int) tower.position.y - 25);
-                if (this.damageType == DamageType.Death && (ZComponent) zcreature2 != (object) null && (ZComponent) zcreature2 != (object) this.whoSummoned && (ZComponent.IsNull((ZComponent) zcreature2.tower) || zcreature2.tower.type != TowerType.Nature) && (zcreature2.race != CreatureRace.Effector || zcreature2.GetType() == typeof (ZCreatureTree)) && this.damageType != DamageType.Infection)
-                  zcreatureList1.Add(zcreature2);
-                ZEffector.SpawnIndicatorOfDecay(tower.creature, this);
-              }
-            }
-            else
-            {
-              ZCreature creature = zmyColliderList1[index].creature;
-              if ((ZComponent) creature != (object) null && (creature.race != CreatureRace.Effector || creature.GetType() == typeof (ZCreatureTree)))
-              {
-                this.active = false;
-                if (this.game.isClient && !this.game.resyncing && (UnityEngine.Object) creature.transform != (UnityEngine.Object) null)
-                  ZEffector.SpawnAuraExplosion(creature.transform.position, this.damageType);
-                bool flag = true;
-                if ((this.damageType != DamageType.Arcane || (ZComponent) this.whoSummoned != (object) creature || (ZComponent) creature.tower != (object) null && creature.tower.type == TowerType.Arcane || creature.FullArcane || creature.type == CreatureType.Imp || creature.type == CreatureType.Egg) && creature.type != CreatureType.Dryad)
-                  creature.ApplyDamage(auraSpell.spellEnum, this.damageType, this.GetAuraDamage(this.damageType), this.whoSummoned, this.TurnCreated, (ISpellBridge) auraSpell);
-                else
-                  flag = false;
-                if (creature.flying && !creature.isMoving)
-                  creature.SetVelocity(0, 3);
-                else if (ZComponent.IsNull((ZComponent) creature.tower) && ZComponent.IsNull((ZComponent) creature.mount) && !creature.isMoving)
-                  creature.ApplyExplosionForce(128, this.AuraForce(creature), (FixedInt) 692060L, 128, Curve.None, true);
-                if (flag && (creature.race != CreatureRace.Effector || creature.type == CreatureType.Tree))
+                ZCreature z = this.map.PhysicsCollideCreature(creature, (int) creature.position.x, (int) creature.position.y - creature.radius - 10);
+                if (ZComponent.IsNull((ZComponent) z))
+                  z = this.map.PhysicsCollideCreature(creature, (int) creature.position.x + 5, (int) creature.position.y - creature.radius - 10);
+                if (ZComponent.IsNull((ZComponent) z))
+                  z = this.map.PhysicsCollideCreature(creature, (int) creature.position.x - 5, (int) creature.position.y - creature.radius - 10);
+                if (this.damageType == DamageType.Death && (ZComponent) z != (object) null && ((ZComponent) z != (object) this.whoSummoned || this.type == EffectorType.Aura_of_decay) && (ZComponent.IsNull((ZComponent) z.tower) || z.tower.type != TowerType.Nature) && (z.race != CreatureRace.Effector || z.GetType() == typeof (ZCreatureTree)) && this.damageType != DamageType.Infection && z.type != CreatureType.Dryad && (this.damageType != DamageType.Arcane || (ZComponent) this.whoSummoned != (object) z || (ZComponent) z.tower != (object) null && z.tower.type == TowerType.Arcane || z.FullArcane || z.type == CreatureType.Imp || z.type == CreatureType.Egg) && z.type != CreatureType.Dryad)
                 {
-                  ZCreature z = this.map.PhysicsCollideCreature(creature, (int) creature.position.x, (int) creature.position.y - creature.radius - 10);
-                  if (ZComponent.IsNull((ZComponent) z))
-                    z = this.map.PhysicsCollideCreature(creature, (int) creature.position.x + 5, (int) creature.position.y - creature.radius - 10);
-                  if (ZComponent.IsNull((ZComponent) z))
-                    z = this.map.PhysicsCollideCreature(creature, (int) creature.position.x - 5, (int) creature.position.y - creature.radius - 10);
-                  if (this.damageType == DamageType.Death && (ZComponent) z != (object) null && ((ZComponent) z != (object) this.whoSummoned || this.type == EffectorType.Aura_of_decay) && (ZComponent.IsNull((ZComponent) z.tower) || z.tower.type != TowerType.Nature) && (z.race != CreatureRace.Effector || z.GetType() == typeof (ZCreatureTree)) && this.damageType != DamageType.Infection && z.type != CreatureType.Dryad && (this.damageType != DamageType.Arcane || (ZComponent) this.whoSummoned != (object) z || (ZComponent) z.tower != (object) null && z.tower.type == TowerType.Arcane || z.FullArcane || z.type == CreatureType.Imp || z.type == CreatureType.Egg) && z.type != CreatureType.Dryad)
+                  if ((ZComponent) z.rider != (object) null && (ZComponent) creature != (object) z.rider)
                   {
-                    if ((ZComponent) z.rider != (object) null && (ZComponent) creature != (object) z.rider)
-                    {
-                      zcreatureList1.Add(z);
-                      zcreatureList1.Add(z);
-                    }
+                    zcreatureList1.Add(z);
                     zcreatureList1.Add(z);
                   }
+                  zcreatureList1.Add(z);
                 }
-                ZEffector.SpawnIndicatorOfDecay(creature, this);
               }
+              ZEffector.SpawnIndicatorOfDecay(creature, this);
             }
           }
-          foreach (ZCreature c1 in zcreatureList1)
+        }
+        foreach (ZCreature c1 in zcreatureList1)
+        {
+          if ((ZComponent) c1 != (object) null && c1.health > 0)
           {
-            if ((ZComponent) c1 != (object) null && c1.health > 0)
-            {
-              c1.ApplyDamage(auraSpell.spellEnum, this.damageType, this.GetAuraDamage(this.damageType), this.whoSummoned, this.TurnCreated, (ISpellBridge) auraSpell);
-              if (!c1.flying && ZComponent.IsNull((ZComponent) c1.tower) && ZComponent.IsNull((ZComponent) c1.mount))
-                c1.ApplyExplosionForce(128, this.AuraForce(c1), (FixedInt) 2, 128, Curve.None, true);
-            }
+            c1.ApplyDamage(auraSpell.spellEnum, this.damageType, this.GetAuraDamage(this.damageType), this.whoSummoned, this.TurnCreated, (ISpellBridge) auraSpell);
+            if (!c1.flying && ZComponent.IsNull((ZComponent) c1.tower) && ZComponent.IsNull((ZComponent) c1.mount))
+              c1.ApplyExplosionForce(128, this.AuraForce(c1), (FixedInt) 2, 128, Curve.None, true);
           }
-          if (!this.game.isClient)
-            break;
-          this.ToggleAura();
+        }
+        if (!this.game.isClient)
           break;
-        case EffectorType.Lich_Aura_of_decay:
-          if (!this.gameObjectActive)
+        this.ToggleAura();
+        break;
+      case EffectorType.Lich_Aura_of_decay:
+        if (!this.gameObjectActive)
+        {
+          this.gameObjectActive = true;
+          if ((UnityEngine.Object) this.gameObject != (UnityEngine.Object) null)
+            this.gameObject.SetActive(true);
+          this.game.forceRysncPause = true;
+        }
+        List<ZMyCollider> zmyColliderList2 = this.world.OverlapCircleAll((Point) this.position, this.variable, (ZMyCollider) null, Inert.mask_movement_NoEffector | Inert.mask_Phantom);
+        Spell lichAuraSpell = ZEffector.GetLichAuraSpell(this.damageType);
+        List<ZCreature> zcreatureList2 = new List<ZCreature>();
+        for (int index = 0; index < zmyColliderList2.Count; ++index)
+        {
+          if (zmyColliderList2[index].gameObjectLayer == 13)
           {
-            this.gameObjectActive = true;
-            if ((UnityEngine.Object) this.gameObject != (UnityEngine.Object) null)
-              this.gameObject.SetActive(true);
-            this.game.forceRysncPause = true;
-          }
-          List<ZMyCollider> zmyColliderList2 = this.world.OverlapCircleAll((Point) this.position, this.variable, (ZMyCollider) null, Inert.mask_movement_NoEffector | Inert.mask_Phantom);
-          Spell lichAuraSpell = ZEffector.GetLichAuraSpell(this.damageType);
-          List<ZCreature> zcreatureList2 = new List<ZCreature>();
-          for (int index = 0; index < zmyColliderList2.Count; ++index)
-          {
-            if (zmyColliderList2[index].gameObjectLayer == 13)
+            ZTower tower = zmyColliderList2[index].tower;
+            if ((ZComponent) tower != (object) null && ((ZComponent) tower.creature != (object) this.whoSummoned || this.damageType == DamageType.Infection) && tower.type != TowerType.Nature)
             {
-              ZTower tower = zmyColliderList2[index].tower;
-              if ((ZComponent) tower != (object) null && ((ZComponent) tower.creature != (object) this.whoSummoned || this.damageType == DamageType.Infection) && tower.type != TowerType.Nature)
-              {
-                this.active = false;
-                if (this.game.isClient && !this.game.resyncing && (UnityEngine.Object) tower.transform != (UnityEngine.Object) null)
-                  ZEffector.SpawnAuraExplosion(tower.transform.position, this.damageType);
-                tower.ApplyDamage(lichAuraSpell.spellEnum, this.damageType, lichAuraSpell.damage, this.GetInfector, this.TurnCreated, (ISpellBridge) lichAuraSpell);
-                if (this.damageType == DamageType.Infection)
-                  ZEffector.SpreadInfection(this.GetInfector, tower?.creature, this);
-                ZCreature zcreature3 = this.map.PhysicsCollideCreature(tower.creature, (int) tower.position.x, (int) tower.position.y - 25);
-                if (this.damageType == DamageType.Death && (ZComponent) zcreature3 != (object) null && ((ZComponent) zcreature3 != (object) this.whoSummoned || this.damageType == DamageType.Infection) && (ZComponent.IsNull((ZComponent) zcreature3.tower) || zcreature3.tower.type != TowerType.Nature) && (zcreature3.race != CreatureRace.Effector || zcreature3.GetType() == typeof (ZCreatureTree)) && this.damageType != DamageType.Infection)
-                  zcreatureList2.Add(zcreature3);
-                ZEffector.SpawnIndicatorOfDecay(tower.creature, this);
-              }
+              this.active = false;
+              if (this.game.isClient && !this.game.resyncing && (UnityEngine.Object) tower.transform != (UnityEngine.Object) null)
+                ZEffector.SpawnAuraExplosion(tower.transform.position, this.damageType);
+              tower.ApplyDamage(lichAuraSpell.spellEnum, this.damageType, lichAuraSpell.damage, this.GetInfector, this.TurnCreated, (ISpellBridge) lichAuraSpell);
+              if (this.damageType == DamageType.Infection)
+                ZEffector.SpreadInfection(this.GetInfector, tower?.creature, this);
+              ZCreature zcreature3 = this.map.PhysicsCollideCreature(tower.creature, (int) tower.position.x, (int) tower.position.y - 25);
+              if (this.damageType == DamageType.Death && (ZComponent) zcreature3 != (object) null && ((ZComponent) zcreature3 != (object) this.whoSummoned || this.damageType == DamageType.Infection) && (ZComponent.IsNull((ZComponent) zcreature3.tower) || zcreature3.tower.type != TowerType.Nature) && (zcreature3.race != CreatureRace.Effector || zcreature3.GetType() == typeof (ZCreatureTree)) && this.damageType != DamageType.Infection)
+                zcreatureList2.Add(zcreature3);
+              ZEffector.SpawnIndicatorOfDecay(tower.creature, this);
             }
-            else
+          }
+          else
+          {
+            ZCreature creature = zmyColliderList2[index].creature;
+            if ((ZComponent) creature != (object) null && ((ZComponent) creature != (object) this.whoSummoned || this.damageType == DamageType.Infection) && (creature.race != CreatureRace.Effector || creature.GetType() == typeof (ZCreatureTree)) && creature.type != CreatureType.Dryad && (this.damageType != DamageType.Sting || creature.type != CreatureType.Bee && creature.type != CreatureType.Beehive || creature.parent.team != this.whoSummoned.parent.team))
             {
-              ZCreature creature = zmyColliderList2[index].creature;
-              if ((ZComponent) creature != (object) null && ((ZComponent) creature != (object) this.whoSummoned || this.damageType == DamageType.Infection) && (creature.race != CreatureRace.Effector || creature.GetType() == typeof (ZCreatureTree)) && creature.type != CreatureType.Dryad && (this.damageType != DamageType.Sting || creature.type != CreatureType.Bee && creature.type != CreatureType.Beehive || creature.parent.team != this.whoSummoned.parent.team))
+              this.active = false;
+              if (this.game.isClient && !this.game.resyncing && (UnityEngine.Object) creature.transform != (UnityEngine.Object) null)
+                ZEffector.SpawnAuraExplosion(creature.transform.position, this.damageType);
+              creature.ApplyDamage(lichAuraSpell.spellEnum, this.damageType, lichAuraSpell.damage, this.GetInfector, this.TurnCreated, (ISpellBridge) lichAuraSpell);
+              if (this.damageType == DamageType.Infection)
+                ZEffector.SpreadInfection(this.GetInfector, creature, this);
+              if (creature.flying && !creature.isMoving)
+                creature.SetVelocity(0, 3);
+              else if (ZComponent.IsNull((ZComponent) creature.tower) && ZComponent.IsNull((ZComponent) creature.mount) && !creature.isMoving)
+                creature.ApplyExplosionForce(128, this.AuraForce(creature), (FixedInt) 1, 128, Curve.None, true);
+              if (creature.race != CreatureRace.Effector || creature.type == CreatureType.Tree)
               {
-                this.active = false;
-                if (this.game.isClient && !this.game.resyncing && (UnityEngine.Object) creature.transform != (UnityEngine.Object) null)
-                  ZEffector.SpawnAuraExplosion(creature.transform.position, this.damageType);
-                creature.ApplyDamage(lichAuraSpell.spellEnum, this.damageType, lichAuraSpell.damage, this.GetInfector, this.TurnCreated, (ISpellBridge) lichAuraSpell);
-                if (this.damageType == DamageType.Infection)
-                  ZEffector.SpreadInfection(this.GetInfector, creature, this);
-                if (creature.flying && !creature.isMoving)
-                  creature.SetVelocity(0, 3);
-                else if (ZComponent.IsNull((ZComponent) creature.tower) && ZComponent.IsNull((ZComponent) creature.mount) && !creature.isMoving)
-                  creature.ApplyExplosionForce(128, this.AuraForce(creature), (FixedInt) 1, 128, Curve.None, true);
-                if (creature.race != CreatureRace.Effector || creature.type == CreatureType.Tree)
+                ZCreature z = this.map.PhysicsCollideCreature(creature, (int) creature.position.x, (int) creature.position.y - creature.radius - 10);
+                if (ZComponent.IsNull((ZComponent) z))
+                  z = this.map.PhysicsCollideCreature(creature, (int) creature.position.x + 5, (int) creature.position.y - creature.radius - 10);
+                if (ZComponent.IsNull((ZComponent) z))
+                  z = this.map.PhysicsCollideCreature(creature, (int) creature.position.x - 5, (int) creature.position.y - creature.radius - 10);
+                if (this.damageType == DamageType.Death && (ZComponent) z != (object) null && ((ZComponent) z != (object) this.whoSummoned || this.damageType == DamageType.Infection) && (ZComponent.IsNull((ZComponent) z.tower) || z.tower.type != TowerType.Nature) && (z.race != CreatureRace.Effector || z.GetType() == typeof (ZCreatureTree)) && this.damageType != DamageType.Infection && creature.type != CreatureType.Dryad)
                 {
-                  ZCreature z = this.map.PhysicsCollideCreature(creature, (int) creature.position.x, (int) creature.position.y - creature.radius - 10);
-                  if (ZComponent.IsNull((ZComponent) z))
-                    z = this.map.PhysicsCollideCreature(creature, (int) creature.position.x + 5, (int) creature.position.y - creature.radius - 10);
-                  if (ZComponent.IsNull((ZComponent) z))
-                    z = this.map.PhysicsCollideCreature(creature, (int) creature.position.x - 5, (int) creature.position.y - creature.radius - 10);
-                  if (this.damageType == DamageType.Death && (ZComponent) z != (object) null && ((ZComponent) z != (object) this.whoSummoned || this.damageType == DamageType.Infection) && (ZComponent.IsNull((ZComponent) z.tower) || z.tower.type != TowerType.Nature) && (z.race != CreatureRace.Effector || z.GetType() == typeof (ZCreatureTree)) && this.damageType != DamageType.Infection && creature.type != CreatureType.Dryad)
+                  if ((ZComponent) z.rider != (object) null && (ZComponent) creature != (object) z.rider)
                   {
-                    if ((ZComponent) z.rider != (object) null && (ZComponent) creature != (object) z.rider)
-                    {
-                      zcreatureList2.Add(z);
-                      zcreatureList2.Add(z);
-                    }
+                    zcreatureList2.Add(z);
                     zcreatureList2.Add(z);
                   }
+                  zcreatureList2.Add(z);
                 }
-                ZEffector.SpawnIndicatorOfDecay(creature, this);
               }
+              ZEffector.SpawnIndicatorOfDecay(creature, this);
             }
           }
-          foreach (ZCreature c2 in zcreatureList2)
+        }
+        foreach (ZCreature c2 in zcreatureList2)
+        {
+          if ((ZComponent) c2 != (object) null && c2.health > 0)
           {
-            if ((ZComponent) c2 != (object) null && c2.health > 0)
-            {
-              c2.ApplyDamage(lichAuraSpell.spellEnum, this.damageType, 15, this.GetInfector, this.TurnCreated, (ISpellBridge) lichAuraSpell);
-              if (this.damageType == DamageType.Infection)
-                ZEffector.SpreadInfection(this.GetInfector, c2, this);
-              if (!c2.flying && ZComponent.IsNull((ZComponent) c2.tower) && ZComponent.IsNull((ZComponent) c2.mount))
-                c2.ApplyExplosionForce(128, this.AuraForce(c2), (FixedInt) 2, 128, Curve.None, true);
-            }
+            c2.ApplyDamage(lichAuraSpell.spellEnum, this.damageType, 15, this.GetInfector, this.TurnCreated, (ISpellBridge) lichAuraSpell);
+            if (this.damageType == DamageType.Infection)
+              ZEffector.SpreadInfection(this.GetInfector, c2, this);
+            if (!c2.flying && ZComponent.IsNull((ZComponent) c2.tower) && ZComponent.IsNull((ZComponent) c2.mount))
+              c2.ApplyExplosionForce(128, this.AuraForce(c2), (FixedInt) 2, 128, Curve.None, true);
           }
-          if (!this.active && this.damageType == DamageType.Sting && (ZComponent) this.whoSummoned != (object) null && !this.whoSummoned.isDead)
-            this.whoSummoned.OnStunned();
-          if (!this.game.isClient)
-            break;
-          this.ToggleAura();
+        }
+        if (!this.active && this.damageType == DamageType.Sting && (ZComponent) this.whoSummoned != (object) null && !this.whoSummoned.isDead)
+          this.whoSummoned.OnStunned();
+        if (!this.game.isClient)
           break;
-        case EffectorType.Soul_Jar:
+        this.ToggleAura();
+        break;
+      case EffectorType.Soul_Jar:
+        break;
+      case EffectorType.Sanctuary:
+        ZEffector.EffectSanctuary(this.game, c);
+        break;
+      case EffectorType.Troll:
+        if (!((ZComponent) c != (object) null) || !((ZComponent) c != (object) this.whoSummoned) || c.race == CreatureRace.Effector && c.type != CreatureType.Tree)
           break;
-        case EffectorType.Sanctuary:
-          ZEffector.EffectSanctuary(this.game, c);
+        int variable = this.variable;
+        if ((ZComponent) this.whoSummoned != (object) null && c.parent.team == this.whoSummoned.parent.team && this.whoSummoned.type != CreatureType.Water_Troll)
           break;
-        case EffectorType.Troll:
-          if (!((ZComponent) c != (object) null) || !((ZComponent) c != (object) this.whoSummoned) || c.race == CreatureRace.Effector && c.type != CreatureType.Tree)
-            break;
-          int variable = this.variable;
-          if ((ZComponent) this.whoSummoned != (object) null && c.parent.team == this.whoSummoned.parent.team && this.whoSummoned.type != CreatureType.Water_Troll)
-            break;
-          this.active = false;
-          this.whoSummoned?.animator?.Play(AnimateState.Swing);
-          c.ApplyDamage(SpellEnum.Aura_of_Decay, DamageType.None, variable, this.whoSummoned, this.TurnCreated, (ISpellBridge) Inert.GetSpell("Summon Water Trolls"));
-          if (!this.game.isClient)
-            break;
-          AudioManager.Play(this.soundClip);
+        this.active = false;
+        this.whoSummoned?.animator?.Play(AnimateState.Swing);
+        c.ApplyDamage(SpellEnum.Aura_of_Decay, DamageType.None, variable, this.whoSummoned, this.TurnCreated, (ISpellBridge) Inert.GetSpell("Summon Water Trolls"));
+        if (!this.game.isClient)
           break;
-        case EffectorType.Dark_Totem:
+        AudioManager.Play(this.soundClip);
+        break;
+      case EffectorType.Dark_Totem:
+        break;
+      case EffectorType.MoneyBags:
+        if ((ZComponent) this.whoSummoned == (object) c)
           break;
-        case EffectorType.MoneyBags:
-          if ((ZComponent) this.whoSummoned == (object) c)
-            break;
-          if (this.game.isClient)
-          {
-            if (this.variable == 0)
-              AudioManager.Play(this.soundClip);
-            else if (this.variable == 1 && !this.game.resyncing && (UnityEngine.Object) HUD.instance != (UnityEngine.Object) null && (double) HUD.instance.pickup_music < 10.0)
-            {
-              if ((double) HUD.instance.pickup_music <= 0.0)
-              {
-                AudioManager.instance?.StopAllCoroutines();
-                AudioManager.instance?.StartCoroutine(AudioManager.instance.FadePickupMusic(false));
-              }
-              HUD.instance.pickup_music += 5f;
-            }
-          }
-          this.Destroy();
-          break;
-        case EffectorType.Life_Dew:
-          if (ZComponent.IsNull((ZComponent) c))
-            break;
-          this.active = false;
-          if (!ZComponent.IsNull((ZComponent) this.whoSummoned))
-          {
-            int? team1 = c.parent?.team;
-            int? team2 = this.whoSummoned?.parent?.team;
-            if (team1.GetValueOrDefault() == team2.GetValueOrDefault() & team1.HasValue == team2.HasValue)
-            {
-              if (c.type == CreatureType.Bee)
-              {
-                this.active = true;
-                if (this.variable < 30)
-                  this.variable += 15;
-                c.OnDeath(true);
-                break;
-              }
-              c.DoHeal(40 + this.variable);
-              goto label_42;
-            }
-          }
-          if (this.game.currentSeason == GameSeason.Winter)
-            ZSpell.OnExplosionWaterBall(Inert.Instance.spells["Ice Ball"], this.game, this.whoSummoned, this.position);
-          else
-            ZSpell.OnExplosionWaterBall(Inert.Instance.spells["Water Ball"], this.game, this.whoSummoned, this.position);
-          if ((ZComponent) c != (object) null && !c.isDead)
-          {
-            if (c.isMoving)
-              c.velocity = (this.position - c.position).normalized * 3;
-            c.ApplyDamage(SpellEnum.Life_Dew, DamageType.None, 10, this.whoSummoned, c.game.turn);
-          }
-label_42:
-          if (this.game.isClient)
+        if (this.game.isClient)
+        {
+          if (this.variable == 0)
             AudioManager.Play(this.soundClip);
-          this.Destroy();
-          break;
-        case EffectorType.Morning_Sun:
-          this.MorningSunEffect(c);
-          break;
-        case EffectorType.Myth:
-          if (!((ZComponent) c != (object) null) || !((ZComponent) c != (object) this.whoSummoned) || c.parent.team == this.whoSummoned.parent.team || c.race == CreatureRace.Effector && c.type != CreatureType.Tree)
-            break;
-          this.active = false;
-          this.whoSummoned?.animator?.Play(AnimateState.Swing);
-          c.ApplyDamage(SpellEnum.Summon_Myth, DamageType.None, this.variable, this.whoSummoned, this.TurnCreated, (ISpellBridge) Inert.GetSpell(SpellEnum.Summon_Myth));
-          if (!this.game.isClient)
-            break;
-          AudioManager.Play(this.soundClip);
-          break;
-        case EffectorType.Devils_Snare:
-          if ((ZComponent) c == (object) null || !this.active || c.type == CreatureType.Tree || c.race == CreatureRace.Effector || (ZComponent) c == (object) this.whoSummoned || (ZComponent) this.whoSummoned != (object) null && c.parent == this.whoSummoned.parent)
-            break;
-          if (this.variable > -666 && (ZComponent) this.whoSummoned != (object) null && !this.whoSummoned.parent.ritualEnum.Contains(SpellEnum.Devils_Snare))
+          else if (this.variable == 1 && !this.game.resyncing && (UnityEngine.Object) HUD.instance != (UnityEngine.Object) null && (double) HUD.instance.pickup_music < 10.0)
           {
-            foreach (ZEffector effector in this.whoSummoned.effectors)
+            if ((double) HUD.instance.pickup_music <= 0.0)
             {
-              if ((ZComponent) effector != (object) null && effector.type == EffectorType.Devils_Snare)
-              {
-                effector.active = false;
-                effector.variable = this.whoSummoned.parent.localTurn;
-                effector.VisualUpdate();
-              }
+              AudioManager.instance?.StopAllCoroutines();
+              AudioManager.instance?.StartCoroutine(AudioManager.instance.FadePickupMusic(false));
             }
+            HUD.instance.pickup_music += 5f;
           }
-          this.active = false;
-          if (this.variable > -666)
-            this.variable = this.whoSummoned.parent.localTurn;
-          this.VisualUpdate();
-          c.ApplyDamage(this.spell.spellEnum, DamageType.None, this.spell.damage, this.whoSummoned, 0, (ISpellBridge) this.spell);
-          c.ApplyExplosionForce(this.collider.radius, this.position, this.spell.explisiveForce, this.spell.EXORADIUS, this.spell.forceOverDistance, true);
-          AudioManager.Play(this.spell.explosionClip);
+        }
+        this.Destroy();
+        break;
+      case EffectorType.Life_Dew:
+        if (ZComponent.IsNull((ZComponent) c))
           break;
-        case EffectorType.Blackhole:
-          if ((ZComponent) c == (object) null || c.type == CreatureType.Tree || c.UnaffectedByNaturesWraith || Mathd.Abs(c.addedVelocity.x) > 3 || Mathd.Abs(c.addedVelocity.y) > 3)
-            break;
-          if ((ZComponent) c.tower != (object) null)
-            c.DestroyTower();
-          if (!c.isMoving)
-            break;
-          MyLocation a = c.position - this.position;
-          FixedInt fixedInt = (FixedInt) MyLocation.Distance(a, MyLocation.zero);
-          if (fixedInt < 64 + c.radius)
+        this.active = false;
+        if (!ZComponent.IsNull((ZComponent) this.whoSummoned))
+        {
+          int? team1 = c.parent?.team;
+          int? team2 = this.whoSummoned?.parent?.team;
+          if (team1.GetValueOrDefault() == team2.GetValueOrDefault() & team1.HasValue == team2.HasValue)
           {
-            for (int index = this.game.globalEffectors.Count - 1; index >= 0; --index)
+            if (c.type == CreatureType.Bee)
             {
-              ZEffector globalEffector = this.game.globalEffectors[index];
-              if ((ZComponent) globalEffector != (object) null && globalEffector.type == EffectorType.Wormhole && globalEffector.active && (ZComponent) globalEffector.whoSummoned != (object) null && globalEffector.whoSummoned.parent.team == c.parent.team)
-              {
-                List<ZEntity> colliders = new List<ZEntity>()
-                {
-                  (ZEntity) c
-                };
-                if (Mathd.Abs(c.velocity.x) > 5)
-                  c.velocity.x = (FixedInt) (c.velocity.x > 0 ? 5 : -5);
-                if (c.velocity.y > 5)
-                  c.velocity.y = (FixedInt) 5;
-                else if (c.velocity.y < -5)
-                  c.velocity.y = (FixedInt) -5;
-                c.velocity.y = -c.velocity.y;
-                c.velocity.x = -c.velocity.x;
-                if (globalEffector.PortalLogic(colliders))
-                  globalEffector.PostPortalLogic(colliders);
-                if (!((UnityEngine.Object) c.transform != (UnityEngine.Object) null) || c.game.resyncing)
-                  return;
-                ZComponent.Instantiate<GameObject>(this.explosion, c.transform.position, Quaternion.identity, this.game.GetMapTransform());
-                return;
-              }
-            }
-            if ((UnityEngine.Object) c.transform != (UnityEngine.Object) null && !c.game.resyncing)
-              ZComponent.Instantiate<GameObject>(this.explosion, c.transform.position, Quaternion.identity, this.game.GetMapTransform());
-            if (c.isPawn)
-            {
+              this.active = true;
+              if (this.variable < 30)
+                this.variable += 15;
               c.OnDeath(true);
               break;
             }
-            c.EnteredWater();
-            c.pY = (FixedInt) -10010;
-            c.validY = (FixedInt) -10010;
-            c.velocity.y = (FixedInt) 0;
-            break;
+            c.DoHeal(40 + this.variable);
+            goto label_52;
           }
-          c.affectedByGravity = true;
-          a.Normalize();
-          MyLocation myLocation2 = a * (Mathd.Max((FixedInt) 1, (FixedInt) (this.collider.radius + 30) - fixedInt) / (this.collider.radius + c.radius + 30));
-          if (myLocation2.x == 0)
-            myLocation2.x = (FixedInt) 10485L;
-          if (!c.isMoving)
-            break;
-          ZCreature zcreature4 = c;
-          zcreature4.addedVelocity = zcreature4.addedVelocity - myLocation2 * 20971L;
-          c.addVelocity = true;
+        }
+        if (this.game.currentSeason == GameSeason.Winter)
+          ZSpell.OnExplosionWaterBall(Inert.Instance.spells["Ice Ball"], this.game, this.whoSummoned, this.position);
+        else
+          ZSpell.OnExplosionWaterBall(Inert.Instance.spells["Water Ball"], this.game, this.whoSummoned, this.position);
+        if ((ZComponent) c != (object) null && !c.isDead)
+        {
+          if (c.isMoving)
+            c.velocity = (this.position - c.position).normalized * 3;
+          c.ApplyDamage(SpellEnum.Life_Dew, DamageType.None, 10, this.whoSummoned, c.game.turn);
+        }
+label_52:
+        if (this.game.isClient)
+          AudioManager.Play(this.soundClip);
+        this.Destroy();
+        break;
+      case EffectorType.Morning_Sun:
+        this.MorningSunEffect(c);
+        break;
+      case EffectorType.Miner_Map:
+        if (!((ZComponent) c != (object) null) || c.spellEnum != SpellEnum.Summon_Dwarf)
           break;
-        case EffectorType.Butterfly_Jar:
+        this.DestroyNoExplosion();
+        break;
+      case EffectorType.Myth:
+        if (!((ZComponent) c != (object) null) || !((ZComponent) c != (object) this.whoSummoned) || c.parent.team == this.whoSummoned.parent.team || c.race == CreatureRace.Effector && c.type != CreatureType.Tree)
           break;
-        case EffectorType.AutumnLeaves:
-          if ((ZComponent) c == (object) null || c.type == CreatureType.Tree)
-            break;
-          if ((ZComponent) this.whoSummoned != (object) null)
+        this.active = false;
+        this.whoSummoned?.animator?.Play(AnimateState.Swing);
+        c.ApplyDamage(SpellEnum.Summon_Myth, DamageType.None, this.variable, this.whoSummoned, this.TurnCreated, (ISpellBridge) Inert.GetSpell(SpellEnum.Summon_Myth));
+        if (!this.game.isClient)
+          break;
+        AudioManager.Play(this.soundClip);
+        break;
+      case EffectorType.Prickly_Barrier:
+        if ((ZComponent) c == (object) null || !this.active || c.type == CreatureType.Tree || c.race == CreatureRace.Effector || (ZComponent) c == (object) this.whoSummoned || (ZComponent) this.whoSummoned != (object) null && c.parent == this.whoSummoned.parent)
+          break;
+        if (this.variable > -666 && (ZComponent) this.whoSummoned != (object) null)
+        {
+          foreach (ZEffector effector in this.whoSummoned.effectors)
           {
-            int? team3 = c.parent?.team;
-            int? team4 = this.whoSummoned.parent?.team;
-            if (team3.GetValueOrDefault() == team4.GetValueOrDefault() & team3.HasValue == team4.HasValue)
-              break;
+            if ((ZComponent) effector != (object) null && effector.type == EffectorType.Prickly_Barrier)
+            {
+              effector.active = false;
+              effector.variable = this.whoSummoned.parent.localTurn;
+              effector.VisualUpdate();
+            }
           }
-          this.active = false;
-          ZSpell spell2 = this.spell;
-          this.map.ServerBitBlt(5, (int) this.position.x, (int) this.position.y);
-          spell2.isDead = true;
-          spell2.isNull = true;
-          ZSpell.ApplyExplosionForce(SpellEnum.Napalm, this.world, this.collider.position, spell2.damage, spell2.forceOverDistance, spell2.radius, spell2.EXORADIUS, spell2.explisiveForce, spell2.damageType, this.whoSummoned, this.TurnCreated, spellRef: (ISpellBridge) Inert.GetSpell("Napalm"), firstHit: c);
-          if (this.game.isClient)
-            AudioManager.Play(this.soundClip);
-          this.DestroyNoExplosion();
+        }
+        this.active = false;
+        if (this.variable > -666)
+          this.variable = this.whoSummoned.parent.localTurn;
+        this.VisualUpdate();
+        c.ApplyDamage(this.spell.spellEnum, DamageType.None, this.spell.damage, this.whoSummoned, 0, (ISpellBridge) this.spell);
+        c.ApplyExplosionForce(this.collider.radius, this.position, this.spell.explisiveForce, this.spell.EXORADIUS, this.spell.forceOverDistance, true);
+        AudioManager.Play(this.spell.explosionClip);
+        break;
+      case EffectorType.Blackhole:
+        if ((ZComponent) c == (object) null || c.type == CreatureType.Tree || c.UnaffectedByNaturesWraith || Mathd.Abs(c.addedVelocity.x) > 3 || Mathd.Abs(c.addedVelocity.y) > 3)
           break;
-        default:
-          Debug.LogError((object) ("Wrong ZEffector: " + (object) this.type + " trying to Effect: " + c?.name));
+        if ((ZComponent) c.tower != (object) null)
+          c.DestroyTower();
+        if (!c.isMoving)
           break;
-      }
+        MyLocation a = c.position - this.position;
+        FixedInt fixedInt = (FixedInt) MyLocation.Distance(a, MyLocation.zero);
+        if (fixedInt < 64 + c.radius)
+        {
+          for (int index = this.game.globalEffectors.Count - 1; index >= 0; --index)
+          {
+            ZEffector globalEffector = this.game.globalEffectors[index];
+            if ((ZComponent) globalEffector != (object) null && globalEffector.type == EffectorType.Wormhole && globalEffector.active && (ZComponent) globalEffector.whoSummoned != (object) null && globalEffector.whoSummoned.parent.team == c.parent.team)
+            {
+              List<ZEntity> colliders = new List<ZEntity>()
+              {
+                (ZEntity) c
+              };
+              if (Mathd.Abs(c.velocity.x) > 5)
+                c.velocity.x = (FixedInt) (c.velocity.x > 0 ? 5 : -5);
+              if (c.velocity.y > 5)
+                c.velocity.y = (FixedInt) 5;
+              else if (c.velocity.y < -5)
+                c.velocity.y = (FixedInt) -5;
+              c.velocity.y = -c.velocity.y;
+              c.velocity.x = -c.velocity.x;
+              if (globalEffector.PortalLogic(colliders))
+                globalEffector.PostPortalLogic(colliders);
+              if (!((UnityEngine.Object) c.transform != (UnityEngine.Object) null) || c.game.resyncing)
+                return;
+              ZComponent.Instantiate<GameObject>(this.explosion, c.transform.position, Quaternion.identity, this.game.GetMapTransform());
+              return;
+            }
+          }
+          if ((UnityEngine.Object) c.transform != (UnityEngine.Object) null && !c.game.resyncing)
+            ZComponent.Instantiate<GameObject>(this.explosion, c.transform.position, Quaternion.identity, this.game.GetMapTransform());
+          if (c.isPawn)
+          {
+            c.OnDeath(true);
+            break;
+          }
+          c.EnteredWater();
+          c.pY = (FixedInt) -10010;
+          c.validY = (FixedInt) -10010;
+          c.velocity.y = (FixedInt) 0;
+          break;
+        }
+        c.affectedByGravity = true;
+        a.Normalize();
+        MyLocation myLocation2 = a * (Mathd.Max((FixedInt) 1, (FixedInt) (this.collider.radius + 30) - fixedInt) / (this.collider.radius + c.radius + 30));
+        if (myLocation2.x == 0)
+          myLocation2.x = (FixedInt) 10485L;
+        if (!c.isMoving)
+          break;
+        ZCreature zcreature4 = c;
+        zcreature4.addedVelocity = zcreature4.addedVelocity - myLocation2 * 20971L;
+        c.addVelocity = true;
+        break;
+      case EffectorType.Butterfly_Jar:
+        break;
+      case EffectorType.AutumnLeaves:
+        if ((ZComponent) c == (object) null || c.type == CreatureType.Tree)
+          break;
+        if ((ZComponent) this.whoSummoned != (object) null)
+        {
+          int? team3 = c.parent?.team;
+          int? team4 = this.whoSummoned.parent?.team;
+          if (team3.GetValueOrDefault() == team4.GetValueOrDefault() & team3.HasValue == team4.HasValue)
+            break;
+        }
+        this.active = false;
+        ZSpell spell2 = this.spell;
+        this.map.ServerBitBlt(5, (int) this.position.x, (int) this.position.y);
+        spell2.isDead = true;
+        spell2.isNull = true;
+        ZSpell.ApplyExplosionForce(SpellEnum.Napalm, this.world, this.collider.position, spell2.damage, spell2.forceOverDistance, spell2.radius, spell2.EXORADIUS, spell2.explisiveForce, spell2.damageType, this.whoSummoned, this.TurnCreated, spellRef: (ISpellBridge) Inert.GetSpell("Napalm"), firstHit: c);
+        this.game.ongoing.RunCoroutine(this.RetroactiveDisableLeaf(this.collider.radius));
+        if (this.game.isClient)
+          AudioManager.Play(this.soundClip);
+        this.DestroyNoExplosion();
+        break;
+      case EffectorType.Javelin:
+        if (!((ZComponent) this.whoSummoned == (object) c))
+          break;
+        SpellSlot spellSlot = this.whoSummoned.GetSpellSlot(SpellEnum.Verdant_Javelin);
+        if (spellSlot != null)
+          spellSlot.SetTurnFired = -1;
+        else
+          this.whoSummoned.AddPresent(SpellEnum.Verdant_Javelin);
+        if (this.game.isClient && !this.game.resyncing && (UnityEngine.Object) this.explosion != (UnityEngine.Object) null)
+          ZComponent.Instantiate<GameObject>(this.explosion, this.position.ToSinglePrecision(), Quaternion.identity);
+        this.DestroyNoExplosion();
+        break;
+      default:
+        Debug.LogError((object) ("Wrong ZEffector: " + (object) this.type + " trying to Effect: " + c?.name));
+        break;
     }
   }
 
@@ -2423,6 +2682,8 @@ label_42:
 
   public void ToggleAura()
   {
+    if ((UnityEngine.Object) this.transform == (UnityEngine.Object) null)
+      return;
     if (this.damageType == DamageType.Arcane)
     {
       if (this.active)
@@ -2472,12 +2733,12 @@ label_42:
     this.game.forceRysncPause = true;
   }
 
-  private void Destroy()
+  internal void Destroy()
   {
     this.isNull = true;
     this.active = false;
     this.collider?.Disable();
-    if ((UnityEngine.Object) this.explosion != (UnityEngine.Object) null)
+    if ((UnityEngine.Object) this.explosion != (UnityEngine.Object) null && (UnityEngine.Object) this.transform != (UnityEngine.Object) null)
       ZComponent.Instantiate<GameObject>(this.explosion, this.transform.position, Quaternion.identity);
     ZComponent.Destroy<GameObject>(this.gameObject);
     this.game.forceRysncPause = true;
@@ -2509,6 +2770,8 @@ label_42:
   {
     if (!this.game.isClient || (UnityEngine.Object) this.transform == (UnityEngine.Object) null)
       return;
+    if (this.rotation != 0)
+      this.transform.rotation = Quaternion.Euler(0.0f, 0.0f, this.rotation.ToFloat());
     switch (this.type)
     {
       case EffectorType.Fire_Shield:
@@ -2585,14 +2848,16 @@ label_42:
         }
         this.transform.GetChild(0).GetComponent<SpriteRenderer>().color = new Color(1f, 1f, 0.399f, 0.1333333f);
         break;
-      case EffectorType.Devils_Snare:
+      case EffectorType.Prickly_Barrier:
         if (!this.active)
         {
           this.transform.GetChild(0).GetComponent<SpriteRenderer>().color = (Color) new Color32(byte.MaxValue, byte.MaxValue, byte.MaxValue, (byte) 100);
+          this.transform.GetChild(0).GetComponent<SpriteRenderer>().sprite = ClientResources.Instance.prickly_sprites[this.clientSpriteIndex];
           this.transform.GetChild(1).gameObject.SetActive(false);
           break;
         }
         this.transform.GetChild(0).GetComponent<SpriteRenderer>().color = (Color) new Color32(byte.MaxValue, byte.MaxValue, byte.MaxValue, byte.MaxValue);
+        this.transform.GetChild(0).GetComponent<SpriteRenderer>().sprite = ClientResources.Instance.prickly_sprites[this.clientSpriteIndex];
         this.transform.GetChild(1).gameObject.SetActive(true);
         break;
       case EffectorType.Wormhole:
@@ -2611,9 +2876,28 @@ label_42:
         this.transform.GetChild(0).GetComponent<SpriteRenderer>().color = (Color) new Color32(byte.MaxValue, byte.MaxValue, byte.MaxValue, byte.MaxValue);
         break;
       case EffectorType.AutumnLeaves:
-        if (!((ZComponent) this.spell != (object) null))
-          break;
-        this.transform.localScale = new Vector3(this.spell.goToTarget ? 1f : -1f, 1f, 1f);
+        if ((ZComponent) this.spell != (object) null)
+          this.transform.localScale = new Vector3(this.spell.goToTarget ? 1f : -1f, 1f, 1f);
+        this.transform.GetChild(0).gameObject.SetActive(this.active);
+        this.transform.GetComponent<SpriteRenderer>().color = (Color) new Color32(byte.MaxValue, byte.MaxValue, byte.MaxValue, this.active ? byte.MaxValue : (byte) 100);
+        break;
+      case EffectorType.Rising_Lava:
+        float num1 = (float) (this.map.Height * this.variable / 75);
+        if (this.halved)
+          num1 /= 2f;
+        this.transform.GetChild(0).GetComponent<SpriteRenderer>().size = new Vector2((float) (this.game.map.Width + 2100), 36f);
+        this.transform.GetChild(1).GetComponent<SpriteRenderer>().size = new Vector2((float) (this.game.map.Width + 2100), (float) (this.game.map.Height + 1000));
+        this.transform.GetChild(0).localPosition = new Vector3(this.transform.GetChild(0).localPosition.x, num1 - 18f);
+        this.transform.GetChild(1).localPosition = new Vector3(this.transform.GetChild(1).localPosition.x, num1 - 36f);
+        break;
+      case EffectorType.Dense_Fog:
+        float num2 = (float) -(this.map.Height * this.variable / 75);
+        if (this.halved)
+          num2 /= 2f;
+        this.transform.GetChild(0).GetComponent<SpriteRenderer>().size = new Vector2((float) (this.game.map.Width + 2100), 36f);
+        this.transform.GetChild(1).GetComponent<SpriteRenderer>().size = new Vector2((float) (this.game.map.Width + 2100), (float) (this.game.map.Height + 1000));
+        this.transform.GetChild(0).localPosition = new Vector3(this.transform.GetChild(0).localPosition.x, num2 + 18f);
+        this.transform.GetChild(1).localPosition = new Vector3(this.transform.GetChild(1).localPosition.x, num2 + 36f);
         break;
     }
   }
@@ -2622,7 +2906,7 @@ label_42:
   {
     if (this.dead || ZComponent.IsNull((ZComponent) this))
       return;
-    ZSpell zspell = ZSpell.BaseFire(s, this.whoSummoned, this.position + new MyLocation(leftSide ? -100 : 100, 33), Quaternion.identity, !leftSide ? Inert.Velocity((FixedInt) 100, this.game.RandomFixedInt((FixedInt) s.speedMin, (FixedInt) s.speedMax)) : Inert.Velocity((FixedInt) 80, this.game.RandomFixedInt((FixedInt) s.speedMin, (FixedInt) s.speedMax)));
+    ZSpell zspell = ZSpell.BaseFire(s, this.whoSummoned, this.position + new MyLocation(leftSide ? -100 : 100, 33), Quaternion.identity, !leftSide ? Inert.Velocity((FixedInt) 100, this.game.RandomFixedInt((FixedInt) s.speedMin, (FixedInt) s.speedMax)) : Inert.Velocity((FixedInt) 80, this.game.RandomFixedInt((FixedInt) s.speedMin, (FixedInt) s.speedMax)), isChild: true);
     zspell.fromArmageddon = this.fromArmageddon;
     zspell.name = "Maelstrom";
   }
@@ -2632,7 +2916,7 @@ label_42:
     if (this.dead || ZComponent.IsNull((ZComponent) this))
       return;
     MyLocation myLocation = new MyLocation(this.variable > 0 ? -1000 : this.game.map.Width + 1000, this.game.map.Height + 100);
-    ZSpell zspell = ZSpell.BaseFire(s, this.whoSummoned, myLocation, Quaternion.identity, Inert.Velocity(Inert.AngleOfVectors(this.position, myLocation) + (angleVarience == 0 ? (FixedInt) 0 : this.game.RandomFixedInt(-angleVarience, angleVarience)), 40));
+    ZSpell zspell = ZSpell.BaseFire(s, this.whoSummoned, myLocation, Quaternion.identity, Inert.Velocity(Inert.AngleOfVectors(this.position, myLocation) + (angleVarience == 0 ? (FixedInt) 0 : this.game.RandomFixedInt(-angleVarience, angleVarience)), 40), isChild: true);
     zspell.fromArmageddon = this.fromArmageddon;
     zspell.name = "Shooting Stars";
   }
@@ -2641,7 +2925,7 @@ label_42:
   {
     if (this.dead || ZComponent.IsNull((ZComponent) this))
       return;
-    ZSpell zspell = ZSpell.BaseFire(s, this.whoSummoned, this.position + new MyLocation(this.game.RandomFixedInt(-30, 30), (FixedInt) 33), Quaternion.identity, Inert.Velocity((FixedInt) 90, this.game.RandomFixedInt((FixedInt) s.speedMin, (FixedInt) s.speedMax) - 2));
+    ZSpell zspell = ZSpell.BaseFire(s, this.whoSummoned, this.position + new MyLocation(this.game.RandomFixedInt(-30, 30), (FixedInt) 33), Quaternion.identity, Inert.Velocity((FixedInt) 90, this.game.RandomFixedInt((FixedInt) s.speedMin, (FixedInt) s.speedMax) - 2), isChild: true);
     zspell.fromArmageddon = this.fromArmageddon;
     zspell.name = "Maelstrom";
   }
@@ -2651,7 +2935,7 @@ label_42:
     if (this.dead || ZComponent.IsNull((ZComponent) this))
       return;
     FixedInt angle = this.game.RandomFixedInt(85, 95);
-    ZSpell zspell = ZSpell.BaseFire(s, this.whoSummoned, this.position + new MyLocation(0, 33), Quaternion.identity, Inert.Velocity(angle, this.game.RandomFixedInt((FixedInt) s.speedMax - 25, (FixedInt) s.speedMax + 5)));
+    ZSpell zspell = ZSpell.BaseFire(s, this.whoSummoned, this.position + new MyLocation(0, 33), Quaternion.identity, Inert.Velocity(angle, this.game.RandomFixedInt((FixedInt) s.speedMax - 25, (FixedInt) s.speedMax + 5)), isChild: true);
     zspell.fromArmageddon = this.fromArmageddon;
     if (!this.game.isClient)
       return;
@@ -2666,7 +2950,7 @@ label_42:
     if (this.dead || ZComponent.IsNull((ZComponent) this))
       return;
     MyLocation myLocation = Inert.Velocity(this.game.RandomFixedInt(80, 100), this.game.RandomFixedInt((FixedInt) s.speedMax - 5, (FixedInt) s.speedMax + 5));
-    ZSpell s1 = ZSpell.BaseFire(s, this.whoSummoned, this.position + new MyLocation(0, 33), Quaternion.identity, myLocation, false);
+    ZSpell s1 = ZSpell.BaseFire(s, this.whoSummoned, this.position + new MyLocation(0, 33), Quaternion.identity, myLocation, false, true);
     s1.fromArmageddon = this.fromArmageddon;
     s1.maxDuration = (int) this.game.RandomFixedInt(s1.maxDuration / 2, s1.maxDuration);
     ZSpell.UpgradeFullFire(this.whoSummoned, s1);
@@ -2684,7 +2968,7 @@ label_42:
     if (this.dead || ZComponent.IsNull((ZComponent) this))
       return;
     MyLocation myLocation = Inert.Velocity(this.game.RandomFixedInt(0, 360), this.game.RandomFixedInt((FixedInt) s.speedMax - 5, (FixedInt) s.speedMax + 5));
-    ZSpell zspell = ZSpell.BaseFire(s, this.whoSummoned, this.position + new MyLocation(0, 33), Quaternion.identity, myLocation, false);
+    ZSpell zspell = ZSpell.BaseFire(s, this.whoSummoned, this.position + new MyLocation(0, 33), Quaternion.identity, myLocation, false, true);
     zspell.fromArmageddon = this.fromArmageddon;
     zspell.maxDuration = (int) this.game.RandomFixedInt(zspell.maxDuration / 2, zspell.maxDuration);
     zspell.SetVelocity(myLocation);
@@ -2706,7 +2990,8 @@ label_42:
       y = (FixedInt) texture2D.height
     };
     this.position = position;
-    this.transform.position = (Vector3) position.ToSinglePrecision();
+    if ((UnityEngine.Object) this.transform != (UnityEngine.Object) null)
+      this.transform.position = (Vector3) position.ToSinglePrecision();
     this.map.ServerBitBlt(61 + i, (int) this.position.x, texture2D.height / 2, false);
     ZSpell.RemoveItemsOnBitBlt(this.game, SpellEnum.Volcano, (int) this.position.x, texture2D.height / 2, i);
   }
@@ -2870,7 +3155,7 @@ label_42:
           yield return 0.0f;
         z.MakeVolcano(5);
         // ISSUE: reference to a compiler-generated method
-        int index = z.whoSummoned.effectors.FindIndex(new Predicate<ZEffector>(z.\u003CIEVolcano\u003Eb__113_0));
+        int index = z.whoSummoned.effectors.FindIndex(new Predicate<ZEffector>(z.\u003CIEVolcano\u003Eb__118_0));
         z.Die(index, false, false);
       }
     }
@@ -2908,32 +3193,38 @@ label_42:
       }
       else if (z.turnsAlive == 3)
       {
-        max = 30 + ((ZComponent) z.whoSummoned != (object) null ? z.whoSummoned.familiarLevelCosmos * 2 : 0);
+        max = 35 + ((ZComponent) z.whoSummoned != (object) null ? z.whoSummoned.familiarLevelCosmos * 2 : 0);
         for (i = 0; i < max; ++i)
         {
           z.FireSupernova(Fireball);
+          if (i % 9 == 0)
+            z.FireSupernova(bomb);
           yield return 0.0f;
         }
       }
       else if (z.turnsAlive == 4)
       {
-        max = 30 + ((ZComponent) z.whoSummoned != (object) null ? z.whoSummoned.familiarLevelCosmos * 2 : 0);
+        max = 40 + ((ZComponent) z.whoSummoned != (object) null ? z.whoSummoned.familiarLevelCosmos * 2 : 0);
         for (i = 0; i < max; ++i)
         {
           z.FireSupernova(Fireball);
+          if (i % 9 == 0)
+            z.FireSupernova(bomb);
           yield return 0.0f;
         }
       }
       else if (z.turnsAlive == 5)
       {
-        max = 30 + ((ZComponent) z.whoSummoned != (object) null ? z.whoSummoned.familiarLevelCosmos * 2 : 0);
+        max = 45 + ((ZComponent) z.whoSummoned != (object) null ? z.whoSummoned.familiarLevelCosmos * 2 : 0);
         for (i = 0; i < max; ++i)
         {
           z.FireSupernova(Fireball);
+          if (i % 9 == 0)
+            z.FireSupernova(bomb);
           yield return 0.0f;
         }
         // ISSUE: reference to a compiler-generated method
-        int index = z.whoSummoned.effectors.FindIndex(new Predicate<ZEffector>(z.\u003CIESupernova\u003Eb__114_0));
+        int index = z.whoSummoned.effectors.FindIndex(new Predicate<ZEffector>(z.\u003CIESupernova\u003Eb__119_0));
         z.Die(index, false, false);
       }
     }
@@ -3019,7 +3310,7 @@ label_42:
         yield return 0.0f;
         z.FireShootingStar(spell, 3);
         // ISSUE: reference to a compiler-generated method
-        int index = z.whoSummoned.effectors.FindIndex(new Predicate<ZEffector>(z.\u003CIEShootingStars\u003Eb__116_0));
+        int index = z.whoSummoned.effectors.FindIndex(new Predicate<ZEffector>(z.\u003CIEShootingStars\u003Eb__121_0));
         z.Die(index, false, false);
       }
     }
@@ -3083,7 +3374,7 @@ label_42:
         if (z.turnsAlive == 3)
         {
           // ISSUE: reference to a compiler-generated method
-          int index = z.whoSummoned.effectors.FindIndex(new Predicate<ZEffector>(z.\u003CIEMaelStrom\u003Eb__117_0));
+          int index = z.whoSummoned.effectors.FindIndex(new Predicate<ZEffector>(z.\u003CIEMaelStrom\u003Eb__122_0));
           z.Die(index, false, false);
         }
       }

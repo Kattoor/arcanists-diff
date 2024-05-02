@@ -30,7 +30,7 @@ public class ContextMenuSpells : MonoBehaviour
     Stopwatch sw = new Stopwatch();
     foreach (KeyValuePair<string, Spell> spell1 in Inert.Instance.spells)
     {
-      if (spellEnumSet.Add(spell1.Value.spellEnum) && spell1.Value.level <= 3)
+      if (spellEnumSet.Add(spell1.Value.spellEnum) && (spell1.Value.level <= 3 || GameFacts.AllowCustomArmageddon(spell1.Value.spellEnum)))
         spell.Add(spell1);
     }
     sw.Start();

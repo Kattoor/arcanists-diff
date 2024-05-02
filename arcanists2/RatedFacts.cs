@@ -451,9 +451,9 @@ public class RatedFacts
     if (r.ReadByte() == (byte) 1)
     {
       if (version > 2)
-        this.spellOverrides = SpellsOnly.DeserializeExtended(r);
-      else
         this.spellOverrides = SpellsOnly.Deserialize(r);
+      else
+        this.spellOverrides = SpellsOnly.OLDDeserialize(r);
     }
     else
       this.spellOverrides = (SpellsOnly) null;

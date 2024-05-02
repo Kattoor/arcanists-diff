@@ -313,12 +313,12 @@ public class RatedMenu : MonoBehaviour
       int num = (int) ((RectTransform) this.pfabFriend.transform).sizeDelta.y + 2;
       int x = 0;
       List<Clan.MemberX> memberXList = new List<Clan.MemberX>();
-      foreach (KeyValuePair<string, Clan.Member> member in Client.clan.members)
+      foreach (KeyValuePair<string, Clan.Roles> member in Client.clan.members)
         memberXList.Add(new Clan.MemberX()
         {
-          name = member.Value.name,
-          role = member.Value.role,
-          acc = Client.GetAccount(member.Value.name)
+          name = member.Key,
+          role = member.Value,
+          acc = Client.GetAccount(member.Key)
         });
       memberXList.Sort((Comparison<Clan.MemberX>) ((a, b) => b.acc.location.Online() == a.acc.location.Online() ? (b.role == a.role ? a.name.CompareTo(b.name) : (int) (b.role - a.role)) : (!b.acc.location.Online() ? -1 : 1)));
       this._containerAccounts.DestroyChildern();

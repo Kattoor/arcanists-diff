@@ -49,6 +49,12 @@ namespace Educative
       set => this.slot.disabledturn = value ? 999 : 0;
     }
 
+    public int turnsTillFirstUse
+    {
+      get => this.slot.TurnsTillFirstUse;
+      set => this.slot.TurnsTillFirstUse = value;
+    }
+
     public SpellEnum spellEnum => this.slot.spell.spellEnum;
 
     public CastType castType => this.slot.spell.type;

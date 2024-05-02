@@ -55,6 +55,53 @@ public class MyCollider : MonoBehaviour
     }
   }
 
+  [ContextMenu("Copy to Polygon Collider")]
+  private void setup2()
+  {
+    Collider2D component = this.GetComponent<Collider2D>();
+    if (!((UnityEngine.Object) component != (UnityEngine.Object) null))
+      return;
+    if (this.shape == MyCollider.Shape.Circle)
+    {
+      (component as CircleCollider2D).radius = (float) this.radius;
+    }
+    else
+    {
+      PolygonCollider2D polygonCollider2D = (PolygonCollider2D) component;
+      List<Vector2> vector2List = new List<Vector2>();
+      foreach (MyCollider.XY point in this.points)
+        vector2List.Add(new Vector2((float) point.x, (float) point.y));
+      polygonCollider2D.points = vector2List.ToArray();
+    }
+  }
+
+  [ContextMenu("Setup with scale")]
+  private void setupscale()
+  {
+    Collider2D component = this.GetComponent<Collider2D>();
+    if (!((UnityEngine.Object) component != (UnityEngine.Object) null))
+      return;
+    if (typeof (CircleCollider2D) == ((object) component).GetType())
+    {
+      this.radius = (int) ((CircleCollider2D) component).radius;
+    }
+    else
+    {
+      this.shape = MyCollider.Shape.Polygon;
+      PolygonCollider2D polygonCollider2D = (PolygonCollider2D) component;
+      this.points = new List<MyCollider.XY>();
+      foreach (Vector2 point in polygonCollider2D.points)
+      {
+        Vector2 vector2 = point * (Vector2) component.transform.localScale;
+        this.points.Add(new MyCollider.XY()
+        {
+          x = (int) ((double) vector2.x + (double) polygonCollider2D.offset.x),
+          y = (int) ((double) vector2.y + (double) polygonCollider2D.offset.y)
+        });
+      }
+    }
+  }
+
   [ContextMenu("Sift")]
   private void shift()
   {

@@ -6,6 +6,7 @@ using UnityEngine;
 public class CreatureTree : Creature
 {
   public Texture2D texture;
+  public ExplosionCutout cutoutTexture;
   public bool isButterflyJar;
 
   public override ZCreature Get()

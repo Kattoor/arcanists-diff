@@ -98,7 +98,7 @@ namespace Hazel.Tcp
         }
         catch (Exception ex)
         {
-          throw new HazelException("Could not connect as an exception occured.", ex);
+          throw new HazelException("Could not connect as an exception occurred.", ex);
         }
         try
         {
@@ -106,7 +106,7 @@ namespace Hazel.Tcp
         }
         catch (Exception ex)
         {
-          throw new HazelException("An exception occured while initiating the first receive operation.", ex);
+          throw new HazelException("An exception occurred while initiating the first receive operation.", ex);
         }
         byte[] numArray;
         if (bytes == null)
@@ -141,9 +141,10 @@ namespace Hazel.Tcp
         }
         catch (Exception ex)
         {
-          HazelException e = new HazelException("Could not send data as an occured.", ex);
+          HazelException e = new HazelException("Could not send data as an occurred.", ex);
           this.HandleDisconnect(e);
-          throw e;
+          UnityEngine.Debug.LogError((object) e.ToString());
+          return;
         }
       }
       this.Statistics.LogSend(bytes.Length, buffer.Length);
@@ -170,9 +171,10 @@ namespace Hazel.Tcp
         }
         catch (Exception ex)
         {
-          HazelException e = new HazelException("Could not send data as an occured.", ex);
+          HazelException e = new HazelException("Could not send data as an occurred.", ex);
           this.HandleDisconnect(e);
-          throw e;
+          UnityEngine.Debug.LogError((object) e.ToString());
+          return;
         }
       }
       this.Statistics.LogSend(bytes.Length, buffer.Length);
@@ -206,9 +208,10 @@ namespace Hazel.Tcp
         }
         catch (Exception ex)
         {
-          HazelException e = new HazelException("Could not send data as an occured.", ex);
+          HazelException e = new HazelException("Could not send data as an occurred.", ex);
           this.HandleDisconnect(e);
-          throw e;
+          UnityEngine.Debug.LogError((object) e.ToString());
+          return;
         }
       }
       this.Statistics.LogSend(bytes.Length, buffer.Length);
@@ -223,7 +226,7 @@ namespace Hazel.Tcp
       }
       catch (Exception ex)
       {
-        this.HandleDisconnect(new HazelException("An exception occured while initiating a body receive operation.", ex));
+        this.HandleDisconnect(new HazelException("An exception occurred while initiating a body receive operation.", ex));
       }
     }
 
@@ -236,7 +239,7 @@ namespace Hazel.Tcp
       }
       catch (Exception ex)
       {
-        this.HandleDisconnect(new HazelException("An exception occured while initiating a header receive operation.", ex));
+        this.HandleDisconnect(new HazelException("An exception occurred while initiating a header receive operation.", ex));
       }
       this.Statistics.LogReceive(bytes.Length, bytes.Length + 4);
     }
@@ -249,7 +252,7 @@ namespace Hazel.Tcp
       }
       catch (Exception ex)
       {
-        this.HandleDisconnect(new HazelException("An exception occured while initiating the first receive operation.", ex));
+        this.HandleDisconnect(new HazelException("An exception occurred while initiating the first receive operation.", ex));
       }
     }
 
@@ -266,7 +269,7 @@ namespace Hazel.Tcp
       }
       catch (Exception ex)
       {
-        this.HandleDisconnect(new HazelException("An exception occured while initiating the first receive operation.", ex));
+        this.HandleDisconnect(new HazelException("An exception occurred while initiating the first receive operation.", ex));
       }
     }
 
@@ -304,7 +307,7 @@ namespace Hazel.Tcp
       }
       catch (Exception ex)
       {
-        this.HandleDisconnect(new HazelException("An exception occured while completing a chunk read operation.", ex));
+        this.HandleDisconnect(new HazelException("An exception occurred while completing a chunk read operation.", ex));
         return;
       }
       StateObject asyncState = (StateObject) result.AsyncState;
@@ -319,7 +322,7 @@ namespace Hazel.Tcp
         }
         catch (Exception ex)
         {
-          this.HandleDisconnect(new HazelException("An exception occured while initiating a chunk receive operation.", ex));
+          this.HandleDisconnect(new HazelException("An exception occurred while initiating a chunk receive operation.", ex));
         }
       }
       else

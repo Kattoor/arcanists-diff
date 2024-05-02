@@ -16,6 +16,8 @@ public class ZPerson
   public int localTurn = -1;
   public bool yourTurn;
   public bool ready;
+  public bool canStart;
+  public int startingSpells;
   public bool sendResync;
   public bool offeringDraw;
   public bool offeringRematch;
@@ -30,15 +32,15 @@ public class ZPerson
   public int communeWithNature;
   public float countdown;
   public int lastArmageddon = -100;
-  public HashSet<SpellEnum> ritualEnum = new HashSet<SpellEnum>();
   public List<ZCreature> controlled = new List<ZCreature>();
   public List<ZCreature> stolenMinions = new List<ZCreature>();
   public List<ZCreature> takenMinions = new List<ZCreature>();
   public List<ZGame.MinionBookTitan> minionBookTitans = new List<ZGame.MinionBookTitan>();
+  public List<SpellEnum> shownLevel3 = new List<SpellEnum>();
   internal IEnumerator<float> resyncIE;
   internal bool clientResyncing;
   public bool isFake;
-  public int[] towerHealth = new int[11];
+  public int[] towerHealth = new int[12];
   public bool host;
   public Connection connection = (Connection) new TcpConnection();
   public string name = "-";

@@ -28,6 +28,8 @@ public class DiscordCommunicator
 
   public DiscordCommunicator() => this.BroadCast();
 
+  public void SetConnection(Connection c) => this.connection = c;
+
   public static byte[] GameToResync(ZGame g, string msg, string who, bool isClient)
   {
     StringBuilder stringBuilder = new StringBuilder("[#").Append(g.gameFacts.id).Append("] ").Append("[ ").Append(g.gameFacts.GetTimeInSeconds()).Append(" ").Append(GameFacts.MapShortName(g.gameFacts.GetMapMode())).Append("]");

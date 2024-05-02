@@ -1,6 +1,6 @@
 ﻿
 
-using Newtonsoft.Json;
+using System.Runtime.Serialization;
 
 #nullable disable
 namespace Educative

@@ -66,7 +66,7 @@ public enum ExplosionCutout
   Leaf_reversed,
   CogFall,
   Foreststation,
-  Spear,
+  Javelin,
   Volcano0,
   Volcano1,
   Volcano2,
@@ -79,4 +79,5 @@ public enum ExplosionCutout
   SteppingStone,
   Coal,
   ChristmasTree,
+  Grove_Renewal,
 }

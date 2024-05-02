@@ -28,6 +28,8 @@ public class Account
   [JsonIgnore]
   public Connection activeConnection;
   [JsonIgnore]
+  public int server;
+  [JsonIgnore]
   public string state = "";
   [JsonIgnore]
   internal bool saveCosmetics;
@@ -172,31 +174,34 @@ public class Account
   public int totalUnratedGames { get; set; }
 
   [JsonIgnore]
-  public int spellbookWinningStreak { get; set; }
-
-  [JsonIgnore]
-  public int spellbookWinningStreak_Maps { get; set; }
-
-  [JsonIgnore]
-  public byte[] lastSpellBook { get; set; } = new byte[16]
+  public int spellbookWinningStreak
   {
-    byte.MaxValue,
-    byte.MaxValue,
-    byte.MaxValue,
-    byte.MaxValue,
-    byte.MaxValue,
-    byte.MaxValue,
-    byte.MaxValue,
-    byte.MaxValue,
-    byte.MaxValue,
-    byte.MaxValue,
-    byte.MaxValue,
-    byte.MaxValue,
-    byte.MaxValue,
-    byte.MaxValue,
-    byte.MaxValue,
-    byte.MaxValue
-  };
+    get => this.extraStuff.spellbookWinningStreak;
+    set => this.extraStuff.spellbookWinningStreak = value;
+  }
+
+  [JsonIgnore]
+  public int spellbookWinningStreak_Maps
+  {
+    get => this.extraStuff.spellbookWinningStreak_Maps;
+    set => this.extraStuff.spellbookWinningStreak_Maps = value;
+  }
+
+  [JsonIgnore]
+  public byte[] lastSpellBook
+  {
+    get => this.extraStuff.lastSpellBook;
+    set => this.extraStuff.lastSpellBook = value;
+  }
+
+  [JsonIgnore]
+  public long totalDamageDealt
+  {
+    get
+    {
+      return this.DamageDealt + this.DamageDealt1 + this.DamageDealt2 + (this._oldGames != null ? this._oldGames.damageDealt : 0L);
+    }
+  }
 
   [JsonIgnore]
   public NewGamesPlayed this[int i]
@@ -507,7 +512,7 @@ public class Account
   public string oldName { get; set; } = "";
 
   [JsonProperty("l")]
-  public Account.ExtraStuff extraStuff { get; set; } = new Account.ExtraStuff();
+  public ExtraStuff extraStuff { get; set; } = new ExtraStuff();
 
   [JsonProperty("m")]
   public AccountType accountType { get; set; } = AccountType.Muted;
@@ -541,13 +546,22 @@ public class Account
   public int poll { get; set; }
 
   [JsonIgnore]
+  public int DisplayedBadge => this.displayedIcon - 256;
+
+  [JsonIgnore]
   public Location location { get; set; }
 
   [JsonIgnore]
   public ulong p => this.discord;
 
+  [JsonIgnore]
+  public string g => this.steamKey;
+
+  [JsonIgnore]
+  public bool OnAnotherServer => this.server > 0 && this.server != Server.ID;
+
   [JsonProperty("x")]
-  public short version { get; set; } = 10029;
+  public short version { get; set; } = 10030;
 
   [JsonProperty("y")]
   public BitBools tutorials { get; set; } = new BitBools();
@@ -703,6 +717,7 @@ public class Account
     w.Write(this.location.Online() ? (byte) 1 : (byte) 0);
     w.Write(this.prestige);
     w.Write(this.oldName);
+    w.Write(this.server);
   }
 
   public void Deserialize(myBinaryReader r)
@@ -721,9 +736,10 @@ public class Account
     this.location = r.ReadByte() == (byte) 1 ? Location.Ingame : Location.Disconnecting;
     this.prestige = r.ReadByte();
     this.oldName = r.ReadString();
+    this.server = r.ReadInt32();
   }
 
-  public void Copy(Account other)
+  public void CopyClient(Account other)
   {
     this.name = other.name;
     this.Rating = other.Rating;
@@ -739,6 +755,7 @@ public class Account
     this.location = other.location;
     this.prestige = other.prestige;
     this.oldName = other.oldName;
+    this.server = other.server;
   }
 
   public static string ValidName(string s)
@@ -797,11 +814,5 @@ public class Account
     int num = r.ReadInt32();
     for (int index = 0; index < num; ++index)
       s.Add(r.ReadString());
-  }
-
-  [Serializable]
-  public class ExtraStuff
-  {
-    public override bool Equals(object obj) => obj is Account.ExtraStuff || base.Equals(obj);
   }
 }

@@ -38,7 +38,7 @@ public class ZFamiliar : ZComponent
   public static ZFamiliar Deserialize(myBinaryReader reader, ZCreature cre)
   {
     string n = reader.ReadString();
-    MyLocation myLocation = reader.ReadMyLocation();
+    MyLocation pos = reader.ReadMyLocation();
     int num = reader.ReadInt32();
     if ((ZComponent) cre == (object) null)
       return (ZFamiliar) null;
@@ -46,12 +46,15 @@ public class ZFamiliar : ZComponent
     ZFamiliar zfamiliar = ZFamiliar.Create(cre, component);
     if ((ZComponent) zfamiliar.effector != (object) null)
     {
-      zfamiliar.effector.position = myLocation;
+      zfamiliar.effector.position = pos;
       zfamiliar.effector.variable = num;
     }
     if ((ZComponent) zfamiliar.soulJar != (object) null)
-      zfamiliar.soulJar.position = myLocation;
-    zfamiliar.clientObj.transform.position = (Vector3) myLocation.ToSinglePrecision();
+    {
+      zfamiliar.soulJar.position = pos;
+      zfamiliar.soulJar.collider.Move(pos);
+    }
+    zfamiliar.clientObj.transform.position = (Vector3) pos.ToSinglePrecision();
     if (cre.parent.familiars == null)
       cre.parent.familiars = new List<ZFamiliar>();
     cre.parent.familiars.Add(zfamiliar);

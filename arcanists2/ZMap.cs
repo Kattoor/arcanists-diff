@@ -503,7 +503,7 @@ public class ZMap
 
   public bool CheckPositionOnlyEntities(int x, int y, ZCreature creature, int mask)
   {
-    return x >= this.Width || x < 0 || y < 0 || y >= this.Height || this.PhysicsCollidePoint(creature, x, y, mask);
+    return x >= this.Width || x < 0 || y < 0 || y >= this.Height || !this.PhysicsCollidePoint(creature, x, y, mask);
   }
 
   public bool CheckPositionOnlyMap(int x, int y)
@@ -1062,12 +1062,15 @@ public class ZMap
                   this.world.listPool.ReturnList(list);
                   return false;
                 }
-                this.world.listPool.ReturnList(list);
-                return true;
+                if (list[index].gameObjectLayer != 9)
+                {
+                  this.world.listPool.ReturnList(list);
+                  return true;
+                }
               }
             }
           }
-          else if ((ZComponent) list[index].spell != (object) null && list[index].gameObjectLayer == 8)
+          else if (list[index].gameObjectLayer == 8)
           {
             this.world.listPool.ReturnList(list);
             return true;

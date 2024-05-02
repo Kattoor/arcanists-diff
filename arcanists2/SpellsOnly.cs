@@ -43,7 +43,7 @@ public class SpellsOnly
     }
   }
 
-  public static SpellsOnly DeserializeExtended(myBinaryReader r)
+  public static SpellsOnly Deserialize(myBinaryReader r)
   {
     SpellsOnly spellsOnly = new SpellsOnly();
     spellsOnly.fullBook = r.ReadByte();
@@ -53,7 +53,7 @@ public class SpellsOnly
     return spellsOnly;
   }
 
-  public static SpellsOnly Deserialize(myBinaryReader r)
+  public static SpellsOnly OLDDeserialize(myBinaryReader r)
   {
     SpellsOnly spellsOnly = new SpellsOnly();
     spellsOnly.fullBook = r.ReadByte();

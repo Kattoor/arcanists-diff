@@ -53,7 +53,7 @@ public class Familiar : MonoBehaviour
         return new Vector3(20f, 20f, 0.0f);
       case BookOf.Blood:
         return new Vector3(20f, 22f, 0.0f);
-      case BookOf.The_Wilds:
+      case BookOf.Druidism:
         return new Vector3(20f, 23f, 0.0f);
       case BookOf.Cosmos:
         return new Vector3(18f, 25f, 0.0f);

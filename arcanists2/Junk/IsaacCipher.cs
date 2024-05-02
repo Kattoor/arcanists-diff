@@ -1,6 +1,7 @@
 ﻿
 
 using System;
+using UnityEngine;
 
 #nullable disable
 namespace Junk
@@ -159,25 +160,33 @@ namespace Junk
       if ((bound & bound - 1) == 0)
         return (int) ((long) bound * ((long) this.next() & (long) uint.MaxValue) >> 32);
       int num1 = int.MaxValue - (int) (4294967296L % (long) bound);
-      int num2;
+      int num2 = 0;
       do
       {
-        num2 = this.next();
+        int num3 = this.next();
+        if (num3 <= num1)
+          return num3 >= 0 ? num3 % bound : bound - 1 + (num3 + 1) % bound;
+        ++num2;
       }
-      while (num2 > num1);
-      return num2 >= 0 ? num2 % bound : bound - 1 + (num2 + 1) % bound;
+      while (num2 <= 1000);
+      Debug.LogError((object) "next looped 1000+ times");
+      return 0;
     }
 
     public int next2(int bound)
     {
       int num1 = int.MaxValue - (int) (4294967296L % (long) bound);
-      int num2;
+      int num2 = 0;
       do
       {
-        num2 = this.next();
+        int num3 = this.next();
+        if (num3 <= num1)
+          return num3 >= 0 ? num3 % bound : bound - 1 + (num3 + 1) % bound;
+        ++num2;
       }
-      while (num2 > num1);
-      return num2 >= 0 ? num2 % bound : bound - 1 + (num2 + 1) % bound;
+      while (num2 <= 1000);
+      Debug.LogError((object) "next looped 1000+ times");
+      return 0;
     }
 
     public int Next(int min, int max)

@@ -50,6 +50,16 @@ public class BitBools
     return true;
   }
 
+  public bool AllOff()
+  {
+    for (int index = 0; index < this.array.Length; ++index)
+    {
+      if (this.array[index] != 0)
+        return false;
+    }
+    return true;
+  }
+
   public void ResetAll()
   {
     for (int index = 0; index < this.array.Length; ++index)

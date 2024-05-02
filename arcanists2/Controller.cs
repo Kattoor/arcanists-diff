@@ -6,13 +6,14 @@ using MovementEffects;
 using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;
-using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 
 #nullable disable
 public class Controller : MonoBehaviour
 {
+  public Material _Radial;
+  public float _RadialSpeed;
   public bool isActive = true;
   public bool useColorScheme;
   public Controller schemeController;
@@ -20,6 +21,7 @@ public class Controller : MonoBehaviour
   public Inert inert;
   public ClientResources clientResources;
   public RectTransform canvasRect;
+  public SystemUpdate systemUpdate;
   public GameObject MenuLogin;
   public GameObject MenuMain;
   public GameObject MenuLobby;
@@ -45,6 +47,9 @@ public class Controller : MonoBehaviour
   public GameObject MenuTutorialCodeEditor;
   public GameObject MenuColorScheme;
   public ChessUI chessui;
+  public CheckersUI checkersui;
+  public Join31UI Join31ui;
+  public RPSTBGUI RPSTBGui;
   public GameObject mapObj;
   public GameObject mapMeterObj;
   public GameObject miniCamera;
@@ -61,6 +66,7 @@ public class Controller : MonoBehaviour
   public GameObject MenuEmoji;
   public QuickchatUI quickchat;
   public CosmeticsMenuDev cosmeticsMenu;
+  public BadgeMenuDev badgeMenu;
   public SpellLobbyChange spellLobbyChange;
   public ChooseJsonDialog dialogChooseJson;
   public PopupRestrictions dialogRestrictions;
@@ -86,8 +92,11 @@ public class Controller : MonoBehaviour
   [Header("Fonts")]
   public TMP_FontAsset fontArc;
   public TMP_FontAsset fontDef;
+  public TMP_FontAsset fontPixel;
   private float _keepalive;
   private float _removeTempIgnored;
+  private float _next;
+  private float _cur;
   internal List<Controller.Stack> stack = new List<Controller.Stack>();
   private GameObject openedMenu;
   private GameObject openHandle;
@@ -96,7 +105,11 @@ public class Controller : MonoBehaviour
 
   public static TMP_FontAsset GetFont(int index)
   {
-    return index != 0 ? Controller.Instance.fontArc : Controller.Instance.fontDef;
+    if (index == 0)
+      return Controller.Instance.fontDef;
+    if (index == 1)
+      return Controller.Instance.fontArc;
+    return index != 2 ? Controller.Instance.fontDef : Controller.Instance.fontPixel;
   }
 
   private void OnApplicationQuit()
@@ -118,17 +131,6 @@ public class Controller : MonoBehaviour
     if (!focus)
       return;
     MapObjects.Instance?.SetWaves();
-  }
-
-  public Task<TRet> StartNew<TRet>(Func<TRet> func) => Task.FromResult<TRet>(func());
-
-  public async void tt()
-  {
-    Task task = await this.StartNew<Task>((Func<Task>) (() =>
-    {
-      Debug.Log((object) ("Time: " + (object) Time.realtimeSinceStartup));
-      return Task.CompletedTask;
-    }));
   }
 
   private void OnEnable()
@@ -250,6 +252,8 @@ public class Controller : MonoBehaviour
     if (!this.isActive)
       return;
     Client.CheckBloodToggle();
+    HUD.useNewSpellBgIcons = Global.GetPrefBool("newspellicons", true);
+    HUD.useNewPanelPlayer = Global.GetPrefBool("useNewPanelPlayer", true);
   }
 
   private void OnDestroy()
@@ -265,6 +269,13 @@ public class Controller : MonoBehaviour
   {
     if (!this.isActive)
       return;
+    this._next += Time.deltaTime * this._RadialSpeed;
+    if ((double) this._next > (double) this._cur)
+    {
+      this._cur = this._next + 1f;
+      this._Radial.SetFloat("timeFactor", UnityEngine.Random.Range(10f, 20f));
+      this._Radial.SetFloat("timeFactor2", UnityEngine.Random.Range(50f, 100f));
+    }
     Controller.realtimeSinceStartup = Time.realtimeSinceStartup;
     if (this.lastScreenHeight != Screen.height || this.lastScreenWidth != Screen.width)
     {

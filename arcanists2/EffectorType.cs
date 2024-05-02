@@ -38,7 +38,7 @@ public enum EffectorType
   Monkey = 31, // 0x0000001F
   Spirit_Shield = 32, // 0x00000020
   Dragon_Aura_of_Decay = 33, // 0x00000021
-  Phantom = 34, // 0x00000022
+  Apparition = 34, // 0x00000022
   Vortex = 35, // 0x00000023
   Social_Distancing = 36, // 0x00000024
   Duplicate = 37, // 0x00000025
@@ -58,8 +58,8 @@ public enum EffectorType
   Remove_Four_Seasons = 51, // 0x00000033
   Miner_Map = 52, // 0x00000034
   Myth = 53, // 0x00000035
-  Devils_Snare = 54, // 0x00000036
-  Werewolf = 55, // 0x00000037
+  Prickly_Barrier = 54, // 0x00000036
+  Bear = 55, // 0x00000037
   DarkBomb = 56, // 0x00000038
   Shooting_Stars = 57, // 0x00000039
   Collision_Course = 58, // 0x0000003A
@@ -69,7 +69,14 @@ public enum EffectorType
   GravityWell = 62, // 0x0000003E
   Butterfly_Jar = 63, // 0x0000003F
   Retribution = 64, // 0x00000040
-  Wolf_Leap = 65, // 0x00000041
+  Boar_Charge = 65, // 0x00000041
   ApparitionArmageddon = 66, // 0x00000042
   AutumnLeaves = 67, // 0x00000043
+  Javelin = 68, // 0x00000044
+  Grove_Renewal = 69, // 0x00000045
+  Stalk = 70, // 0x00000046
+  Rising_Lava = 71, // 0x00000047
+  Phantom = 72, // 0x00000048
+  Fake_Portal = 73, // 0x00000049
+  Dense_Fog = 74, // 0x0000004A
 }

@@ -154,6 +154,8 @@ public class ZMyCollider : ZComponent
     this.ArbritaryInit();
   }
 
+  internal bool HasLayer(int x) => (this.layer & x) != 0;
+
   public int offsetX => this.baseCollider.offsetX;
 
   public int offsetY => this.baseCollider.offsetY;

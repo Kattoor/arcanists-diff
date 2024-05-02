@@ -204,6 +204,16 @@ public class MyContextMenu : MonoBehaviour
     return inputFieldPlus;
   }
 
+  public UIOnSlider AddSlider(UnityAction<float> a, string defTxt = "", float defValue = 0.0f)
+  {
+    UIOnSlider uiOnSlider = UnityEngine.Object.Instantiate<UIOnSlider>(ClientResources.Instance.contextMenuSlider, (Transform) this.container);
+    uiOnSlider.SetValue(defValue);
+    uiOnSlider.onClick.AddListener(a);
+    uiOnSlider.GetComponentInChildren<TMP_Text>().text = defTxt;
+    uiOnSlider.gameObject.SetActive(true);
+    return uiOnSlider;
+  }
+
   public void AddVectorField(Action<Vector2> a, Vector2 def)
   {
     VectorFieldContextMenu fieldContextMenu = UnityEngine.Object.Instantiate<VectorFieldContextMenu>(ClientResources.Instance.contextMenuVectorField, (Transform) this.container);
@@ -332,42 +342,64 @@ public class MyContextMenu : MonoBehaviour
       if ((UnityEngine.Object) Player.Instance != (UnityEngine.Object) null)
         this.AddSeperator("clan icon cannot be changed in-game");
       else
-        this.AddItem(acc.displayClanPrefix == (byte) 0 ? "Hide Clan Prefix" : "Show Clan Prefix", (Action) (() => Client.AskToChangeDisplayIcon(acc.displayClanPrefix == (byte) 0 ? (byte) 253 : (byte) 254)), (Color) ColorScheme.GetColor(MyContextMenu.ColorYellow));
+        this.AddItem(acc.displayClanPrefix == (byte) 0 ? "Hide Clan Prefix" : "Show Clan Prefix", (Action) (() => Client.AskToChangeDisplayIcon(acc.displayClanPrefix == (byte) 0 ? 253 : 254)), (Color) ColorScheme.GetColor(MyContextMenu.ColorYellow));
       this.AddSeperator();
     }
     this.AddSeperator("Change your displayed icon");
     this.AddSeperator();
-    this.AddItem("Display Default", (Action) (() => Client.AskToChangeDisplayIcon((byte) 0)), (Color) ColorScheme.GetColor(MyContextMenu.ColorYellow));
-    this.AddItem("Display Experience", (Action) (() => Client.AskToChangeDisplayIcon((byte) 252)), (Color) ColorScheme.GetColor(MyContextMenu.ColorYellow));
-    this.AddItem("Display Prestige", (Action) (() => Client.AskToChangeDisplayIcon(byte.MaxValue)), (Color) ColorScheme.GetColor(MyContextMenu.ColorYellow));
+    this.AddItem("Display Default", (Action) (() => Client.AskToChangeDisplayIcon(0)), (Color) ColorScheme.GetColor(MyContextMenu.ColorYellow));
+    this.AddItem("Display Experience", (Action) (() => Client.AskToChangeDisplayIcon(252)), (Color) ColorScheme.GetColor(MyContextMenu.ColorYellow));
+    this.AddItem("Display Prestige", (Action) (() => Client.AskToChangeDisplayIcon((int) byte.MaxValue)), (Color) ColorScheme.GetColor(MyContextMenu.ColorYellow));
+    if (!Client.MyAccount.badges.AllOff())
+      this.AddItem("Display Badge...", (Action) (() => this.SelectBadge(acc)), (Color) ColorScheme.GetColor(MyContextMenu.ColorYellow));
     if (accountType == 0)
     {
       this.AddItem(Client.Name + " is the best", (Action) (() => { }), (Color) ColorScheme.GetColor(MyContextMenu.ColorPurple));
     }
     else
     {
-      this.AddSeperator();
-      for (int index = 0; index < AccountExtension._IconOrder.Length; ++index)
-      {
-        if (((AccountType) accountType & AccountExtension._IconOrder[index]) != AccountType.None)
-        {
-          byte b = AccountExtension._IconOrder[index].GetIndex();
-          if (AccountExtension._IconOrder[index] == AccountType.Muted && acc.discord == 0UL)
-            this.AddItem(ChatBox.IconString(acc, AccountExtension._IconOrder[index]) + "Unverified", (Action) (() => { }), (Color) ColorScheme.GetColor(MyContextMenu.ColorBlue));
-          else
-            this.AddItem(ChatBox.IconString(acc, AccountExtension._IconOrder[index]) + AccountExtension._IconOrder[index].ToSpacelessString(), (Action) (() =>
-            {
-              if (acc.accountType.IsMuted())
-                return;
-              Client.AskToChangeDisplayIcon(b);
-            }), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
-        }
-      }
-      if (Client.clan == null || Client.clan.members[Client.Name].role < Clan.Roles.Officer || !string.Equals(acc.clan, Client.clan.name) || acc.clanRole > Client.clan.members[Client.Name].role)
+      if (Client.clan == null || Client.clan.members[Client.Name] < Clan.Roles.Officer || !string.Equals(acc.clan, Client.clan.name) || acc.clanRole > Client.clan.members[Client.Name])
         return;
       this.AddSeperator();
       this.AddItem("Change clan rank...", (Action) (() => MyContextMenu.RankContextMenu(acc)), (Color) ColorScheme.GetColor(MyContextMenu.ColorClan));
     }
+  }
+
+  private void SelectBadge(Account acc)
+  {
+    int accountType = (int) acc.accountType;
+    MyContextMenu myContextMenu = MyContextMenu.Show();
+    BitBools badges = Client.MyAccount.badges;
+    ButtonArrayContextmenu arrayContextmenu = myContextMenu.AddArray();
+    for (int index = 0; index < AccountExtension._IconOrder.Length; ++index)
+    {
+      if (((AccountType) accountType & AccountExtension._IconOrder[index]) != AccountType.None)
+      {
+        byte b = AccountExtension._IconOrder[index].GetIndex();
+        if (AccountExtension._IconOrder[index] != AccountType.Muted || acc.discord != 0UL)
+          arrayContextmenu.AddItem(ChatBox.IconString(acc, AccountExtension._IconOrder[index]), (Action) (() =>
+          {
+            if (acc.accountType.IsMuted())
+              return;
+            Client.AskToChangeDisplayIcon((int) b);
+          }), AccountExtension._IconOrder[index].ToSpacelessString());
+        if (arrayContextmenu.Count >= 24)
+          arrayContextmenu = myContextMenu.AddArray();
+      }
+    }
+    for (int index = 0; index < (int) byte.MaxValue; ++index)
+    {
+      if (badges[index])
+      {
+        int e = index;
+        arrayContextmenu.AddImage(ClientResources.Instance.badges[index], ClientResources.Instance.badges[index].name, (Action) (() => Client.AskToChangeDisplayIcon(256 + e)));
+        if (arrayContextmenu.Count >= 24)
+          arrayContextmenu = myContextMenu.AddArray();
+      }
+    }
+    if (arrayContextmenu.Count == 0)
+      UnityEngine.Object.Destroy((UnityEngine.Object) arrayContextmenu.gameObject);
+    myContextMenu.Rebuild();
   }
 
   private void AddCopy(string chatMsg)
@@ -427,7 +459,7 @@ public class MyContextMenu : MonoBehaviour
     }), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
     myContextMenu.AddItem("Till the client is closed", (Action) (() => Client.tempIgnored.Add(s, long.MaxValue)), (Color) ColorScheme.GetColor(MyContextMenu.ColorYellow));
     if (Client.ignore.Count < 100)
-      myContextMenu.AddItem("Ignore Indefintely", (Action) (() => Client.AskToAddFriend(false, true, s)), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
+      myContextMenu.AddItem("Ignore Indefinitely", (Action) (() => Client.AskToAddFriend(false, true, s)), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
     else
       myContextMenu.AddSeperator("Ignore list full - Please use one of the above options");
     myContextMenu.Rebuild();
@@ -470,10 +502,10 @@ public class MyContextMenu : MonoBehaviour
         this.AddSeperator("-----------------------------------");
       }
       if (Client.miniGame != null)
-        this.AddItem("Invite " + s + " to the Chess match", (Action) (() =>
+        this.AddItem("Invite " + s + " to the " + Client.miniGame.GetGameType() + " match", (Action) (() =>
         {
           Client.sharingWith = s;
-          Client.AskToShare("Chess", ContentType.MiniGameInvite, (object) new MinigameInvite()
+          Client.AskToShare(Client.miniGame.GetGameType(), ContentType.MiniGameInvite, (object) new MinigameInvite()
           {
             from = Client.Name,
             minigameID = Client.miniGame.id,
@@ -541,11 +573,11 @@ public class MyContextMenu : MonoBehaviour
           this.AddItem("Add friend", (Action) (() => Client.AskToAddFriend(true, true, s)), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
         this.AddItem("Ignore for... ", (Action) (() => this.IgnoreFor(s)), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
       }
-      if (Client.clan != null && Client.clan.members[Client.Name].role >= Clan.Roles.Officer)
+      if (Client.clan != null && Client.clan.members[Client.Name] >= Clan.Roles.Officer)
       {
         if (string.IsNullOrEmpty(acc.clan))
           this.AddItem("Invite " + s + " to the clan ", (Action) (() => Client.AskClanCommand((byte) 7, acc.name)), (Color) ColorScheme.GetColor(MyContextMenu.ColorClan));
-        else if (string.Equals(acc.clan, Client.clan.name) && acc.clanRole < Client.clan.members[Client.Name].role)
+        else if (string.Equals(acc.clan, Client.clan.name) && acc.clanRole < Client.clan.members[Client.Name])
         {
           this.AddItem("Kick " + s + " from clan", (Action) (() => MyContextMenu.ShowSimple("Confirm kick " + s + " from clan?", (Action) (() => Client.AskClanCommand((byte) 10, acc.name)), new Color?(MyContextMenu.ColorRed))), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
           this.AddItem("Change " + s + "'s clan rank...", (Action) (() => MyContextMenu.RankContextMenu(acc)), (Color) ColorScheme.GetColor(MyContextMenu.ColorClan));
@@ -565,14 +597,14 @@ public class MyContextMenu : MonoBehaviour
           Global.systemCopyBuffer = acc.oldName;
           ChatBox.Instance.NewChatMsg("", "Copied " + s + "'s previous name to Clipboard", (Color) ColorScheme.GetColor(Global.ColorSystem), s, ChatOrigination.System);
         }), (Color) ColorScheme.GetColor(MyContextMenu.ColorBlue));
-      if (acc.discord != 0UL)
+      Account account = Client.GetAccount(Client.Name);
+      if (acc.discord != 0UL && account.accountType.IsModPlus())
         this.AddItem("Discord ID: " + acc.discord.ToString(), (Action) (() =>
         {
           Global.systemCopyBuffer = acc.discord.ToString();
           ChatBox.Instance.NewChatMsg("", "Copied " + s + "'s discord ID to Clipboard", (Color) ColorScheme.GetColor(Global.ColorSystem), s, ChatOrigination.System);
         }), (Color) ColorScheme.GetColor(MyContextMenu.ColorBlue));
-      Account account = Client.GetAccount(Client.Name);
-      if (account.accountType.isMod() || account.accountType.isDev())
+      if (account.accountType.IsModPlus())
       {
         this.AddSeperator();
         if (acc.accountType.IsMuted() && !acc.fake)
@@ -588,27 +620,34 @@ public class MyContextMenu : MonoBehaviour
       }
       else
       {
-        this.AddSeperator("Account Tags");
-        this.AddSeperator();
-        int accountType = (int) acc.accountType;
-        for (int index1 = 0; index1 < AccountExtension._IconOrder.Length; ++index1)
+        if (Client.MyAccount.accountType.IsModPlus())
         {
-          if (((AccountType) accountType & AccountExtension._IconOrder[index1]) != AccountType.None)
+          this.AddSeperator("Account Tags");
+          this.AddSeperator();
+          int accountType = (int) acc.accountType;
+          for (int index1 = 0; index1 < AccountExtension._IconOrder.Length; ++index1)
           {
-            int index2 = (int) AccountExtension._IconOrder[index1].GetIndex();
-            if (AccountExtension._IconOrder[index1] == AccountType.Muted && acc.discord == 0UL)
-              this.AddItem(ChatBox.IconString(acc, AccountExtension._IconOrder[index1]) + "Unverified", (Action) (() => { }), (Color) ColorScheme.GetColor(MyContextMenu.ColorBlue));
-            else
-              this.AddItem(ChatBox.IconString(acc, AccountExtension._IconOrder[index1]) + AccountExtension._IconOrder[index1].ToSpacelessString(), (Action) (() => { }), (Color) ColorScheme.GetColor(MyContextMenu.ColorBlue));
+            if (((AccountType) accountType & AccountExtension._IconOrder[index1]) != AccountType.None)
+            {
+              int index2 = (int) AccountExtension._IconOrder[index1].GetIndex();
+              if (AccountExtension._IconOrder[index1] == AccountType.Muted && acc.discord == 0UL)
+                this.AddItem(ChatBox.IconString(acc, AccountExtension._IconOrder[index1]) + "Unverified", (Action) (() => { }), (Color) ColorScheme.GetColor(MyContextMenu.ColorBlue));
+              else
+                this.AddItem(ChatBox.IconString(acc, AccountExtension._IconOrder[index1]) + AccountExtension._IconOrder[index1].ToSpacelessString(), (Action) (() => { }), (Color) ColorScheme.GetColor(MyContextMenu.ColorBlue));
+            }
           }
+          if (acc.prestige > (byte) 0)
+            this.AddItem(ChatBox.PrestigeString((int) acc.prestige) + (object) acc.prestige + Account.number((int) acc.prestige) + " prestige", (Action) (() => { }), (Color) ColorScheme.GetColor(MyContextMenu.ColorBlue));
+          if (acc.experience > (byte) 0)
+            this.AddItem("Level " + (object) acc.experience, (Action) (() => { }), (Color) ColorScheme.GetColor(MyContextMenu.ColorBlue));
         }
-        if (acc.prestige > (byte) 0)
-          this.AddItem(ChatBox.PrestigeString((int) acc.prestige) + (object) acc.prestige + Account.number((int) acc.prestige) + " prestige", (Action) (() => { }), (Color) ColorScheme.GetColor(MyContextMenu.ColorBlue));
-        if (acc.experience > (byte) 0)
-          this.AddItem("Level " + (object) acc.experience, (Action) (() => { }), (Color) ColorScheme.GetColor(MyContextMenu.ColorBlue));
         this.AddCopy(chatMsg);
       }
     }
+  }
+
+  public void AdditionalInformation(string s, string chatMsg = null)
+  {
   }
 
   public static void ShareContextMenu(string s, Account acc)
@@ -691,43 +730,25 @@ public class MyContextMenu : MonoBehaviour
 
   public static void RankContextMenu(Account acc)
   {
-    Clan.Roles role = Client.clan.members[Client.Name].role;
-    MyContextMenu myContextMenu1 = MyContextMenu.Show();
+    Clan.Roles member = Client.clan.members[Client.Name];
+    MyContextMenu myContextMenu = MyContextMenu.Show();
     List<Clan.Roles> list = ((IEnumerable<Clan.Roles>) Enum.GetValues(typeof (Clan.Roles))).ToList<Clan.Roles>();
     for (int index = 0; index < list.Count; ++index)
     {
       Clan.Roles x = list[index];
-      Clan.Roles roles;
-      if (list[index] == role)
-      {
-        MyContextMenu myContextMenu2 = myContextMenu1;
-        roles = list[index];
-        string n = roles.ToString();
-        myContextMenu2.AddSeperator(n);
-      }
-      else if (list[index] < role)
-      {
-        MyContextMenu myContextMenu3 = myContextMenu1;
-        roles = list[index];
-        string n = roles.ToString();
-        Action a = (Action) (() => Client.AskClanRank(acc.name, (int) x));
-        Color color = (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen);
-        myContextMenu3.AddItem(n, a, color);
-      }
+      if (list[index] == member)
+        myContextMenu.AddSeperator(list[index].ToString());
+      else if (list[index] < member)
+        myContextMenu.AddItem(list[index].ToString(), (Action) (() => Client.AskClanRank(acc.name, (int) x)), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
       else
-      {
-        MyContextMenu myContextMenu4 = myContextMenu1;
-        roles = list[index];
-        string n = roles.ToString();
-        Color color = (Color) ColorScheme.GetColor(MyContextMenu.ColorRed);
-        myContextMenu4.AddItem(n, (Action) (() => { }), color);
-      }
+        myContextMenu.AddItem(list[index].ToString(), (Action) (() => { }), (Color) ColorScheme.GetColor(MyContextMenu.ColorRed));
     }
-    myContextMenu1.Rebuild();
+    myContextMenu.Rebuild();
   }
 
   public void Close()
   {
+    MyToolTip.Close();
     if ((UnityEngine.Object) MyContextMenu.instance == (UnityEngine.Object) this)
       MyContextMenu.instance = (MyContextMenu) null;
     Action onCancel = this.onCancel;

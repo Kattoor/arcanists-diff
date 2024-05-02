@@ -24,9 +24,6 @@ public static class GameSerializer
     writer.Write(x.communeWithNature);
     writer.Write(x.countdown);
     writer.Write(x.lastArmageddon);
-    writer.Write(x.ritualEnum.Count);
-    foreach (SpellEnum spellEnum in x.ritualEnum)
-      writer.Write((int) spellEnum);
     writer.Write(x.name);
     x.settingsPlayer.Serialize(writer);
     x.account.Serialize(writer);
@@ -118,9 +115,6 @@ public static class GameSerializer
     x.communeWithNature = reader.ReadInt32();
     x.countdown = reader.ReadSingle();
     x.lastArmageddon = reader.ReadInt32();
-    int num = reader.ReadInt32();
-    for (int index = 0; index < num; ++index)
-      x.ritualEnum.Add((SpellEnum) reader.ReadInt32());
     x.name = reader.ReadString();
     x.settingsPlayer = new SettingsPlayer();
     x.settingsPlayer.Deserialize(reader);
@@ -252,7 +246,11 @@ public static class GameSerializer
     return z;
   }
 
-  public static void SerializePerson(ZGame game, ZPerson p, myBinaryWriter writer)
+  public static void SerializePerson(
+    ZGame game,
+    ZPerson p,
+    myBinaryWriter writer,
+    bool includePlayerSpells = true)
   {
     GameSerializer.Serialize(game, p, writer);
     writer.Write(p.minionBookTitans.Count);
@@ -271,7 +269,7 @@ public static class GameSerializer
       else
       {
         writer.Write(true);
-        ZCreatureCreate.Serialize(c, writer);
+        ZCreatureCreate.Serialize(c, writer, includePlayerSpells);
         if (c.type == CreatureType.Beehive)
         {
           ZCreatureBeehive zcreatureBeehive = (ZCreatureBeehive) c;
@@ -370,8 +368,8 @@ public static class GameSerializer
           zcreature.ClientTransformFreshWaterTroll();
         if (zcreature.race == CreatureRace.Undead && zcreature.baseCreature.race != CreatureRace.Undead)
           zcreature.ClientTurnUndead();
-        else if (zcreature.race == CreatureRace.Werewolf)
-          ZSpell.CreateWerewolfObj(Inert.GetSpell(SpellEnum.Werewolf_Transformation), zcreature);
+        else if (zcreature.race == CreatureRace.Bear)
+          ZSpell.CreateWerewolfObj(Inert.GetSpell(SpellEnum.Bear_Form), zcreature);
         if (zcreature.flying && !zcreature.baseCreature.flying)
           ZSpell.ClientFireFlight(Inert.GetSpell(zcreature.flightSpell), zcreature);
         if (zcreature.hasDarkDefenses && zcreature.game.isClient && (Object) zcreature.transform != (Object) null)
@@ -408,6 +406,8 @@ public static class GameSerializer
           MinerMarket.Deserialize(reader, zcreature);
         if (zcreature.type == CreatureType.Gargoyle && !zcreature.flying && (Object) zcreature.gameObject != (Object) null)
           zcreature.gameObject.GetComponent<GargoyalObj>()?.SetColor(zcreature.flying, zcreature.flying ? 0.0f : -1f);
+        if (zcreature.type == CreatureType.Wisp && zcreature.phantom && (Object) zcreature.gameObject != (Object) null)
+          ZSpell.ChangeSprites(zcreature, ClientResources.Instance.wispPhantomSprites);
         zcreature.UpdateHealthTxt();
         int num4 = reader.ReadInt32();
         for (int index3 = 0; index3 < num4; ++index3)

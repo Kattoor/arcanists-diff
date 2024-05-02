@@ -64,22 +64,18 @@ public class MapObjects : MonoBehaviour
         break;
       case MapEnum.Murky_Swamp:
         this.Adjust(-0.05f, 0.0f, -0.13f);
-        this.water.color = ColorHSV.AdjustColor(this.water.color, 0.0f, 0.0f, 0.02f);
         break;
       case MapEnum.Graveyard:
         this.Adjust(0.0f, -0.6f, -0.3f);
-        this.water.color = ColorHSV.AdjustColor(this.water.color, 0.0f, 0.0f, 0.06f);
         break;
       case MapEnum.Alien_World:
         this.Adjust(-0.169444442f, 0.0f, -0.13f);
         break;
       case MapEnum.Ghostly_Halls:
         this.Adjust(0.2f, -0.68f, 0.16f);
-        this.water.color = ColorHSV.AdjustColor(this.water.color, 0.0f, 0.0f, -0.02f);
         break;
       case MapEnum.Space_Nexus:
         this.Adjust(0.308333337f, 0.0f, -0.2f);
-        this.water.color = ColorHSV.AdjustColor(this.water.color, 0.0f, 0.0f, 0.03f);
         break;
     }
   }
@@ -93,7 +89,7 @@ public class MapObjects : MonoBehaviour
 
   public void SetWaves()
   {
-    int x = (int) Vector3.Distance(this._camera.ViewportToWorldPoint(new Vector3(1f, 0.0f, 0.0f)), this._camera.ViewportToWorldPoint(new Vector3(0.0f, 0.0f, 0.0f))) + 480;
+    int x = Client.game.map.Width + 2164;
     foreach (SpriteRenderer wave in this.waves)
       wave.size = new Vector2((float) x, wave.size.y);
     this.water.size = new Vector2((float) x, 860f);

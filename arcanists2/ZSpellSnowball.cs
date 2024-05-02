@@ -8,15 +8,15 @@ public class ZSpellSnowball : ZSpell
 {
   public void Blit()
   {
-    if (this.spellEnum != SpellEnum.Brine_Bolt && this.spellEnum != SpellEnum.Spear_Throw && this.position.y >= this.map.Height - 150)
+    if (this.spellEnum != SpellEnum.Brine_Bolt && this.spellEnum != SpellEnum.Verdant_Javelin && this.position.y >= this.map.Height - 150)
     {
       this.OnExplosion();
     }
     else
     {
-      if (this.map.CheckPositionOnlyEntities((int) this.position.x, (int) this.position.y, (ZCreature) null, 256))
+      if (!((ZComponent) this.map.PhysicsCollideCreatureCircle((ZCreature) null, (int) this.position.x, (int) this.position.y, 2, 256) == (object) null))
         return;
-      if (this.spellEnum == SpellEnum.Spear_Throw)
+      if (this.spellEnum == SpellEnum.Verdant_Javelin)
       {
         Color32[] pixels32;
         if (!ZMap.cachedPixels.TryGetValue(this.snowTexture, out pixels32))
@@ -55,12 +55,10 @@ public class ZSpellSnowball : ZSpell
     ZSpellSnowball zspellSnowball = this;
     zspellSnowball.isMoving = true;
     zspellSnowball.zb = MapGenerator.getOutlineArray(zspellSnowball.radius);
-    if (zspellSnowball.spellEnum == SpellEnum.Spear_Throw)
-      zspellSnowball.target = new MyLocation(0, 0);
     if (gotoStatic)
       yield return 0.0f;
-label_4:
-    int collisionFrame = zspellSnowball.damageType != DamageType.Snow ? (zspellSnowball.spellEnum == SpellEnum.Spear_Throw ? -1 : 0) : 2;
+label_2:
+    int collisionFrame = zspellSnowball.damageType != DamageType.Snow ? (zspellSnowball.spellEnum == SpellEnum.Verdant_Javelin ? -1 : 0) : 2;
     while (!zspellSnowball.isDead)
     {
       if (zspellSnowball.curDuration == 10 && !zspellSnowball.affectedByGravity)
@@ -91,7 +89,7 @@ label_4:
         {
           zspellSnowball.position = new MyLocation(zspellSnowball.validX, zspellSnowball.validY);
           yield return 0.0f;
-          goto label_4;
+          goto label_2;
         }
         else
         {
@@ -117,7 +115,7 @@ label_4:
               else
               {
                 ZCreature zcreature = zspellSnowball.map.PhysicsCollideCreature(zspellSnowball.toCollideCheck, num2 + zspellSnowball.zb[index2].x, num3 + zspellSnowball.zb[index2].y);
-                if (zspellSnowball.spellEnum == SpellEnum.Spear_Throw && (ZComponent) zcreature == (object) null)
+                if (zspellSnowball.spellEnum == SpellEnum.Verdant_Javelin && (ZComponent) zcreature == (object) null)
                   zcreature = zspellSnowball.map.PhysicsCollideCreatureCircle(zspellSnowball.toCollideCheck, num2 + zspellSnowball.zb[index2].x, num3 + zspellSnowball.zb[index2].y, 3);
                 if ((ZComponent) zcreature != (object) null && typeof (ZCreatureThorn) != zcreature.GetType())
                 {
@@ -127,13 +125,6 @@ label_4:
                   zspellSnowball.position = new MyLocation(zspellSnowball.validX, zspellSnowball.validY);
                   zspellSnowball.moving = (IEnumerator<float>) null;
                   zspellSnowball.isMoving = false;
-                  if (zspellSnowball.spellEnum == SpellEnum.Spear_Throw)
-                  {
-                    int v1 = zspellSnowball.damage / 2;
-                    int num4 = MyLocation.Distance(zspellSnowball.target, MyLocation.zero);
-                    if (num4 < 45)
-                      zspellSnowball.damage -= (int) Mathd.Lerp((FixedInt) 0, (FixedInt) v1, (FixedInt) (45 - num4) / (FixedInt) 45);
-                  }
                   zcreature.ApplyDamage(zspellSnowball.spellEnum, zspellSnowball.damageType, zspellSnowball.damage, zspellSnowball.parent, zspellSnowball.game.turn, (ISpellBridge) zspellSnowball);
                   if ((Object) zspellSnowball.explosion != (Object) null)
                     zspellSnowball.OnExplosion();
@@ -158,11 +149,6 @@ label_4:
         }
       }
       zspellSnowball.position = zspellSnowball.position + zspellSnowball.velocity;
-      if (zspellSnowball.spellEnum == SpellEnum.Spear_Throw)
-      {
-        zspellSnowball.target.x += Mathd.Abs(zspellSnowball.velocity.x);
-        zspellSnowball.target.y += Mathd.Abs(zspellSnowball.velocity.y);
-      }
       if (zspellSnowball.position.y < zspellSnowball.radius && zspellSnowball.velocity.y <= 0)
       {
         zspellSnowball.moving = (IEnumerator<float>) null;
@@ -181,6 +167,8 @@ label_4:
       {
         zspellSnowball.addVelocity = false;
         zspellSnowball.velocity = zspellSnowball.velocity + zspellSnowball.addedVelocity;
+        zspellSnowball.velocity.x = Mathd.Clamp(zspellSnowball.velocity.x, (FixedInt) -50, (FixedInt) 50);
+        zspellSnowball.velocity.y = Mathd.Clamp(zspellSnowball.velocity.y, (FixedInt) -50, (FixedInt) 50);
         zspellSnowball.addedVelocity.x = (FixedInt) 0;
         zspellSnowball.addedVelocity.y = (FixedInt) 0;
       }
@@ -188,7 +176,7 @@ label_4:
         zspellSnowball.velocity.y += zspellSnowball.map.Gravity;
       else if (!zspellSnowball.affectedByGravity && zspellSnowball.velocity.y > -ZMap.SnowSpeed)
         zspellSnowball.velocity.y += zspellSnowball.map.Gravity;
-      else if (!zspellSnowball.affectedByGravity && zspellSnowball.velocity.y > -1 && zspellSnowball.maxDuration > 150 && zspellSnowball.curDuration > 10)
+      else if (!zspellSnowball.affectedByGravity && zspellSnowball.velocity.y > -10 && zspellSnowball.maxDuration > 150 && zspellSnowball.curDuration > 10)
         zspellSnowball.affectedByGravity = true;
       zspellSnowball.Wind();
       if (zspellSnowball.Rotates && (Object) zspellSnowball.transform != (Object) null)
