@@ -1,11 +1,13 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: ClickSpell
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -22,6 +24,10 @@ public class ClickSpell : MonoBehaviour
   public SpellButton sbPrefab;
   public List<SpellButton> spellButtons;
   public RectTransform backdrop;
+  public List<Image> allImages;
+  public List<TMP_Text> allText;
+  public static float curAlpha = 1f;
+  public static bool isTransparent = false;
   private SpellButton active;
   private int elementalOffset;
 
@@ -33,13 +39,86 @@ public class ClickSpell : MonoBehaviour
     this.bar_bg2.color = c;
   }
 
-  private void Awake() => ClickSpell.Instance = this;
+  private void Awake()
+  {
+    ClickSpell.Instance = this;
+    this.allImages = ((IEnumerable<Image>) this.GetComponentsInChildren<Image>(true)).ToList<Image>();
+    this.allText = ((IEnumerable<TMP_Text>) this.GetComponentsInChildren<TMP_Text>(true)).ToList<TMP_Text>();
+    for (int index = this.allImages.Count - 1; index >= 0; --index)
+    {
+      if (this.allImages[index].CompareTag("Ignore"))
+        this.allImages.RemoveAt(index);
+    }
+    for (int index = this.allText.Count - 1; index >= 0; --index)
+    {
+      if (this.allText[index].CompareTag("Ignore"))
+        this.allText.RemoveAt(index);
+    }
+  }
 
   private void OnDestroy()
   {
     if (!((UnityEngine.Object) ClickSpell.Instance == (UnityEngine.Object) this))
       return;
     ClickSpell.Instance = (ClickSpell) null;
+  }
+
+  public void ToggleTransparency(bool v)
+  {
+    ClickSpell.isTransparent = v;
+    this.StopAllCoroutines();
+    this.StartCoroutine(v ? this.IEShow() : this.IEHide());
+  }
+
+  private IEnumerator IEShow()
+  {
+    yield return (object) null;
+    yield return (object) null;
+    while ((double) ClickSpell.curAlpha < 1.0)
+    {
+      ClickSpell.curAlpha += Time.deltaTime * 4f;
+      this.SetAlpha();
+      yield return (object) null;
+    }
+    ClickSpell.curAlpha = 1f;
+    this.SetAlpha();
+  }
+
+  private IEnumerator IEHide()
+  {
+    yield return (object) null;
+    yield return (object) null;
+    float f = PlayerPrefs.GetFloat("prefSpellBarTransparency", 0.35f);
+    while ((double) ClickSpell.curAlpha > (double) f)
+    {
+      ClickSpell.curAlpha -= Time.deltaTime * 4f;
+      this.SetAlpha();
+      yield return (object) null;
+    }
+    ClickSpell.curAlpha = f;
+    this.SetAlpha();
+  }
+
+  public void ChangeAlpha(float f)
+  {
+    if ((double) ClickSpell.curAlpha == 1.0)
+      return;
+    ClickSpell.curAlpha = f;
+    this.SetAlpha();
+  }
+
+  public void SetAlpha()
+  {
+    for (int index = 0; index < this.allImages.Count; ++index)
+      this.allImages[index].color = ClickSpell.GetColor(this.allImages[index].color);
+    for (int index = 0; index < this.allText.Count; ++index)
+      this.allText[index].color = ClickSpell.GetColor(this.allText[index].color);
+  }
+
+  public static Color GetColor(Color c)
+  {
+    c.a = ClickSpell.curAlpha;
+    return c;
   }
 
   public void OnPointerEnter(int i)
@@ -88,11 +167,18 @@ public class ClickSpell : MonoBehaviour
 
   public void OnClickIndex(int i)
   {
-    if ((UnityEngine.Object) Player.Instance == (UnityEngine.Object) null || HUD.Hidden)
+    if ((UnityEngine.Object) Player.Instance == (UnityEngine.Object) null || !Player.Instance.person.yourTurn)
     {
       this.selectedSpellNameText.text = "";
       this.selectedSpellImage.Hide();
-      this.staffIcon.color = new Color(1f, 1f, 1f, 0.16f);
+      this.staffIcon.color = new Color(1f, 1f, 1f, 0.5f);
+    }
+    else if (HUD.Hidden)
+    {
+      this.selectedSpellNameText.text = "";
+      this.selectedSpellImage.Hide();
+      this.staffIcon.color = new Color(1f, 1f, 1f, 0.5f);
+      Player.Instance.SetFakeSpell(i);
     }
     else
     {
@@ -107,7 +193,7 @@ public class ClickSpell : MonoBehaviour
       }
       else
       {
-        if (this.spellButtons[i].image.color != Color.white)
+        if (!Global.CompareColors((Color32) this.spellButtons[i].image.color, (Color32) Color.white))
           return;
         this.UpdateUI(i);
         Player.Instance.SetSpell(i);
@@ -201,7 +287,8 @@ public class ClickSpell : MonoBehaviour
 
   public void ExtraEffectsInWater()
   {
-    this.spellButtons[0].SetVisual(Inert.Instance.waterGate.spell.name, -1, 0, false);
+    Spell spell = Inert.Instance.waterGate.spell;
+    this.spellButtons[0].SetVisual(spell.name, spell.name, -1, 0, false);
   }
 
   public void ExtraEffects(int i)
@@ -218,6 +305,9 @@ public class ClickSpell : MonoBehaviour
       SpellButton spellButton = UnityEngine.Object.Instantiate<SpellButton>(this.sbPrefab, this.sbPrefab.transform.parent);
       spellButton.index = i;
       this.spellButtons.Add(spellButton);
+      this.allImages.Add(spellButton.bgColor);
+      this.allImages.Add(spellButton.image);
+      this.allText.Add(spellButton.txtText);
       RectTransform rectTransform = UnityEngine.Object.Instantiate<RectTransform>(this.backdrop, this.backdrop.parent);
       spellButton.backdrop = rectTransform;
     }
@@ -292,7 +382,7 @@ public class ClickSpell : MonoBehaviour
     {
       if (!Player.Instance.selected.shiningPower && Player.Instance.selected.flying && !Player.Instance.selected.phantom)
       {
-        this.spellButtons[i].SetVisual("Cancel Flight", -1, 0, maxedSummons);
+        this.spellButtons[i].SetVisual("Flight", "Cancel Flight", -1, 0, maxedSummons);
         return;
       }
     }
@@ -315,7 +405,7 @@ public class ClickSpell : MonoBehaviour
     }
     if (Player.Instance.selected.phantom)
     {
-      if (spell2.bookOf != BookOf.Arcane && spell2.bookOf != BookOf.Illusion)
+      if (spell2.bookOf != BookOf.Arcane && spell2.bookOf != BookOf.Illusion && !spell1.isPresent && spell2.spellEnum != SpellEnum.Spirit_Link)
       {
         this.spellButtons[i].error = 104;
         maxedSummons = true;
@@ -325,7 +415,7 @@ public class ClickSpell : MonoBehaviour
     }
     else if (Player.Instance.selected.race == CreatureRace.Undead && !Player.Instance.selected.pawn)
     {
-      if (spell2.bookOf != BookOf.Arcane && spell2.bookOf != BookOf.Underdark || spell2.type == CastType.Tower)
+      if (spell2.bookOf != BookOf.Arcane && spell2.bookOf != BookOf.Underdark && !spell1.isPresent || spell2.type == CastType.Tower)
       {
         this.spellButtons[i].error = spell2.type == CastType.Tower ? 121 : 103;
         maxedSummons = true;
@@ -335,22 +425,22 @@ public class ClickSpell : MonoBehaviour
     }
     else if (Player.Instance.selected.shiningPower)
     {
-      if (spell2.bookOf != BookOf.Arcane && spell2.bookOf != BookOf.OverLight)
+      if (spell2.bookOf != BookOf.Arcane && spell2.bookOf != BookOf.OverLight && !spell1.isPresent || spell2.type == CastType.Tower)
       {
-        this.spellButtons[i].error = 102;
+        this.spellButtons[i].error = spell2.type == CastType.Tower ? 124 : 102;
         maxedSummons = true;
         uses = 0;
         num4 = 0;
       }
     }
-    else if (Player.Instance.selected.race == CreatureRace.Werewolf && !Player.Instance.selected.pawn && (spell2.bookOf != BookOf.Arcane && spell2.bookOf != BookOf.The_Wilds || spell2.type == CastType.Tower))
+    else if (Player.Instance.selected.race == CreatureRace.Bear && !Player.Instance.selected.pawn && (spell2.bookOf != BookOf.Arcane && spell2.bookOf != BookOf.Druidism && !spell1.isPresent || spell2.type == CastType.Tower))
     {
       this.spellButtons[i].error = spell2.type == CastType.Tower ? 124 : 122;
       maxedSummons = true;
       uses = 0;
       num4 = 0;
     }
-    this.spellButtons[i].SetVisual(ClickSpell.GetSpellName(Player.Instance.selected.spells[i].spell, Player.Instance.selected), uses, num4, maxedSummons);
+    this.spellButtons[i].SetVisual(Player.Instance.selected.spells[i].spell.name, ClickSpell.GetSpellName(Player.Instance.selected.spells[i].spell, Player.Instance.selected), uses, num4, maxedSummons);
   }
 
   public static string ErrorString(int code)
@@ -434,11 +524,11 @@ public class ClickSpell : MonoBehaviour
       case 121:
         return "Cannot tower while in Lich form";
       case 122:
-        return "Werewolf - Only The Wilds and Arcane spells are allowed";
+        return "Bear Form - Only Druidism and Arcane spells are allowed";
       case 123:
-        return "Cannot use while a werewolf";
+        return "Cannot use while in Bear Form";
       case 124:
-        return "Cannot tower while in werewolf form";
+        return "Cannot tower while in Bear Form";
       case 125:
         return "Cannot leap while being ridden";
       case 126:
@@ -474,7 +564,7 @@ public class ClickSpell : MonoBehaviour
       return 0;
     if (c.collider.gameObjectLayer == 21 && (s == SpellEnum.Arcane_Gate || s == SpellEnum.Santas_Magic || s == SpellEnum.Blink || s == SpellEnum.The_ol_swaparoo))
       return 135;
-    if (c.type == CreatureType.Gargoyle && (!c.canMove && s != SpellEnum.Stone_Form || s == SpellEnum.Stone_Form && c.race == CreatureRace.Undead))
+    if (c.type == CreatureType.Gargoyle && (!c.canMove && s != SpellEnum.Stone_Form || s == SpellEnum.Stone_Form && c.race == CreatureRace.Undead && c.canMove))
       return c.race == CreatureRace.Undead ? 7 : 112;
     if (s.IsFlight())
     {
@@ -494,7 +584,7 @@ public class ClickSpell : MonoBehaviour
         return 4;
       return c.flying ? 6 : 0;
     }
-    if (s == SpellEnum.Shining_Power || s == SpellEnum.Lichdom || s == SpellEnum.Apparition || s == SpellEnum.Werewolf_Transformation)
+    if (s == SpellEnum.Shining_Power || s == SpellEnum.Lichdom || s == SpellEnum.Apparition || s == SpellEnum.Bear_Form)
     {
       if ((ZComponent) c.tower != (object) null)
         return 1;
@@ -506,7 +596,7 @@ public class ClickSpell : MonoBehaviour
         return 3;
       if (c.phantom)
         return 4;
-      return c.race == CreatureRace.Werewolf ? 123 : 0;
+      return c.race == CreatureRace.Bear ? 123 : 0;
     }
     if (s == SpellEnum.Flurry || s == SpellEnum.Vine_Bloom)
     {
@@ -554,13 +644,11 @@ label_46:
           return c.parent.minionBookTitans.Count <= 0 ? 113 : 0;
         if (s == SpellEnum.Drone_Strike)
           return !slot.isPresent && c.familiarLevelCosmos < 5 ? 129 : 0;
-        if (s == SpellEnum.Ritual)
-          return c.parent.ritualEnum.Count >= c.parent.MaxRitualCount() ? 130 : 0;
         if (s == SpellEnum.Summon_Dragon_Egg)
           return !c.game.originalSpellsOnly ? 0 : 114;
         if (s == SpellEnum.Seasonal)
           return c.game.currentSeason == GameSeason.None ? 117 : 0;
-        if (s == SpellEnum.Leap && ((ZComponent) c.rider != (object) null || (ZComponent) c.mount != (object) null || c.flying))
+        if (s == SpellEnum.Faiere_Jump && ((ZComponent) c.rider != (object) null || (ZComponent) c.mount != (object) null || c.flying))
         {
           if (c.flying)
             return 3;

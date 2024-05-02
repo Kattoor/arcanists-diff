@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: ZSpellCogFall
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System.Collections.Generic;
 using UnityEngine;
@@ -182,12 +182,14 @@ label_55:
       {
         zspellCogFall.addVelocity = false;
         zspellCogFall.velocity = zspellCogFall.velocity + zspellCogFall.addedVelocity;
+        zspellCogFall.velocity.x = Mathd.Clamp(zspellCogFall.velocity.x, (FixedInt) -50, (FixedInt) 50);
+        zspellCogFall.velocity.y = Mathd.Clamp(zspellCogFall.velocity.y, (FixedInt) -50, (FixedInt) 50);
         zspellCogFall.addedVelocity.x = (FixedInt) 0;
         zspellCogFall.addedVelocity.y = (FixedInt) 0;
       }
       else if (zspellCogFall.affectedByGravity && zspellCogFall.velocity.y > -ZMap.MaxSpeed)
         zspellCogFall.velocity.y += zspellCogFall.map.Gravity;
-      else if (!zspellCogFall.affectedByGravity && zspellCogFall.velocity.y > -1 && zspellCogFall.maxDuration > 150)
+      else if (!zspellCogFall.affectedByGravity && zspellCogFall.velocity.y > -10 && zspellCogFall.maxDuration > 150)
         zspellCogFall.affectedByGravity = true;
       zspellCogFall.Wind();
 label_50:

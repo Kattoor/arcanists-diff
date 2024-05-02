@@ -1,15 +1,15 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: BuildConstants
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System;
 
 #nullable disable
 public static class BuildConstants
 {
-  public static readonly DateTime buildDate = new DateTime(638384671596677109L);
+  public static readonly DateTime buildDate = new DateTime(638502103922686763L);
   public const string version = "1.0.0.3";
   public const BuildConstants.ReleaseType releaseType = BuildConstants.ReleaseType.NewReleaseType;
   public const BuildConstants.Platform platform = BuildConstants.Platform.PC;

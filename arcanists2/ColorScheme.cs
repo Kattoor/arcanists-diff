@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: ColorScheme
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using mattmc3.dotmore.Collections.Generic;
 using System;
@@ -237,7 +237,8 @@ public class ColorScheme
       Global.ColorSystem.To32(),
       Global.ColorNotification.To32(),
       Global.ColorAnnoucement.To32(),
-      Global.ColorTeamText.To32()
+      Global.ColorTeamText.To32(),
+      Global.ColorNoteText.To32()
     };
   }
 

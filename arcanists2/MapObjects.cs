@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: MapObjects
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using UnityEngine;
 
@@ -68,22 +68,18 @@ public class MapObjects : MonoBehaviour
         break;
       case MapEnum.Murky_Swamp:
         this.Adjust(-0.05f, 0.0f, -0.13f);
-        this.water.color = ColorHSV.AdjustColor(this.water.color, 0.0f, 0.0f, 0.02f);
         break;
       case MapEnum.Graveyard:
         this.Adjust(0.0f, -0.6f, -0.3f);
-        this.water.color = ColorHSV.AdjustColor(this.water.color, 0.0f, 0.0f, 0.06f);
         break;
       case MapEnum.Alien_World:
         this.Adjust(-0.169444442f, 0.0f, -0.13f);
         break;
       case MapEnum.Ghostly_Halls:
         this.Adjust(0.2f, -0.68f, 0.16f);
-        this.water.color = ColorHSV.AdjustColor(this.water.color, 0.0f, 0.0f, -0.02f);
         break;
       case MapEnum.Space_Nexus:
         this.Adjust(0.308333337f, 0.0f, -0.2f);
-        this.water.color = ColorHSV.AdjustColor(this.water.color, 0.0f, 0.0f, 0.03f);
         break;
     }
   }
@@ -97,7 +93,7 @@ public class MapObjects : MonoBehaviour
 
   public void SetWaves()
   {
-    int x = (int) Vector3.Distance(this._camera.ViewportToWorldPoint(new Vector3(1f, 0.0f, 0.0f)), this._camera.ViewportToWorldPoint(new Vector3(0.0f, 0.0f, 0.0f))) + 480;
+    int x = Client.game.map.Width + 2164;
     foreach (SpriteRenderer wave in this.waves)
       wave.size = new Vector2((float) x, wave.size.y);
     this.water.size = new Vector2((float) x, 860f);

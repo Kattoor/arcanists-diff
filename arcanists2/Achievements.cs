@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: Achievements
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System.Collections.Generic;
 
@@ -188,8 +188,8 @@ public class Achievements
     },
     new Achievements.Container()
     {
-      name = "Master of The Wilds ",
-      description = "Win a rated game with the full Book of The Wilds",
+      name = "Master of Druidism ",
+      description = "Win a rated game with the full Book of Druidism",
       points = (ushort) 300,
       ratedOnly = true
     },
@@ -302,7 +302,7 @@ public class Achievements
     },
     new Achievements.Container()
     {
-      name = "The Wilds Arcanist",
+      name = "Druidism Arcanist",
       description = "Win a rated game, over 1250 rating, with the Raven familiar",
       points = (ushort) 100,
       ratedOnly = true

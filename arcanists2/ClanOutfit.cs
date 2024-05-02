@@ -1,16 +1,18 @@
 ﻿// Decompiled with JetBrains decompiler
-// Type: ClanOufit
+// Type: ClanOutfit
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
+using System;
 using UnityEngine;
 
 #nullable disable
-public class ClanOufit
+[Serializable]
+public class ClanOutfit
 {
   private const byte Version = 1;
-  public ClanOufit.Meta[] outfits;
+  public ClanOutfit.Meta[] outfits;
 
   public void Dispose()
   {
@@ -18,7 +20,7 @@ public class ClanOufit
       return;
     for (int index = 0; index < this.outfits.Length; ++index)
     {
-      if (this.outfits[index] != null && !((Object) this.outfits[index].clientTexture == (Object) null))
+      if (this.outfits[index] != null && !((UnityEngine.Object) this.outfits[index].clientTexture == (UnityEngine.Object) null))
       {
         Global.DestroySprite(this.outfits[index].clientTexture);
         this.outfits[index].clientTexture = (Sprite) null;
@@ -36,7 +38,7 @@ public class ClanOufit
       {
         Texture2D texture2D = new Texture2D(2, 2);
         if (texture2D.LoadImage(this.outfits[index].png))
-          this.outfits[index].clientTexture = Global.AddSprite(Sprite.Create(texture2D, new Rect(0.0f, 0.0f, (float) texture2D.width, (float) texture2D.height), this.outfits[index].pivot, 2f));
+          this.outfits[index].clientTexture = Global.AddSprite(Sprite.Create(texture2D, new Rect(0.0f, 0.0f, (float) texture2D.width, (float) texture2D.height), (Vector2) this.outfits[index].pivot, 2f));
       }
     }
   }
@@ -62,7 +64,7 @@ public class ClanOufit
       w.Write(this.outfits.Length);
       for (int index = 0; index < this.outfits.Length; ++index)
       {
-        ClanOufit.Meta outfit = this.outfits[index];
+        ClanOutfit.Meta outfit = this.outfits[index];
         if (outfit == null || outfit.png == null)
         {
           w.Write((byte) 0);
@@ -71,7 +73,7 @@ public class ClanOufit
         {
           w.Write((byte) 1);
           w.Write(outfit.effect);
-          w.Write(outfit.pivot);
+          w.Write((Vector2) outfit.pivot);
           w.Write(outfit.png);
         }
       }
@@ -80,11 +82,11 @@ public class ClanOufit
       w.Write((byte) 0);
   }
 
-  public static ClanOufit Deserialize(myBinaryReader r)
+  public static ClanOutfit Deserialize(myBinaryReader r)
   {
-    ClanOufit clanOufit = new ClanOufit();
-    clanOufit._Deserialize(r);
-    return clanOufit;
+    ClanOutfit clanOutfit = new ClanOutfit();
+    clanOutfit._Deserialize(r);
+    return clanOutfit;
   }
 
   private void _Deserialize(myBinaryReader r)
@@ -93,35 +95,37 @@ public class ClanOufit
     if (r.ReadByte() != (byte) 1)
       return;
     int length = r.ReadInt32();
-    this.outfits = new ClanOufit.Meta[length];
+    this.outfits = new ClanOutfit.Meta[length];
     for (int index = 0; index < length; ++index)
     {
       if (r.ReadByte() == (byte) 1)
-        this.outfits[index] = new ClanOufit.Meta()
+        this.outfits[index] = new ClanOutfit.Meta()
         {
           effect = r.ReadByte(),
-          pivot = r.ReadVector2(),
+          pivot = (MyVector2) r.ReadVector2(),
           png = r.ReadBytes()
         };
     }
   }
 
+  [Serializable]
   public class Meta
   {
     public byte[] png;
-    public Sprite clientTexture;
     public byte effect;
-    public Vector2 pivot = Vector2.zero;
+    public MyVector2 pivot = MyVector2.zero;
+    [NonSerialized]
+    public Sprite clientTexture;
 
     public Sprite GetClientTexture()
     {
-      if ((Object) this.clientTexture == (Object) null)
+      if ((UnityEngine.Object) this.clientTexture == (UnityEngine.Object) null)
       {
         if (this.png == null || this.png.Length == 0)
           return (Sprite) null;
         Texture2D texture2D = new Texture2D(2, 2);
         if (texture2D.LoadImage(this.png))
-          this.clientTexture = Global.AddSprite(Sprite.Create(texture2D, new Rect(0.0f, 0.0f, (float) texture2D.width, (float) texture2D.height), this.pivot, 2f));
+          this.clientTexture = Global.AddSprite(Sprite.Create(texture2D, new Rect(0.0f, 0.0f, (float) texture2D.width, (float) texture2D.height), (Vector2) this.pivot, 2f));
       }
       return this.clientTexture;
     }
@@ -129,14 +133,14 @@ public class ClanOufit
     public void Serialize(myBinaryWriter w)
     {
       w.Write(this.effect);
-      w.Write(this.pivot);
+      w.Write((Vector2) this.pivot);
       w.Write(this.png);
     }
 
     public void Deserialize(myBinaryReader r)
     {
       this.effect = r.ReadByte();
-      this.pivot = r.ReadVector2();
+      this.pivot = (MyVector2) r.ReadVector2();
       this.png = r.ReadBytes();
     }
   }

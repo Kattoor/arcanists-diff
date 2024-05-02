@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: ZMap
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using Junk;
 using System;
@@ -507,7 +507,7 @@ public class ZMap
 
   public bool CheckPositionOnlyEntities(int x, int y, ZCreature creature, int mask)
   {
-    return x >= this.Width || x < 0 || y < 0 || y >= this.Height || this.PhysicsCollidePoint(creature, x, y, mask);
+    return x >= this.Width || x < 0 || y < 0 || y >= this.Height || !this.PhysicsCollidePoint(creature, x, y, mask);
   }
 
   public bool CheckPositionOnlyMap(int x, int y)
@@ -1066,12 +1066,15 @@ public class ZMap
                   this.world.listPool.ReturnList(list);
                   return false;
                 }
-                this.world.listPool.ReturnList(list);
-                return true;
+                if (list[index].gameObjectLayer != 9)
+                {
+                  this.world.listPool.ReturnList(list);
+                  return true;
+                }
               }
             }
           }
-          else if ((ZComponent) list[index].spell != (object) null && list[index].gameObjectLayer == 8)
+          else if (list[index].gameObjectLayer == 8)
           {
             this.world.listPool.ReturnList(list);
             return true;

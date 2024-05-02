@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: ZFlameWallSpell
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System;
 using System.Collections.Generic;
@@ -19,7 +19,7 @@ public class ZFlameWallSpell : ZSpell
       this.colliderA.Move(p);
     if ((ZComponent) this.colliderB != (object) null)
       this.colliderB.Move(p);
-    if (this.spellEnum != SpellEnum.Devils_Snare || !((ZComponent) this.effector2 != (object) null) || !this.effector2.active)
+    if (this.spellEnum != SpellEnum.Prickly_Barrier || !((ZComponent) this.effector2 != (object) null) || !this.effector2.active)
       return;
     List<ZMyCollider> zmyColliderList = this.world.OverlapCircleAll((Point) p, this.effector2.collider.radius, (ZMyCollider) null, Inert.mask_movement_NoEffector | Inert.mask_Phantom);
     if (zmyColliderList.Count > 1)
@@ -136,12 +136,14 @@ public class ZFlameWallSpell : ZSpell
       {
         zflameWallSpell.addVelocity = false;
         zflameWallSpell.velocity = zflameWallSpell.velocity + zflameWallSpell.addedVelocity;
+        zflameWallSpell.velocity.x = Mathd.Clamp(zflameWallSpell.velocity.x, (FixedInt) -50, (FixedInt) 50);
+        zflameWallSpell.velocity.y = Mathd.Clamp(zflameWallSpell.velocity.y, (FixedInt) -50, (FixedInt) 50);
         zflameWallSpell.addedVelocity.x = (FixedInt) 0;
         zflameWallSpell.addedVelocity.y = (FixedInt) 0;
       }
       if (zflameWallSpell.affectedByGravity && zflameWallSpell.velocity.y > -ZMap.MaxSpeed)
         zflameWallSpell.velocity.y += zflameWallSpell.map.Gravity;
-      else if (!zflameWallSpell.affectedByGravity && zflameWallSpell.velocity.y > -1 && zflameWallSpell.maxDuration > 150)
+      else if (!zflameWallSpell.affectedByGravity && zflameWallSpell.velocity.y > -10 && zflameWallSpell.maxDuration > 150)
         zflameWallSpell.affectedByGravity = true;
       zflameWallSpell.Wind();
       ++zflameWallSpell.curDuration;

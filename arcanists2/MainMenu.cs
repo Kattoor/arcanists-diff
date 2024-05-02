@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: MainMenu
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using Educative;
 using Hazel;
@@ -31,6 +31,8 @@ public class MainMenu : Catalogue
   [Header("Maps")]
   public TMP_Dropdown dropMaps;
   public RectTransform pointTutorialObj;
+  [Header("Steam")]
+  public GameObject butSteam;
 
   public static MainMenu Instance { get; private set; }
 
@@ -54,9 +56,9 @@ public class MainMenu : Catalogue
       this.bigImage.sprite = ClientResources.Instance.MainMenuSprites[MainMenu.bigIndex];
     }
     Account account;
-    if (Client.offlineMode || !LocalServerConn.UseEncryption || !Client._accounts.TryGetValue(Client.Name, out account) || account.discord != 0UL)
-      return;
-    this.buttonVerifyDiscord.SetActive(true);
+    if (!Client.offlineMode && LocalServerConn.UseEncryption && Client._accounts.TryGetValue(Client.Name, out account) && account.discord == 0UL)
+      this.buttonVerifyDiscord.SetActive(true);
+    this.butSteam.SetActive(!Global.GetPrefBool("steam", false));
   }
 
   private void Start()
@@ -126,6 +128,13 @@ public class MainMenu : Catalogue
     MenuBackgroundUpdater.SwitchBackgrounds(this.bgImage, this.fgImage);
   }
 
+  public void ClickSteam()
+  {
+    Global.SetPrefBool("steam", true);
+    this.butSteam.SetActive(false);
+    Global.OpenURL("https://store.steampowered.com/app/2901550/Arcanists/");
+  }
+
   public void ClickSandbox()
   {
     Client._gameFacts = new GameFacts();
@@ -143,6 +152,7 @@ public class MainMenu : Catalogue
 
   public void ClickMultiplayer()
   {
+    Global.SetPrefBool("steam", true);
     if (Client.offlineMode)
     {
       Controller.Instance.OpenMenu(Controller.Instance.MenuLogin, false);

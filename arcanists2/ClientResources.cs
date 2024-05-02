@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: ClientResources
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using mattmc3.dotmore.Collections.Generic;
 using System;
@@ -29,7 +29,9 @@ public class ClientResources : MonoBehaviour
   public Sprite[] _characterMouths;
   public Sprite[] _previewOverrides;
   public Spell[] summonSpells;
+  public Spell[] familiarSpells;
   public List<Sprite> _discordEmoji;
+  public List<Sprite> badges;
   public Dictionary<string, Sprite> _overridePreviews = new Dictionary<string, Sprite>();
   public OverheadEmoji overheadEmoji;
   public Sprite[] ratingTypes;
@@ -60,6 +62,8 @@ public class ClientResources : MonoBehaviour
   public Sprite[] ogjoinPressed;
   public Sprite[] zombieDucks;
   public Sprite[] ducks;
+  [Header("Prickly")]
+  public Sprite[] prickly_sprites;
   [SerializeField]
   private Sprite[] _largeUI;
   [SerializeField]
@@ -69,6 +73,7 @@ public class ClientResources : MonoBehaviour
   public GameObject pfabMinerMarketIcons;
   public SandPool sandPool;
   public BoatSpectators boatSpectators;
+  [Header("Colors")]
   public TeamColors colorsRegular;
   public Sprite zombieMonkeyIcon;
   public Sprite imgRestricted;
@@ -81,6 +86,7 @@ public class ClientResources : MonoBehaviour
   public InputFieldPlus contextMenuInputFieldLong;
   public VectorFieldContextMenu contextMenuVectorField;
   public ButtonArrayContextmenu contextButtonArray;
+  public UIOnSlider contextMenuSlider;
   public GameObject contextSpells;
   public Toggle contextToggle;
   public SelectionArrow _selectionArrow;
@@ -111,6 +117,7 @@ public class ClientResources : MonoBehaviour
   public GameObject lightExplosion;
   public GameObject lavaBombExplosion;
   public Sprite[] seasonIcons;
+  public Sprite[] wispPhantomSprites;
   [Header("Undead Sprites")]
   public Sprite[] zombieDragonSprites;
   public Sprite[] zombieDragonAttackSprites;
@@ -156,6 +163,10 @@ public class ClientResources : MonoBehaviour
   public AnimateUIExplosion uiexplosion;
   public Sprite paperClip;
   public Sprite spriteBlack;
+  public Sprite spellBGIconOld;
+  public Sprite spellBGIconNew;
+  public Sprite spellOverheadBGIconOld;
+  public Sprite spellOverheadBGIconNew;
   public float[] lowTimePalette = new float[256]
   {
     0.0f,
@@ -420,8 +431,8 @@ public class ClientResources : MonoBehaviour
   public TMP_SpriteAsset spriteAsset;
   public OrderedDictionary<string, Sprite> icons = new OrderedDictionary<string, Sprite>();
   private List<GameObject> activePings = new List<GameObject>();
-  private Dictionary<string, ClanOufit> clanOutfits = new Dictionary<string, ClanOufit>();
-  private ClanOufit tempOutfit;
+  private Dictionary<string, ClanOutfit> clanOutfits = new Dictionary<string, ClanOutfit>();
+  private ClanOutfit tempOutfit;
 
   public static ClientResources Instance { get; set; }
 
@@ -1131,22 +1142,22 @@ public class ClientResources : MonoBehaviour
     this.activePings.Add(pfabMapPing.gameObject);
   }
 
-  public void SetClanOutfit(string clan, ClanOufit outfit)
+  public void SetClanOutfit(string clan, ClanOutfit outfit)
   {
-    ClanOufit clanOufit;
-    if (this.clanOutfits.TryGetValue(clan, out clanOufit))
-      clanOufit.Dispose();
+    ClanOutfit clanOutfit;
+    if (this.clanOutfits.TryGetValue(clan, out clanOutfit))
+      clanOutfit.Dispose();
     this.clanOutfits[clan] = outfit;
   }
 
-  public ClanOufit GetClanOutfit(string clan)
+  public ClanOutfit GetClanOutfit(string clan)
   {
-    return !string.IsNullOrEmpty(clan) && this.clanOutfits.TryGetValue(clan, out this.tempOutfit) ? this.tempOutfit : (ClanOufit) null;
+    return !string.IsNullOrEmpty(clan) && this.clanOutfits.TryGetValue(clan, out this.tempOutfit) ? this.tempOutfit : (ClanOutfit) null;
   }
 
   public void RecieveAllClanOutfits(myBinaryReader r)
   {
-    foreach (KeyValuePair<string, ClanOufit> clanOutfit in this.clanOutfits)
+    foreach (KeyValuePair<string, ClanOutfit> clanOutfit in this.clanOutfits)
       clanOutfit.Value.Dispose();
     this.clanOutfits.Clear();
     int num = r.ReadInt32();
@@ -1155,9 +1166,9 @@ public class ClientResources : MonoBehaviour
       if (r.ReadByte() == (byte) 1)
       {
         string key = r.ReadString();
-        ClanOufit clanOufit = ClanOufit.Deserialize(r);
-        this.clanOutfits[key] = clanOufit;
-        clanOufit.ClientCreateSprites();
+        ClanOutfit clanOutfit = ClanOutfit.Deserialize(r);
+        this.clanOutfits[key] = clanOutfit;
+        clanOutfit.ClientCreateSprites();
       }
     }
   }
@@ -1208,7 +1219,7 @@ public class ClientResources : MonoBehaviour
         w.Write((byte) 3);
         w.Write(Server._defaultRatedFacts == null ? 0 : 1);
         if (Server._restrictions != null)
-          Server._restrictions.Serialzie(w);
+          Server._restrictions.Serialize(w);
         if (Server._defaultRatedFacts != null)
           Server._defaultRatedFacts.Serialize(w);
       }
@@ -1262,6 +1273,39 @@ public class ClientResources : MonoBehaviour
       Debug.LogError((object) ex);
     }
     ClientResources.ServerCompressRatedRestrictions();
+  }
+
+  public static void LoadRandomRestrictions()
+  {
+    try
+    {
+      if (!File.Exists(Application.persistentDataPath + "/randomSpellRestrictions.resrng"))
+        return;
+      using (MemoryStream memoryStream = new MemoryStream(File.ReadAllBytes(Application.persistentDataPath + "/randomSpellRestrictions.resrng")))
+      {
+        using (myBinaryReader w = new myBinaryReader((Stream) memoryStream))
+        {
+          int num1 = (int) w.ReadByte();
+          int version1 = w.ReadInt32();
+          int version2 = w.ReadInt32();
+          if (version1 > 0)
+          {
+            int num2 = (int) w.ReadByte();
+            Server._casinoRestrictions = Restrictions.Deserialize(w, (byte) version1);
+          }
+          if (version2 <= 0)
+            return;
+          int num3 = (int) w.ReadByte();
+          Server._randomSpellRestrictions = Restrictions.Deserialize(w, (byte) version2);
+        }
+      }
+    }
+    catch (Exception ex)
+    {
+      Server._casinoRestrictions = (Restrictions) null;
+      Server._randomSpellRestrictions = (Restrictions) null;
+      Debug.LogError((object) ex);
+    }
   }
 
   [Serializable]

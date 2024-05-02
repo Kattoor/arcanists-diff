@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: SpellEnum
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 #nullable disable
 public enum SpellEnum
@@ -159,7 +159,7 @@ public enum SpellEnum
   Santas_Magic = 147, // 0x00000093
   Jingle_Boom = 148, // 0x00000094
   Coal = 149, // 0x00000095
-  Snow_Globe = 150, // 0x00000096
+  Tree_House = 150, // 0x00000096
   Firework_Show = 151, // 0x00000097
   Arcane_Dragon = 152, // 0x00000098
   Air_Surge = 153, // 0x00000099
@@ -254,18 +254,18 @@ public enum SpellEnum
   Snow_Globe2 = 242, // 0x000000F2
   Summon_Myth = 243, // 0x000000F3
   Rusty_Bomb = 244, // 0x000000F4
-  Summon_Spirit_Owl = 245, // 0x000000F5
-  Summon_Wolf = 246, // 0x000000F6
-  Summon_Bear = 247, // 0x000000F7
-  Werewolf_Transformation = 248, // 0x000000F8
-  Imbued_Axes = 249, // 0x000000F9
-  Commune_With_Nature = 250, // 0x000000FA
-  Spear_Throw = 251, // 0x000000FB
-  Leap = 252, // 0x000000FC
-  Ferocious_Strike = 253, // 0x000000FD
-  Ritual = 254, // 0x000000FE
-  Devils_Snare = 255, // 0x000000FF
-  Wild_Mushrooms = 256, // 0x00000100
+  Summon_Will_o_the_Wisp = 245, // 0x000000F5
+  Summon_Boar = 246, // 0x000000F6
+  Summon_Tiger = 247, // 0x000000F7
+  Bear_Form = 248, // 0x000000F8
+  Enchanted_Axes = 249, // 0x000000F9
+  Harmony = 250, // 0x000000FA
+  Verdant_Javelin = 251, // 0x000000FB
+  Faiere_Jump = 252, // 0x000000FC
+  Bear_Claw = 253, // 0x000000FD
+  Grove_Renewal = 254, // 0x000000FE
+  Prickly_Barrier = 255, // 0x000000FF
+  Healing_Spores = 256, // 0x00000100
   Bite = 257, // 0x00000101
   Rampage = 258, // 0x00000102
   Spirit_Link = 259, // 0x00000103
@@ -305,4 +305,11 @@ public enum SpellEnum
   Frost_Nova = 293, // 0x00000125
   Summon_Titan = 294, // 0x00000126
   Summon_Monarchs = 295, // 0x00000127
+  Pounce = 296, // 0x00000128
+  Stalk = 297, // 0x00000129
+  Rising_Lava = 298, // 0x0000012A
+  Steam_Cannon = 299, // 0x0000012B
+  Compete = 300, // 0x0000012C
+  When_Pigs_Fly = 301, // 0x0000012D
+  Dense_Fog = 302, // 0x0000012E
 }

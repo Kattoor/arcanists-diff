@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: ConfigurePlayer
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System;
 using System.Collections.Generic;
@@ -58,7 +58,7 @@ public class ConfigurePlayer : MonoBehaviour
 
   public static void EquipAll(UIPlayerCharacter x, string name, SettingsPlayer settingsPlayer)
   {
-    ClanOufit clanOutfit = ClientResources.Instance.GetClanOutfit(Client.GetAccount(name).clan);
+    ClanOutfit clanOutfit = ClientResources.Instance.GetClanOutfit(Client.GetAccount(name).clan);
     if (settingsPlayer.custom == (byte) 0)
     {
       settingsPlayer.indexLeftFoot = settingsPlayer.FootIndex();
@@ -84,7 +84,7 @@ public class ConfigurePlayer : MonoBehaviour
 
   public void EquipAll(string name, SettingsPlayer settingsPlayer)
   {
-    ClanOufit clanOutfit = ClientResources.Instance.GetClanOutfit(Client.GetAccount(name).clan);
+    ClanOutfit clanOutfit = ClientResources.Instance.GetClanOutfit(Client.GetAccount(name).clan);
     if (settingsPlayer.custom == (byte) 0)
     {
       settingsPlayer.indexLeftFoot = settingsPlayer.FootIndex();
@@ -129,7 +129,7 @@ public class ConfigurePlayer : MonoBehaviour
     Color[] colors,
     bool destroy = true)
   {
-    ClanOufit clanOutfit = ClientResources.Instance.GetClanOutfit(Client.GetAccount(name).clan);
+    ClanOutfit clanOutfit = ClientResources.Instance.GetClanOutfit(Client.GetAccount(name).clan);
     settingsPlayer.indexLeftFoot = settingsPlayer.FootIndex();
     settingsPlayer.indexRightFoot = settingsPlayer.indexLeftFoot;
     this.spriteLeftFoot.sortingOrder = settingsPlayer.indexLeftFoot != (byte) 2 ? -18 : -16;
@@ -214,7 +214,7 @@ public class ConfigurePlayer : MonoBehaviour
 
   public static void EquipAll(string name, UIPlayerCharacter p, SettingsPlayer settingsPlayer)
   {
-    ClanOufit clanOutfit = ClientResources.Instance.GetClanOutfit(Client.GetAccount(name).clan);
+    ClanOutfit clanOutfit = ClientResources.Instance.GetClanOutfit(Client.GetAccount(name).clan);
     settingsPlayer.indexLeftFoot = settingsPlayer.FootIndex();
     settingsPlayer.indexRightFoot = settingsPlayer.indexLeftFoot;
     p.mouth.sprite = clanOutfit == null || !clanOutfit.OutfitNoMouth((int) settingsPlayer.indexHead) ? ClientResources.Instance._characterMouths[0] : ClientResources.Instance._characterMouths[ClientResources.Instance._characterMouths.Length - 1];
@@ -369,7 +369,7 @@ public class ConfigurePlayer : MonoBehaviour
 
   public static void ApplyOutfit(PanelPlayer p, SettingsPlayer settingsPlayer, string name)
   {
-    ClanOufit clanOutfit = ClientResources.Instance.GetClanOutfit(Client.GetAccount(name).clan);
+    ClanOutfit clanOutfit = ClientResources.Instance.GetClanOutfit(Client.GetAccount(name).clan);
     if (settingsPlayer.custom == (byte) 0)
     {
       settingsPlayer.indexLeftFoot = settingsPlayer.FootIndex();

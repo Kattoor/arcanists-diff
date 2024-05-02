@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: UnratedMenu
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using Hazel;
 using System;
@@ -371,12 +371,12 @@ public class UnratedMenu : Catalogue
       int num = (int) ((RectTransform) this.pfabFriend.transform).sizeDelta.y + 2;
       int x = 2;
       List<Clan.MemberX> memberXList = new List<Clan.MemberX>();
-      foreach (KeyValuePair<string, Clan.Member> member in Client.clan.members)
+      foreach (KeyValuePair<string, Clan.Roles> member in Client.clan.members)
         memberXList.Add(new Clan.MemberX()
         {
-          name = member.Value.name,
-          role = member.Value.role,
-          acc = Client.GetAccount(member.Value.name)
+          name = member.Key,
+          role = member.Value,
+          acc = Client.GetAccount(member.Key)
         });
       memberXList.Sort((Comparison<Clan.MemberX>) ((a, b) => b.acc.location.Online() == a.acc.location.Online() ? (b.role == a.role ? a.name.CompareTo(b.name) : (int) (b.role - a.role)) : (!b.acc.location.Online() ? -1 : 1)));
       this._containerAccounts.DestroyChildern();
@@ -800,7 +800,7 @@ public class UnratedMenu : Catalogue
       for (index = 0; index < Client._gameFacts.settings.customArmageddon.Count && index < this._customArmageddonImages.Length; ++index)
       {
         Spell spell = Inert.GetSpell(Client._gameFacts.settings.customArmageddon[index]);
-        if ((UnityEngine.Object) spell == (UnityEngine.Object) null || spell.level > 3)
+        if ((UnityEngine.Object) spell == (UnityEngine.Object) null || spell.level > 3 && !GameFacts.AllowCustomArmageddon(spell.spellEnum))
         {
           Client._gameFacts.settings.customArmageddon.RemoveAt(index);
           --index;
@@ -1126,7 +1126,7 @@ public class UnratedMenu : Catalogue
     MyContextMenu myContextMenu = MyContextMenu.Show();
     ButtonArrayContextmenu arrayContextmenu = myContextMenu.AddArray();
     arrayContextmenu.AddItem("5", (Action) (() => this.AskToChangeGameModeTime(32)));
-    arrayContextmenu.AddItem("8", (Action) (() => this.AskToChangeGameModeTime(262144)));
+    arrayContextmenu.AddItem("7", (Action) (() => this.AskToChangeGameModeTime(262144)));
     arrayContextmenu.AddItem("10", (Action) (() => this.AskToChangeGameModeTime(16384)));
     arrayContextmenu.AddItem("15", (Action) (() => this.AskToChangeGameModeTime(1048576)));
     arrayContextmenu.AddItem("20", (Action) (() => this.AskToChangeGameModeTime(8192)));

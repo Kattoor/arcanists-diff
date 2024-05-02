@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: SpellLobbyChange
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using Hazel;
 using System;
@@ -59,6 +59,12 @@ public class SpellLobbyChange : MonoBehaviour
   public Image imgSeasons;
   public Sprite spriteHoliday;
   public Sprite spriteSeasons;
+  [NonSerialized]
+  internal Spell viewingSpellMinion;
+  [NonSerialized]
+  internal Creature viewingMinion;
+  [NonSerialized]
+  internal BookOf viewingExtraSpells = BookOf.Nothing;
   private float alpha;
 
   public static SpellLobbyChange Instance { get; private set; }
@@ -394,36 +400,59 @@ public class SpellLobbyChange : MonoBehaviour
       this.imageElemental.transform.GetChild(1).gameObject.SetActive(true);
   }
 
-  public void HoverBook(int i)
+  public void HoverBook(int i, bool fromHeader = false)
   {
-    if (i == 10 && this.settingsPlayer._spells.SeasonsIsHoliday)
+    if (!fromHeader && (UnityEngine.Object) this.viewingMinion != (UnityEngine.Object) null)
     {
-      this.txtHeader.text = "Book of Holiday";
-      this.txtDescription.text = Descriptions.GetHolidayHeader() + "\nFamiliar - " + Descriptions.GetBookHolidayDescription();
-      this.ToggleMouserOverImage(true);
+      this.ShowDescription(this.viewingSpellMinion.name, -1);
     }
     else
     {
-      this.txtHeader.text = i == 0 ? "Arcane Book" : "Book of " + ((BookOf) i).ToStringX();
-      this.txtDescription.text = Descriptions.GetBookHeader((BookOf) i) + "\nFamiliar - " + Descriptions.GetBookDescription((BookOf) i);
-      this.ToggleMouserOverImage(true);
-    }
-    if (Client.viewSpellLocks.ViewLocked() && !Prestige.IsUnlocked(Client.MyAccount, (BookOf) i))
-    {
-      if (Client.MyAccount.prestige == (byte) 0 && i >= 9)
+      if (i == 10 && this.settingsPlayer._spells.SeasonsIsHoliday)
       {
-        if (i == 9)
-          this.txtDescription.text += "\n<color=red>Unlocked at the first prestige.";
-        else
-          this.txtDescription.text += "\n<color=red>Requires the first prestige and</color> 5 <color=red>wands.";
+        this.txtHeader.text = "Book of Holiday";
+        this.txtDescription.text = Descriptions.GetHolidayHeader() + "\nFamiliar - " + Descriptions.GetBookHolidayDescription();
+        this.ToggleMouserOverImage(true);
       }
       else
       {
-        TMP_Text txtDescription = this.txtDescription;
-        txtDescription.text = txtDescription.text + "\n" + (Prestige.CanUnlock(Client.MyAccount, (BookOf) i) == 0 ? "<color=green>Buy with</color> 5 <color=green>wands." : "<color=red>Requires</color> 5 <color=red>wands.");
+        this.txtHeader.text = i == 0 ? "Arcane Book" : "Book of " + ((BookOf) i).ToStringX();
+        this.txtDescription.text = Descriptions.GetBookHeader((BookOf) i) + "\nFamiliar - " + Descriptions.GetBookDescription((BookOf) i);
+        this.ToggleMouserOverImage(true);
       }
+      if (Client.viewSpellLocks.ViewLocked() && !Prestige.IsUnlocked(Client.MyAccount, (BookOf) i))
+      {
+        if (Client.MyAccount.prestige == (byte) 0 && i >= 9)
+        {
+          if (i == 9)
+            this.txtDescription.text += "\n<color=red>Unlocked at the first prestige.";
+          else
+            this.txtDescription.text += "\n<color=red>Requires the first prestige and</color> 5 <color=red>wands.";
+        }
+        else
+        {
+          TMP_Text txtDescription = this.txtDescription;
+          txtDescription.text = txtDescription.text + "\n" + (Prestige.CanUnlock(Client.MyAccount, (BookOf) i) == 0 ? "<color=green>Buy with</color> 5 <color=green>wands." : "<color=red>Requires</color> 5 <color=red>wands.");
+        }
+      }
+      this.txtExtraText.text = "";
+      if (this.viewingExtraSpells != BookOf.Nothing)
+        this.textError.text = "Click to view the regular spellbook";
+      else
+        this.textError.text = "<br><color=#0093FF>Right-Click to see this books familiar spells</color>";
     }
-    this.txtExtraText.text = "";
+  }
+
+  public void PostClickBook() => this.HoverBook((int) this.openBook);
+
+  public void HoverBook2()
+  {
+    if ((UnityEngine.Object) this.viewingMinion != (UnityEngine.Object) null)
+      this.textError.text = "";
+    else if (this.viewingExtraSpells != BookOf.Nothing)
+      this.textError.text = "Click to view the regular spellbook";
+    else
+      this.textError.text = "Left-Click to equip all available spells<br><color=#0093FF>Right-Click to see this books familiar spells</color>";
   }
 
   public void ClickRestrictions()
@@ -457,8 +486,17 @@ public class SpellLobbyChange : MonoBehaviour
       uiOnHover.GetComponent<Image>().sprite = ClientResources.Instance.spellBookIcons[book + 1];
       UIOnHover component = uiOnHover.GetComponent<UIOnHover>();
       int e = book;
-      component.onEnter.AddListener((UnityAction) (() => this.HoverBook(e)));
-      component.onClick.AddListener((UnityAction) (() => this.OpenBook((BookOf) e)));
+      component.onEnter.AddListener((UnityAction) (() => this.HoverBook(e, true)));
+      component.onClick.AddListener((UnityAction) (() =>
+      {
+        this.OpenBook((BookOf) e);
+        this.PostClickBook();
+      }));
+      component.onRightClick.AddListener((UnityAction) (() =>
+      {
+        this.OpenExtraSpells((BookOf) e);
+        this.PostClickBook();
+      }));
       x += 64;
       uiOnHover.gameObject.SetActive(true);
       if (book == 10)
@@ -471,13 +509,122 @@ public class SpellLobbyChange : MonoBehaviour
     }
   }
 
+  public void OpenMinion(Spell s, Creature minion)
+  {
+    this.viewingSpellMinion = s;
+    this.viewingExtraSpells = BookOf.Nothing;
+    this.viewingMinion = minion;
+    this.bookIcon.sprite = ClientResources.Instance.GetSpellIcon(s.name);
+    this.ResizeBookIcon(2.5f);
+    for (int index = 0; index < minion.spells.Count && index < 12; ++index)
+    {
+      this.buttonSpells[index].SetSprite(ClientResources.Instance.icons[minion.spells[index].spell.name], 1, false, true, index);
+      this.buttonSpells[index].gameObject.SetActive(true);
+    }
+    for (int count = minion.spells.Count; count < 11; ++count)
+      this.buttonSpells[count].gameObject.SetActive(false);
+    this.buttonSpells[11].SetSprite(ClientResources.Instance.icons["Banish"], 1, false, true, 11);
+    this.buttonSpells[11].gameObject.SetActive(true);
+  }
+
+  public static Spell GetFamiliarSpell(int index)
+  {
+    int num = 0;
+    BookOf openBook = SpellLobbyChange.Instance.openBook;
+    SettingsPlayer settingsPlayer = SpellLobbyChange.Instance.settingsPlayer;
+    foreach (Spell familiarSpell in ClientResources.Instance.familiarSpells)
+    {
+      if (familiarSpell.bookOf == openBook)
+      {
+        if (openBook == BookOf.Seasons)
+        {
+          if (settingsPlayer._spells.SeasonsIsHoliday)
+          {
+            if (!familiarSpell.name.Contains("Gift"))
+              continue;
+          }
+          else if (familiarSpell.name.Contains("Gift"))
+            continue;
+        }
+        if (num == index)
+          return familiarSpell;
+        ++num;
+      }
+    }
+    return ClientResources.Instance.familiarSpells[0];
+  }
+
+  public void OpenExtraSpells(BookOf b)
+  {
+    this.openBook = b;
+    this.OpenExtraSpells();
+  }
+
+  public void OpenExtraSpells()
+  {
+    if (this.viewingExtraSpells == this.openBook)
+    {
+      this.OpenBook(this.openBook);
+      this.PostClickBook();
+      this.HoverBook2();
+    }
+    else
+    {
+      this.viewingExtraSpells = this.openBook;
+      this.viewingMinion = (Creature) null;
+      int index = 0;
+      this.bookIcon.sprite = this.openBook != BookOf.Seasons || !this.settingsPlayer._spells.SeasonsIsHoliday ? ClientResources.Instance.spellBookIcons[(int) (this.openBook + 1)] : ClientResources.Instance.spellBookIconHoliday;
+      this.ResizeBookIcon();
+      foreach (Spell familiarSpell in ClientResources.Instance.familiarSpells)
+      {
+        if (familiarSpell.bookOf == this.openBook)
+        {
+          if (this.openBook == BookOf.Seasons)
+          {
+            if (this.settingsPlayer._spells.SeasonsIsHoliday)
+            {
+              if (!familiarSpell.name.Contains("Gift"))
+                continue;
+            }
+            else if (familiarSpell.name.Contains("Gift"))
+              continue;
+          }
+          this.buttonSpells[index].SetSprite(ClientResources.Instance.icons[familiarSpell.name], 1, false, true, index);
+          this.buttonSpells[index].gameObject.SetActive(true);
+          ++index;
+        }
+      }
+      for (; index < 11; ++index)
+        this.buttonSpells[index].gameObject.SetActive(false);
+      this.buttonSpells[11].SetSprite(ClientResources.Instance.icons["Banish"], 1, false, true, 11);
+      this.buttonSpells[11].gameObject.SetActive(true);
+      this.PostClickBook();
+      this.HoverBook2();
+    }
+  }
+
+  public void ResizeBookIcon(float scale = 1f)
+  {
+    Sprite sprite = this.bookIcon.sprite;
+    RectTransform rectTransform = this.bookIcon.rectTransform;
+    Rect rect = sprite.rect;
+    double x = (double) rect.width * (double) scale;
+    rect = sprite.rect;
+    double y = (double) rect.height * (double) scale;
+    Vector2 vector2 = new Vector2((float) x, (float) y);
+    rectTransform.sizeDelta = vector2;
+  }
+
   public void OpenBook(BookOf b)
   {
-    if (this.openBook != b)
+    if (this.openBook != b || (UnityEngine.Object) this.viewingMinion != (UnityEngine.Object) null || this.viewingExtraSpells != BookOf.Nothing)
     {
       this.bookIcon.sprite = b != BookOf.Seasons || !this.settingsPlayer._spells.SeasonsIsHoliday ? ClientResources.Instance.spellBookIcons[(int) (b + 1)] : ClientResources.Instance.spellBookIconHoliday;
       this.openBook = b;
+      this.ResizeBookIcon();
     }
+    this.viewingMinion = (Creature) null;
+    this.viewingExtraSpells = BookOf.Nothing;
     int index = (int) b * 12;
     int num = index + 12;
     if (b == BookOf.Seasons && this.settingsPlayer._spells.SeasonsIsHoliday)
@@ -488,6 +635,7 @@ public class SpellLobbyChange : MonoBehaviour
         Spell holidaySpell = Inert.Instance.holidaySpells[spellID];
         bool equipped = this.HasSpell((byte) spellID);
         this.buttonSpells[spellID].SetSprite(ClientResources.Instance.icons[holidaySpell.name], holidaySpell.level, equipped, equipped || this.settingsPlayer.CanEquipSpell(15, (byte) (spellID + (int) this.openBook * 12)), index);
+        this.buttonSpells[spellID].gameObject.SetActive(true);
         ++spellID;
         ++index;
       }
@@ -500,6 +648,7 @@ public class SpellLobbyChange : MonoBehaviour
         Spell spell = Inert.Instance.spells.GetItem(index).Value;
         bool equipped = this.HasSpell((byte) spellID);
         this.buttonSpells[spellID].SetSprite(ClientResources.Instance.icons[spell.name], spell.level, equipped, equipped || this.settingsPlayer.CanEquipSpell(15, (byte) (spellID + (int) this.openBook * 12)), index);
+        this.buttonSpells[spellID].gameObject.SetActive(true);
         ++index;
         ++spellID;
       }
@@ -519,7 +668,12 @@ public class SpellLobbyChange : MonoBehaviour
 
   public void ClickFullBook()
   {
-    if (Client.viewSpellLocks.ViewLocked() && !Prestige.IsUnlocked(Client.MyAccount, this.openBook))
+    if ((UnityEngine.Object) this.viewingMinion != (UnityEngine.Object) null || this.viewingExtraSpells != BookOf.Nothing)
+    {
+      this.OpenBook(this.openBook);
+      this.HoverBook((int) this.openBook);
+    }
+    else if (Client.viewSpellLocks.ViewLocked() && !Prestige.IsUnlocked(Client.MyAccount, this.openBook))
     {
       int i = Prestige.CanUnlock(Client.MyAccount, this.openBook);
       if (i == 0)
@@ -641,11 +795,11 @@ public class SpellLobbyChange : MonoBehaviour
   {
     if (this.settingsPlayer.spells[i] >= byte.MaxValue || (int) this.settingsPlayer.spells[i] >= Inert.Instance._spells.Length)
       return;
+    this.textError.text = "";
     if (this.settingsPlayer._spells.SeasonsIsHoliday && this.settingsPlayer.spells[i] >= (byte) 120 && this.settingsPlayer.spells[i] < (byte) 132)
       this.ShowDescription(Inert.Instance.holidaySpells[(int) this.settingsPlayer.spells[i] % 12].name, (int) this.settingsPlayer.spells[i]);
     else
       this.ShowDescription(Inert.Instance.spells.GetItem((int) this.settingsPlayer.spells[i]).Key, (int) this.settingsPlayer.spells[i]);
-    this.textError.text = "";
     this.ToggleMouserOverImage(true);
   }
 
@@ -653,7 +807,14 @@ public class SpellLobbyChange : MonoBehaviour
   {
     this.txtHeader.text = s;
     (this.txtDescription.text, this.txtExtraText.text) = Descriptions.GetSpellDescription(s);
+    this.textError.text += this.GetIsMinionSpell(s);
     this.ToggleMouserOverImage(true);
+  }
+
+  public string GetIsMinionSpell(string spell)
+  {
+    Spell spell1 = Inert.GetSpell(spell);
+    return (UnityEngine.Object) spell1 == (UnityEngine.Object) null || (UnityEngine.Object) spell1.toSummon == (UnityEngine.Object) null || !((UnityEngine.Object) spell1.toSummon?.GetComponent<Creature>() != (UnityEngine.Object) null) || !spell1.IsMinionSpell() ? "" : "<br><color=#0093FF>Right-Click to see this minions spells</color>";
   }
 
   public void LeaveSpell()

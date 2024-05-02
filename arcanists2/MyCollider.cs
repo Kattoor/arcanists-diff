@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: MyCollider
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System;
 using System.Collections.Generic;
@@ -56,6 +56,53 @@ public class MyCollider : MonoBehaviour
           x = (int) ((double) point.x + (double) polygonCollider2D.offset.x),
           y = (int) ((double) point.y + (double) polygonCollider2D.offset.y)
         });
+    }
+  }
+
+  [ContextMenu("Copy to Polygon Collider")]
+  private void setup2()
+  {
+    Collider2D component = this.GetComponent<Collider2D>();
+    if (!((UnityEngine.Object) component != (UnityEngine.Object) null))
+      return;
+    if (this.shape == MyCollider.Shape.Circle)
+    {
+      (component as CircleCollider2D).radius = (float) this.radius;
+    }
+    else
+    {
+      PolygonCollider2D polygonCollider2D = (PolygonCollider2D) component;
+      List<Vector2> vector2List = new List<Vector2>();
+      foreach (MyCollider.XY point in this.points)
+        vector2List.Add(new Vector2((float) point.x, (float) point.y));
+      polygonCollider2D.points = vector2List.ToArray();
+    }
+  }
+
+  [ContextMenu("Setup with scale")]
+  private void setupscale()
+  {
+    Collider2D component = this.GetComponent<Collider2D>();
+    if (!((UnityEngine.Object) component != (UnityEngine.Object) null))
+      return;
+    if (typeof (CircleCollider2D) == ((object) component).GetType())
+    {
+      this.radius = (int) ((CircleCollider2D) component).radius;
+    }
+    else
+    {
+      this.shape = MyCollider.Shape.Polygon;
+      PolygonCollider2D polygonCollider2D = (PolygonCollider2D) component;
+      this.points = new List<MyCollider.XY>();
+      foreach (Vector2 point in polygonCollider2D.points)
+      {
+        Vector2 vector2 = point * (Vector2) component.transform.localScale;
+        this.points.Add(new MyCollider.XY()
+        {
+          x = (int) ((double) vector2.x + (double) polygonCollider2D.offset.x),
+          y = (int) ((double) vector2.y + (double) polygonCollider2D.offset.y)
+        });
+      }
     }
   }
 

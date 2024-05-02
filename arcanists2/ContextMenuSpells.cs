@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: ContextMenuSpells
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System.Collections;
 using System.Collections.Generic;
@@ -34,7 +34,7 @@ public class ContextMenuSpells : MonoBehaviour
     Stopwatch sw = new Stopwatch();
     foreach (KeyValuePair<string, Spell> spell1 in Inert.Instance.spells)
     {
-      if (spellEnumSet.Add(spell1.Value.spellEnum) && spell1.Value.level <= 3)
+      if (spellEnumSet.Add(spell1.Value.spellEnum) && (spell1.Value.level <= 3 || GameFacts.AllowCustomArmageddon(spell1.Value.spellEnum)))
         spell.Add(spell1);
     }
     sw.Start();

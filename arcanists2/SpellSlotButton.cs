@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: SpellSlotButton
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using UnityEngine;
 using UnityEngine.Events;
@@ -64,6 +64,21 @@ public class SpellSlotButton : MonoBehaviour
     this.uihover.onClick.AddListener(new UnityAction(this.ClickRemove));
     this.uihover.onEnter.AddListener(new UnityAction(this.Hover));
     this.uihover.onExit.AddListener(new UnityAction(this.Leave));
+    this.uihover.onRightClick.AddListener(new UnityAction(this.RightClick));
+  }
+
+  public void RightClick()
+  {
+    Spell spell = this.GetSpell();
+    if ((Object) spell == (Object) null || (Object) spell.toSummon == (Object) null || !((Object) spell.toSummon?.GetComponent<Creature>() != (Object) null) || !spell.IsMinionSpell())
+      return;
+    SpellLobbyChange.Instance?.OpenMinion(spell, spell.toSummon.GetComponent<Creature>());
+  }
+
+  public static bool IsMinionSpell(int index)
+  {
+    Spell spell = Inert.Instance._spells[index];
+    return (Object) spell.toSummon?.GetComponent<Creature>() != (Object) null && spell.IsMinionSpell();
   }
 
   public void ClickRemove()
@@ -72,6 +87,18 @@ public class SpellSlotButton : MonoBehaviour
     this.Leave();
     SpellSelection.Instance?.RemoveSpellSlot(this.index, true);
     SpellLobbyChange.Instance?.RemoveSpellSlot(this.index, true);
+  }
+
+  public Spell GetSpell()
+  {
+    if (SpellLobbyChange.Instance.settingsPlayer._spells.SeasonsIsHoliday && SpellLobbyChange.Instance.openBook == BookOf.Seasons)
+    {
+      if (SpellLobbyChange.Instance.settingsPlayer.spells[this.index] < byte.MaxValue && (int) SpellLobbyChange.Instance.settingsPlayer.spells[this.index] < Inert.Instance.spells.Count)
+        return Inert.Instance.spells.GetItem((int) SpellLobbyChange.Instance.settingsPlayer.spells[this.index]).Value;
+    }
+    else if (SpellLobbyChange.Instance.settingsPlayer.spells[this.index] < byte.MaxValue && (int) SpellLobbyChange.Instance.settingsPlayer.spells[this.index] < Inert.Instance.spells.Count)
+      return Inert.Instance.spells.GetItem((int) SpellLobbyChange.Instance.settingsPlayer.spells[this.index]).Value;
+    return (Spell) null;
   }
 
   public void Hover()

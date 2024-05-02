@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: ChessConsole.ChessBoard
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using ChessConsole.Pieces;
 using Hazel;
@@ -37,6 +37,8 @@ namespace ChessConsole
     private IMiniGame.Player cur;
     public string note = "";
 
+    public override string GetGameType() => "Chess";
+
     public static void Create(Connection c)
     {
       if (c.miniGame != null && c.miniGame.First == c)
@@ -65,7 +67,7 @@ namespace ChessConsole
         using (myBinaryWriter w = new myBinaryWriter((Stream) memoryStream))
         {
           w.Write((byte) 88);
-          w.Write((byte) 87);
+          w.Write((byte) 1);
           this.Serialize(w);
         }
         c.SendBytes(memoryStream.ToArray());
@@ -123,17 +125,6 @@ namespace ChessConsole
       }
       Debug.LogError((object) ("Chess player not found: " + n));
       return (IMiniGame.Player) null;
-    }
-
-    public int GetPlayerIndex(string n)
-    {
-      for (int index = 0; index < this.players.Count; ++index)
-      {
-        if (string.Equals(n, this.players[index].name))
-          return index;
-      }
-      Debug.LogError((object) ("Chess player not found: " + n));
-      return -1;
     }
 
     public override void ServerHandler(Connection c, myBinaryReader r, byte[] bytes)
@@ -666,38 +657,38 @@ namespace ChessConsole
       foreach (IMiniGame.Player player in this.players)
         player.offeringDraw = false;
       this.InitBoard();
-      this.addPiece(this.cells[0, 0], (Piece) new Rook(PlayerColor.White));
-      this.addPiece(this.cells[1, 0], (Piece) new Knight(PlayerColor.White));
-      this.addPiece(this.cells[2, 0], (Piece) new Bishop(PlayerColor.White));
+      this.addPiece(this.cells[0, 0], (Piece) new ChessConsole.Pieces.Rook(PlayerColor.White));
+      this.addPiece(this.cells[1, 0], (Piece) new ChessConsole.Pieces.Knight(PlayerColor.White));
+      this.addPiece(this.cells[2, 0], (Piece) new ChessConsole.Pieces.Bishop(PlayerColor.White));
       this.addPiece(this.cells[3, 0], (Piece) new Queen(PlayerColor.White));
-      this.addPiece(this.cells[4, 0], this.whiteKing = (Piece) new King(PlayerColor.White));
-      this.addPiece(this.cells[5, 0], (Piece) new Bishop(PlayerColor.White));
-      this.addPiece(this.cells[6, 0], (Piece) new Knight(PlayerColor.White));
-      this.addPiece(this.cells[7, 0], (Piece) new Rook(PlayerColor.White));
-      this.addPiece(this.cells[0, 1], (Piece) new Pawn(PlayerColor.White));
-      this.addPiece(this.cells[1, 1], (Piece) new Pawn(PlayerColor.White));
-      this.addPiece(this.cells[2, 1], (Piece) new Pawn(PlayerColor.White));
-      this.addPiece(this.cells[3, 1], (Piece) new Pawn(PlayerColor.White));
-      this.addPiece(this.cells[4, 1], (Piece) new Pawn(PlayerColor.White));
-      this.addPiece(this.cells[5, 1], (Piece) new Pawn(PlayerColor.White));
-      this.addPiece(this.cells[6, 1], (Piece) new Pawn(PlayerColor.White));
-      this.addPiece(this.cells[7, 1], (Piece) new Pawn(PlayerColor.White));
-      this.addPiece(this.cells[0, 6], (Piece) new Pawn(PlayerColor.Black));
-      this.addPiece(this.cells[1, 6], (Piece) new Pawn(PlayerColor.Black));
-      this.addPiece(this.cells[2, 6], (Piece) new Pawn(PlayerColor.Black));
-      this.addPiece(this.cells[3, 6], (Piece) new Pawn(PlayerColor.Black));
-      this.addPiece(this.cells[4, 6], (Piece) new Pawn(PlayerColor.Black));
-      this.addPiece(this.cells[5, 6], (Piece) new Pawn(PlayerColor.Black));
-      this.addPiece(this.cells[6, 6], (Piece) new Pawn(PlayerColor.Black));
-      this.addPiece(this.cells[7, 6], (Piece) new Pawn(PlayerColor.Black));
-      this.addPiece(this.cells[0, 7], (Piece) new Rook(PlayerColor.Black));
-      this.addPiece(this.cells[1, 7], (Piece) new Knight(PlayerColor.Black));
-      this.addPiece(this.cells[2, 7], (Piece) new Bishop(PlayerColor.Black));
+      this.addPiece(this.cells[4, 0], this.whiteKing = (Piece) new ChessConsole.Pieces.King(PlayerColor.White));
+      this.addPiece(this.cells[5, 0], (Piece) new ChessConsole.Pieces.Bishop(PlayerColor.White));
+      this.addPiece(this.cells[6, 0], (Piece) new ChessConsole.Pieces.Knight(PlayerColor.White));
+      this.addPiece(this.cells[7, 0], (Piece) new ChessConsole.Pieces.Rook(PlayerColor.White));
+      this.addPiece(this.cells[0, 1], (Piece) new ChessConsole.Pieces.Pawn(PlayerColor.White));
+      this.addPiece(this.cells[1, 1], (Piece) new ChessConsole.Pieces.Pawn(PlayerColor.White));
+      this.addPiece(this.cells[2, 1], (Piece) new ChessConsole.Pieces.Pawn(PlayerColor.White));
+      this.addPiece(this.cells[3, 1], (Piece) new ChessConsole.Pieces.Pawn(PlayerColor.White));
+      this.addPiece(this.cells[4, 1], (Piece) new ChessConsole.Pieces.Pawn(PlayerColor.White));
+      this.addPiece(this.cells[5, 1], (Piece) new ChessConsole.Pieces.Pawn(PlayerColor.White));
+      this.addPiece(this.cells[6, 1], (Piece) new ChessConsole.Pieces.Pawn(PlayerColor.White));
+      this.addPiece(this.cells[7, 1], (Piece) new ChessConsole.Pieces.Pawn(PlayerColor.White));
+      this.addPiece(this.cells[0, 6], (Piece) new ChessConsole.Pieces.Pawn(PlayerColor.Black));
+      this.addPiece(this.cells[1, 6], (Piece) new ChessConsole.Pieces.Pawn(PlayerColor.Black));
+      this.addPiece(this.cells[2, 6], (Piece) new ChessConsole.Pieces.Pawn(PlayerColor.Black));
+      this.addPiece(this.cells[3, 6], (Piece) new ChessConsole.Pieces.Pawn(PlayerColor.Black));
+      this.addPiece(this.cells[4, 6], (Piece) new ChessConsole.Pieces.Pawn(PlayerColor.Black));
+      this.addPiece(this.cells[5, 6], (Piece) new ChessConsole.Pieces.Pawn(PlayerColor.Black));
+      this.addPiece(this.cells[6, 6], (Piece) new ChessConsole.Pieces.Pawn(PlayerColor.Black));
+      this.addPiece(this.cells[7, 6], (Piece) new ChessConsole.Pieces.Pawn(PlayerColor.Black));
+      this.addPiece(this.cells[0, 7], (Piece) new ChessConsole.Pieces.Rook(PlayerColor.Black));
+      this.addPiece(this.cells[1, 7], (Piece) new ChessConsole.Pieces.Knight(PlayerColor.Black));
+      this.addPiece(this.cells[2, 7], (Piece) new ChessConsole.Pieces.Bishop(PlayerColor.Black));
       this.addPiece(this.cells[3, 7], (Piece) new Queen(PlayerColor.Black));
-      this.addPiece(this.cells[4, 7], this.blackKing = (Piece) new King(PlayerColor.Black));
-      this.addPiece(this.cells[5, 7], (Piece) new Bishop(PlayerColor.Black));
-      this.addPiece(this.cells[6, 7], (Piece) new Knight(PlayerColor.Black));
-      this.addPiece(this.cells[7, 7], (Piece) new Rook(PlayerColor.Black));
+      this.addPiece(this.cells[4, 7], this.blackKing = (Piece) new ChessConsole.Pieces.King(PlayerColor.Black));
+      this.addPiece(this.cells[5, 7], (Piece) new ChessConsole.Pieces.Bishop(PlayerColor.Black));
+      this.addPiece(this.cells[6, 7], (Piece) new ChessConsole.Pieces.Knight(PlayerColor.Black));
+      this.addPiece(this.cells[7, 7], (Piece) new ChessConsole.Pieces.Rook(PlayerColor.Black));
       foreach (Piece piece in this.pieces)
         piece.Recalculate();
     }
@@ -707,17 +698,17 @@ namespace ChessConsole
       switch (c)
       {
         case ChessPiece.Pawn:
-          return (Piece) new Pawn(p);
+          return (Piece) new ChessConsole.Pieces.Pawn(p);
         case ChessPiece.Bishop:
-          return (Piece) new Bishop(p);
+          return (Piece) new ChessConsole.Pieces.Bishop(p);
         case ChessPiece.Knight:
-          return (Piece) new Knight(p);
+          return (Piece) new ChessConsole.Pieces.Knight(p);
         case ChessPiece.Rook:
-          return (Piece) new Rook(p);
+          return (Piece) new ChessConsole.Pieces.Rook(p);
         case ChessPiece.Queen:
           return (Piece) new Queen(p);
         case ChessPiece.King:
-          return (Piece) new King(p);
+          return (Piece) new ChessConsole.Pieces.King(p);
         default:
           throw new Exception("Unknown piece: " + (object) c);
       }
@@ -772,7 +763,7 @@ namespace ChessConsole
       if (piece.Color != this.whosTurn)
         return false;
       Piece piece1 = piece.Color == PlayerColor.White ? this.whiteKing : this.blackKing;
-      if (piece is King)
+      if (piece is ChessConsole.Pieces.King)
       {
         if (piece.Color == PlayerColor.White)
         {
@@ -830,9 +821,9 @@ namespace ChessConsole
 
     public string GetNotation(ChessBoard.Cell from, ChessBoard.Cell to)
     {
-      if (from.Piece is King && to.X - from.X == 2)
+      if (from.Piece is ChessConsole.Pieces.King && to.X - from.X == 2)
         return "O-O";
-      if (from.Piece is King && to.X - from.X == -2)
+      if (from.Piece is ChessConsole.Pieces.King && to.X - from.X == -2)
         return "O-O-O";
       string str1 = this.PieceToChar(from.Piece.Char);
       foreach (Piece piece in this.pieces)
@@ -898,18 +889,18 @@ namespace ChessConsole
       }
       to.Piece = from.Piece;
       from.Piece = (Piece) null;
-      if (to == this.EnPassant && to.Piece is Pawn)
+      if (to == this.EnPassant && to.Piece is ChessConsole.Pieces.Pawn)
       {
         this.EnPassantCapture.Piece.Destroy();
         this.pieces.Remove(this.EnPassantCapture.Piece);
         this.EnPassantCapture.Piece = (Piece) null;
         this.note = ((char) (from.X + 97)).ToString() + "x" + this.StringMove(to);
       }
-      if (to.Piece is King && to.X - from.X == 2)
+      if (to.Piece is ChessConsole.Pieces.King && to.X - from.X == 2)
         this.Move(this.GetCell(7, to.Y), this.GetCell(to.X - 1, to.Y), promoteOption, chessMove, false);
-      if (to.Piece is King && to.X - from.X == -2)
+      if (to.Piece is ChessConsole.Pieces.King && to.X - from.X == -2)
         this.Move(this.GetCell(0, to.Y), this.GetCell(to.X + 1, to.Y), promoteOption, chessMove, false);
-      if (to.Piece is Pawn && to.Y == (to.Piece.Color == PlayerColor.White ? 7 : 0))
+      if (to.Piece is ChessConsole.Pieces.Pawn && to.Y == (to.Piece.Color == PlayerColor.White ? 7 : 0))
       {
         Piece piece = (Piece) null;
         switch (promoteOption)
@@ -919,15 +910,15 @@ namespace ChessConsole
             this.note = this.StringMove(to) + "=Q";
             break;
           case PromoteOptions.Rook:
-            piece = (Piece) new Rook(to.Piece);
+            piece = (Piece) new ChessConsole.Pieces.Rook(to.Piece);
             this.note = this.StringMove(to) + "=R";
             break;
           case PromoteOptions.Bishop:
-            piece = (Piece) new Bishop(to.Piece);
+            piece = (Piece) new ChessConsole.Pieces.Bishop(to.Piece);
             this.note = this.StringMove(to) + "=B";
             break;
           case PromoteOptions.Knight:
-            piece = (Piece) new Knight(to.Piece);
+            piece = (Piece) new ChessConsole.Pieces.Knight(to.Piece);
             this.note = this.StringMove(to) + "=K";
             break;
         }
@@ -962,7 +953,7 @@ namespace ChessConsole
       }
       this.EnPassant = (ChessBoard.Cell) null;
       this.EnPassantCapture = (ChessBoard.Cell) null;
-      if (!(to.Piece is Pawn) || Math.Abs(to.Y - from.Y) != 2)
+      if (!(to.Piece is ChessConsole.Pieces.Pawn) || Math.Abs(to.Y - from.Y) != 2)
         return;
       this.EnPassant = this.GetCell(to.X, from.Y > to.Y ? from.Y - 1 : from.Y + 1);
       this.EnPassantCapture = to;
@@ -970,7 +961,7 @@ namespace ChessConsole
 
     public bool IsPromotable(ChessBoard.Cell from, ChessBoard.Cell to)
     {
-      return from.Piece is Pawn && to.Y == (from.Piece.Color == PlayerColor.White ? 7 : 0);
+      return from.Piece is ChessConsole.Pieces.Pawn && to.Y == (from.Piece.Color == PlayerColor.White ? 7 : 0);
     }
 
     public class Cell

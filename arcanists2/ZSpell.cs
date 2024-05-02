@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: ZSpell
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System;
 using System.Collections.Generic;
@@ -20,6 +20,7 @@ public class ZSpell : ZEntity, ISpellBridge
   internal ZEffector effector2;
   internal Spell baseSpell;
   internal int steps = 1;
+  internal bool wasChild;
   public int maxDuration;
   public int damage;
   public DamageType damageType;
@@ -33,7 +34,6 @@ public class ZSpell : ZEntity, ISpellBridge
   public MyLocation target = NullMyLocation.Get();
   public int amount;
   public int curDuration;
-  public ZCreature parent;
   public FixedInt curSpeed;
   internal bool fromArmageddon;
   private Renderer _renderer;
@@ -105,9 +105,9 @@ public class ZSpell : ZEntity, ISpellBridge
     SpellEnum.Stone_Form,
     SpellEnum.Acorn,
     SpellEnum.Summon_Snowman2,
-    SpellEnum.Summon_Wolf,
-    SpellEnum.Summon_Bear,
-    SpellEnum.Summon_Spirit_Owl,
+    SpellEnum.Summon_Boar,
+    SpellEnum.Summon_Tiger,
+    SpellEnum.Summon_Will_o_the_Wisp,
     SpellEnum.Summon_Drone,
     SpellEnum.Cosmic_Horror,
     SpellEnum.Summon_King_Monarch,
@@ -150,7 +150,7 @@ public class ZSpell : ZEntity, ISpellBridge
   {
     get
     {
-      if (this.curDuration >= 6)
+      if (this.curDuration >= 6 || this.wasChild)
         return (ZCreature) null;
       return (ZComponent) this.extraCheck != (object) null ? this.extraCheck : this.parent;
     }
@@ -174,6 +174,8 @@ public class ZSpell : ZEntity, ISpellBridge
 
   public GameObject toSummon => this.baseSpell.toSummon;
 
+  public ZCreature parent { get; set; }
+
   public Renderer Renderer => this._renderer;
 
   public void FindRenderer()
@@ -194,6 +196,11 @@ public class ZSpell : ZEntity, ISpellBridge
   public bool destroyTerrainFirstBounce => this.baseSpell.destroyTerrainFirstBounce;
 
   public int destroyTerrainBounces => this.baseSpell.destroyTerrainBounces;
+
+  internal FixedInt GetRotation
+  {
+    get => FixedInt.Atan2(this.velocity.y, this.velocity.x) * FixedInt.Rad2Deg;
+  }
 
   public virtual int SummoningAmount() => 0;
 
@@ -278,11 +285,13 @@ public class ZSpell : ZEntity, ISpellBridge
     MyLocation pos,
     Quaternion rot,
     MyLocation power,
-    bool setVelocity = true)
+    bool setVelocity = true,
+    bool isChild = false)
   {
     ZSpell e = ZSpell.Create(c.game, spell, (Vector3) pos.ToSinglePrecision(), spell.Rotates ? rot : Quaternion.identity, c.game.GetMapTransform());
     e.game = c.game;
     e.position = pos;
+    e.wasChild = isChild;
     e.parent = c.first();
     if (c.game.ongoing.forceArmageddon)
       e.fromArmageddon = true;
@@ -299,11 +308,13 @@ public class ZSpell : ZEntity, ISpellBridge
     MyLocation pos,
     Quaternion rot,
     MyLocation power,
-    bool setVelocity = true)
+    bool setVelocity = true,
+    bool isChild = false)
   {
     ZSpell e = ZSpell.Create(c.game, spell, (Vector3) pos.ToSinglePrecision(), spell.Rotates ? rot : Quaternion.identity, c.game.GetMapTransform());
     e.game = c.game;
     e.position = pos;
+    e.wasChild = isChild;
     e.parent = c;
     if (c.game.ongoing.forceArmageddon)
       e.fromArmageddon = true;
@@ -314,11 +325,17 @@ public class ZSpell : ZEntity, ISpellBridge
     return e;
   }
 
-  public static ZSpell BaseFire(Spell spell, ZCreature c, MyLocation pos, Quaternion rot)
+  public static ZSpell BaseFire(
+    Spell spell,
+    ZCreature c,
+    MyLocation pos,
+    Quaternion rot,
+    bool isChild = false)
   {
     ZSpell e = ZSpell.Create(c.game, spell, (Vector3) pos.ToSinglePrecision(), spell.Rotates ? rot : Quaternion.identity, c.game.GetMapTransform());
     e.game = c.game;
     e.position = pos;
+    e.wasChild = isChild;
     e.parent = c;
     if (c.game.ongoing.forceArmageddon)
       e.fromArmageddon = true;
@@ -335,11 +352,13 @@ public class ZSpell : ZEntity, ISpellBridge
     MyLocation power,
     FixedInt speed,
     MyLocation target,
-    bool setVelocity = true)
+    bool setVelocity = true,
+    bool isChild = false)
   {
     ZSpell e = ZSpell.Create(c.game, spell, (Vector3) pos.ToSinglePrecision(), spell.Rotates ? rot : Quaternion.identity, c.game.GetMapTransform());
     e.game = c.game;
     e.position = pos;
+    e.wasChild = isChild;
     e.parent = c;
     e.curSpeed = speed;
     if (c.game.ongoing.forceArmageddon)
@@ -418,6 +437,7 @@ public class ZSpell : ZEntity, ISpellBridge
   {
     if (this.death)
       return false;
+    ++this.game.numExplosionsAndMovement;
     if (die)
       this.death = true;
     if (this.spellEnum == SpellEnum.Whisper_Bomb && (ZComponent) this.parent != (object) null && this.parent.familiarLevelIllusion > 0)
@@ -459,13 +479,13 @@ public class ZSpell : ZEntity, ISpellBridge
             zcreatureList.Add(creature);
         }
       }
-      else if (zmyColliderList[index].gameObjectLayer == 8 || zmyColliderList[index].gameObjectLayer == 16)
+      else if (zmyColliderList[index].HasLayer(65792))
       {
         ZCreature creature = zmyColliderList[index].creature;
         if (!ZComponent.IsNull((ZComponent) creature) && !creature.isDead)
         {
           flag = true;
-          if ((ZComponent) creature != (object) this.parent || this.damageType != DamageType.Wallop && this.damageType != DamageType.Sunder && this.damageType != DamageType.Arcane && this.spellEnum != SpellEnum.Fire_Wave && this.spellEnum != SpellEnum.Thunder_Shock)
+          if ((ZComponent) creature != (object) this.parent || this.damageType != DamageType.Wallop && this.damageType != DamageType.Sunder && this.damageType != DamageType.SunderLight && this.damageType != DamageType.Arcane && this.spellEnum != SpellEnum.Fire_Wave && this.spellEnum != SpellEnum.Thunder_Shock)
           {
             int health = creature.health;
             if (this.damageType != DamageType.Gravity && (this.damageType != DamageType.Blast_From_The_Past || this.curDuration > 0 || creature.GetType() == typeof (ZCreatureThorn)))
@@ -545,6 +565,8 @@ public class ZSpell : ZEntity, ISpellBridge
     ISpellBridge spellRef = null,
     ZCreature firstHit = null)
   {
+    if ((ZComponent) parent != (object) null)
+      ++parent.game.numExplosionsAndMovement;
     List<ZMyCollider> zmyColliderList = world.OverlapCircleAll((Point) pos, EXORADIUS, (ZMyCollider) null, Inert.mask_all);
     if ((ZComponent) firstHit != (object) null && (ZComponent) firstHit.collider != (object) null && firstHit.collider.enabled && zmyColliderList.FindIndex((Predicate<ZMyCollider>) (a => (ZComponent) a == (object) firstHit.collider)) == -1)
       zmyColliderList.Add(firstHit.collider);
@@ -569,7 +591,7 @@ public class ZSpell : ZEntity, ISpellBridge
             zcreatureList.Add(creature);
         }
       }
-      else if (zmyColliderList[index].gameObjectLayer == 8 || zmyColliderList[index].gameObjectLayer == 16)
+      else if (zmyColliderList[index].HasLayer(65792))
       {
         ZCreature creature = zmyColliderList[index].creature;
         if (!ZComponent.IsNull((ZComponent) creature) && !creature.isDead)
@@ -648,6 +670,11 @@ public class ZSpell : ZEntity, ISpellBridge
       foreach (ParticleSystem particleSystem in componentsInChildren)
         particleSystem.Stop(true, ParticleSystemStopBehavior.StopEmitting);
     }
+  }
+
+  public bool BombShouldFall(bool onlyMap = false)
+  {
+    return !(this.velocity.y != 0) && this.ShouldSpellFall(onlyMap);
   }
 
   public virtual bool ShouldSpellFall(bool onlyMap = false)
@@ -819,13 +846,13 @@ label_61:
               {
                 spell.position = new MyLocation(spell.validX, spell.validY);
                 MyLocation zero = MyLocation.zero;
-                int num3 = xInt + spell.zb[index2].x;
-                int num4 = yInt + spell.zb[index2].y;
+                int x3 = xInt + spell.zb[index2].x;
+                int y3 = yInt + spell.zb[index2].y;
                 for (int index3 = -2; index3 <= 2; ++index3)
                 {
                   for (int index4 = -2; index4 <= 2; ++index4)
                   {
-                    if (spell.map.SpellCheckPosition(num3 + index3, num4 + index4, spell.toCollideCheck, Inert.mask_movement_NoEffector))
+                    if (spell.map.SpellCheckPosition(x3 + index3, y3 + index4, spell.toCollideCheck, Inert.mask_movement_NoEffector))
                     {
                       zero.x += index3;
                       zero.y += index4;
@@ -835,13 +862,14 @@ label_61:
                 zero.Normalize();
                 MyLocation.Reflect(spell.velocity, ref zero, out spell.velocity);
                 spell.velocity.Multiply(spell.elasticity.RawValue, out spell.velocity);
-                if (MyLocation.Distance(MyLocation.zero, spell.velocity) <= 1 && !spell.ShouldSpellFall())
+                bool stop = !spell.map.CheckPositionOnlyMap(x3, y3);
+                if (MyLocation.Distance(MyLocation.zero, spell.velocity) <= 1 && (stop ? (spell.ShouldSpellFall() ? 1 : 0) : (spell.BombShouldFall() ? 1 : 0)) == 0)
                 {
                   while (spell.curDuration < spell.maxDuration)
                   {
                     ++spell.curDuration;
                     yield return 0.0f;
-                    if (spell.ShouldSpellFall())
+                    if ((stop ? (spell.ShouldSpellFall() ? 1 : 0) : (spell.BombShouldFall() ? 1 : 0)) != 0)
                       goto label_58;
                   }
                   spell.Explode();
@@ -917,6 +945,8 @@ label_61:
       {
         spell.addVelocity = false;
         spell.velocity = spell.velocity + spell.addedVelocity;
+        spell.velocity.x = Mathd.Clamp(spell.velocity.x, (FixedInt) -50, (FixedInt) 50);
+        spell.velocity.y = Mathd.Clamp(spell.velocity.y, (FixedInt) -50, (FixedInt) 50);
         spell.addedVelocity.x = (FixedInt) 0;
         spell.addedVelocity.y = (FixedInt) 0;
       }
@@ -929,7 +959,7 @@ label_61:
       }
       else if (spell.affectedByGravity && spell.velocity.y > -ZMap.MaxSpeed)
         spell.velocity.y += spell.map.Gravity;
-      else if (!spell.affectedByGravity && spell.velocity.y > -1 && spell.maxDuration > 150)
+      else if (!spell.affectedByGravity && spell.velocity.y > -10 && spell.maxDuration > 150)
         spell.affectedByGravity = true;
       spell.Wind();
       if (spell.Rotates && (UnityEngine.Object) spell.transform != (UnityEngine.Object) null)
@@ -1219,6 +1249,8 @@ label_58:
         return (ZSpell) new ZSpellBloodClot();
       case SpellLogic.Leaf:
         return (ZSpell) new ZSpellLeaf();
+      case SpellLogic.Javelin:
+        return (ZSpell) new ZSpellJavelin();
       default:
         Debug.LogError((object) ("Unknown spell logic :" + (object) x));
         return new ZSpell();
@@ -1503,6 +1535,28 @@ label_58:
     c.game.CreatureMoveSurroundings(position, 50, forceLeaf: true);
   }
 
+  public static void AddPortalToOtherPlayer(ZCreature c, ZEffector portal)
+  {
+    c.effectors.Add(new ZEffector()
+    {
+      type = EffectorType.Fake_Portal,
+      whoSummoned = c,
+      game = portal.game,
+      active = false,
+      MaxTurnsAlive = 10000,
+      partner = portal
+    });
+  }
+
+  public static void AddPortalToSpawnedPlayer(ZCreature c)
+  {
+    foreach (ZEffector globalEffector in c.game.globalEffectors)
+    {
+      if ((ZComponent) globalEffector != (object) null && !globalEffector.dead && (globalEffector.type == EffectorType.Portal || globalEffector.type == EffectorType.Wormhole))
+        ZSpell.AddPortalToOtherPlayer(c, globalEffector);
+    }
+  }
+
   public static void FireArcanePortal(
     Spell theSpell,
     ZCreature c,
@@ -1519,6 +1573,18 @@ label_58:
         c.game.globalEffectors[index].Die(index, false, true);
         c.game.globalEffectors[index] = (ZEffector) null;
       }
+    }
+    if (theSpell.spellEnum == SpellEnum.Arcane_Portal)
+    {
+      SpellSlot spellSlot1 = c.GetSpellSlot(SpellEnum.Wormhole);
+      if (spellSlot1 != null)
+        spellSlot1.SetTurnFired = c.parent.localTurn;
+    }
+    else if (theSpell.spellEnum == SpellEnum.Wormhole)
+    {
+      SpellSlot spellSlot2 = c.GetSpellSlot(SpellEnum.Arcane_Portal);
+      if (spellSlot2 != null)
+        spellSlot2.SetTurnFired = c.parent.localTurn;
     }
     MyLocation myLocation = c.OverHeadOffset + c.position;
     if ((ZComponent) c.tower != (object) null && c.tower.type != TowerType.Nature)
@@ -1539,48 +1605,53 @@ label_58:
         ZComponent.Instantiate<GameObject>(theSpell.explosion, target.ToSinglePrecision(), Quaternion.identity);
       }
       int num1 = theSpell.spellEnum == SpellEnum.Wormhole ? theSpell.radius : (c.game.originalSpellsOnly ? 20 : c.radius + 2);
-      ZEffector e = ZEffector.Create(c.game, theSpell.toSummon.GetComponent<Effector>(), (Vector3) myLocation.ToSinglePrecision(), Quaternion.identity, c.game.GetMapTransform());
-      e.variable = spellSlot;
-      e.game = c.game;
-      e.collider.radius = num1;
-      e.collider.world = e.world;
-      e.collider.Move(myLocation);
-      e.whoSummoned = c;
-      c.game.globalEffectors.Insert(0, e);
+      ZEffector zeffector1 = ZEffector.Create(c.game, theSpell.toSummon.GetComponent<Effector>(), (Vector3) myLocation.ToSinglePrecision(), Quaternion.identity, c.game.GetMapTransform());
+      zeffector1.variable = spellSlot;
+      zeffector1.game = c.game;
+      zeffector1.collider.radius = num1;
+      zeffector1.collider.world = zeffector1.world;
+      zeffector1.collider.Move(myLocation);
+      zeffector1.whoSummoned = c;
+      c.game.globalEffectors.Insert(0, zeffector1);
+      foreach (ZPerson player in c.game.players)
+      {
+        if ((ZComponent) player.first() != (object) null && !player.first().isDead)
+          ZSpell.AddPortalToOtherPlayer(player.first(), zeffector1);
+      }
       if (theSpell.spellEnum != SpellEnum.Wormhole)
-        e.transform.GetChild(3).GetComponent<RotateAroundCenter>().speed *= -1f;
+        zeffector1.transform.GetChild(3).GetComponent<RotateAroundCenter>().speed *= -1f;
       else
-        e.transform.GetChild(4).GetComponent<RotateTarget>().speed *= -1f;
-      ZEffector zeffector = ZEffector.Create(c.game, theSpell.toSummon.GetComponent<Effector>(), (Vector3) target.ToSinglePrecision(), Quaternion.identity, c.game.GetMapTransform());
+        zeffector1.transform.GetChild(4).GetComponent<RotateTarget>().speed *= -1f;
+      ZEffector zeffector2 = ZEffector.Create(c.game, theSpell.toSummon.GetComponent<Effector>(), (Vector3) target.ToSinglePrecision(), Quaternion.identity, c.game.GetMapTransform());
       if (theSpell.spellEnum == SpellEnum.Wormhole)
       {
-        zeffector.variable = 666;
-        zeffector.PortalDisable();
+        zeffector2.variable = 666;
+        zeffector2.PortalDisable();
       }
-      zeffector.game = c.game;
-      zeffector.collider.radius = num1;
-      zeffector.collider.world = zeffector.world;
-      zeffector.collider.Move(target);
-      zeffector.whoSummoned = c;
-      e.partner = zeffector;
-      zeffector.partner = e;
-      e.active = false;
-      zeffector.active = false;
+      zeffector2.game = c.game;
+      zeffector2.collider.radius = num1;
+      zeffector2.collider.world = zeffector2.world;
+      zeffector2.collider.Move(target);
+      zeffector2.whoSummoned = c;
+      zeffector1.partner = zeffector2;
+      zeffector2.partner = zeffector1;
+      zeffector1.active = false;
+      zeffector2.active = false;
       if (c.game.isClient)
       {
         float num2 = (float) num1 / (float) theSpell.radius;
-        e.transform.localScale = new Vector3(num2, num2, num2);
-        zeffector.transform.localScale = new Vector3(num2, num2, num2);
+        zeffector1.transform.localScale = new Vector3(num2, num2, num2);
+        zeffector2.transform.localScale = new Vector3(num2, num2, num2);
       }
       else
       {
-        for (int index = 0; index < e.transform.childCount; ++index)
+        for (int index = 0; index < zeffector1.transform.childCount; ++index)
         {
-          e.transform.GetChild(index).gameObject.SetActive(false);
-          zeffector.transform.GetChild(index).gameObject.SetActive(false);
+          zeffector1.transform.GetChild(index).gameObject.SetActive(false);
+          zeffector2.transform.GetChild(index).gameObject.SetActive(false);
         }
       }
-      c.game.ongoing.RunSpell(ZSpell.delayPortal(e));
+      c.game.ongoing.RunSpell(ZSpell.delayPortal(zeffector1));
     }
   }
 
@@ -1826,15 +1897,27 @@ label_58:
     c.game.ongoing.RunSpell(c.MoveMultipleSteps(pos1.x > c.position.x, zspell.maxDuration));
   }
 
-  public static void FireMine(Spell theSpell, ZCreature c, MyLocation target, int addTime = 0)
+  public static void FireMine(
+    Spell theSpell,
+    ZCreature c,
+    MyLocation target,
+    int addTime = 0,
+    bool postStartingTurn = false)
   {
+    if (c.isMoving && !postStartingTurn || (ZComponent) c.tower != (object) null || c.inWater)
+      return;
     int num = c.minerMarket == null || !c.minerMarket.Has(MinerMarket.Types.Drill) ? 0 : theSpell.maxDuration / 2;
-    c.moving = c.game.ongoing.RunSpell(c.DKMove(new MyLocation(target.x, target.y), theSpell.explosionCutout, theSpell.maxDuration + num + addTime, false, false, 18));
-    c.game.ongoing.RunSpell(ZSpell.IEMine(theSpell, c, target, addTime));
+    CoroutineInstance ongoing = c.game.ongoing;
+    c.moving = ongoing.RunSpell(c.DKMove(new MyLocation(target.x, target.y), theSpell.explosionCutout, theSpell.maxDuration + num + addTime, false, false, 18), !postStartingTurn);
+    ongoing.RunSpell(ZSpell.IEMine(theSpell, c, target, theSpell.maxDuration + addTime), !postStartingTurn);
   }
 
   public static void FireCharge(Spell theSpell, ZCreature c, MyLocation target)
   {
+    if ((ZComponent) c.tower != (object) null || c.inWater)
+      return;
+    if (c.isMoving)
+      c.KillMovement();
     FixedInt x = c.position.x - target.x;
     FixedInt y = c.position.y - target.y;
     bool spotOn = c.game.AllowDKH && FixedInt.Abs(x - 1) <= (FixedInt) 524288L && FixedInt.Abs(y - 6) <= (FixedInt) 524288L;
@@ -1867,6 +1950,37 @@ label_58:
     ZComponent.Destroy<GameObject>(kablam.gameObject);
   }
 
+  public static IEnumerator<float> IEWolfJump(
+    ZGame game,
+    ZCreature whoSummoned,
+    ZCreature cre,
+    int wait,
+    int damage)
+  {
+    for (int i = 0; i < wait && !whoSummoned.stunned; ++i)
+      yield return 0.0f;
+    if (!ZComponent.IsNull((ZComponent) cre) && !whoSummoned.stunned && !whoSummoned.isDead && !cre.inWater)
+    {
+      FixedInt fixedInt1 = (FixedInt) (whoSummoned.team == 24 ? 26 : 20);
+      bool smallAngle = true;
+      FixedInt d = FixedInt.Abs(whoSummoned.position.x - cre.position.x);
+      FixedInt fixedInt2 = ZSpell.AngleToGoDistance(fixedInt1, -game.map.Gravity, d, cre.position.y - whoSummoned.position.y, smallAngle);
+      if (d > 10 && FixedInt.InvalidAngle(fixedInt2))
+      {
+        MyLocation myLocation = cre.position - whoSummoned.position;
+        myLocation.Normalize();
+        fixedInt2 = FixedInt.Atan2(myLocation.y, myLocation.x) * FixedInt.Rad2Deg;
+      }
+      else if ((FixedInt) cre.collider.x < whoSummoned.position.x)
+        fixedInt2 = (FixedInt) 180 - fixedInt2;
+      if (whoSummoned.isMoving)
+        whoSummoned.KillMovement();
+      whoSummoned.velocity = Inert.Velocity(fixedInt2, fixedInt1);
+      whoSummoned.SetScale(whoSummoned.velocity.x.ToFloat());
+      whoSummoned.moving = game.ongoing.RunSpell(whoSummoned.WolfLeap(damage));
+    }
+  }
+
   public static IEnumerator<float> IEMine(
     Spell theSpell,
     ZCreature c,
@@ -1877,7 +1991,7 @@ label_58:
     int radius = c.radius;
     if (c.minerMarket != null && c.minerMarket.Has(MinerMarket.Types.Punch))
       kablam.explisiveForce *= 3;
-    for (int i = 0; i < theSpell.maxDuration + addTime && !ZComponent.IsNull((ZComponent) c) && !c.stunned; ++i)
+    for (int i = 0; i < addTime && !ZComponent.IsNull((ZComponent) c) && !c.stunned; ++i)
     {
       if (i % 2 == 0)
       {
@@ -1920,6 +2034,8 @@ label_58:
           ZComponent.Instantiate<GameObject>(theSpell.explosion, zcreature.transform.position, Quaternion.identity);
         c.map.ServerBitBlt((int) theSpell.explosionCutout, (int) zcreature.position.x, (int) zcreature.position.y);
         int amount = zcreature.health / 10;
+        if (amount <= 0)
+          amount = 1;
         c.game.ongoing.RunSpell(ZSpell.IEnumeratorImpDestruction(arcaneArrow, c, zcreature.position, Quaternion.identity, (FixedInt) 10, amount, target));
         zcreature.parent?.controlled?.RemoveAt(index);
         if (c.game.isClient)
@@ -2087,10 +2203,64 @@ label_7:
   {
     if (ZComponent.IsNull((ZComponent) c))
       return;
-    ZCreature c1 = c.map.PhysicsCollideCreatureCircle((ZCreature) null, (int) target.x, (int) target.y, radius, Inert.mask_Phantom);
-    if (!((ZComponent) c1 != (object) null) || c1.type == CreatureType.Tree || c1.race == CreatureRace.Effector)
+    List<ZMyCollider> zmyColliderList = c.world.OverlapCircleAll(new Point((int) target.x, (int) target.y), radius, (ZMyCollider) null, Inert.mask_Phantom | Inert.mask_movement_NoEffector);
+    for (int index = 0; index < zmyColliderList.Count; ++index)
+    {
+      ZCreature creature = zmyColliderList[index].creature;
+      if ((ZComponent) creature == (object) null && (ZComponent) zmyColliderList[index].tower != (object) null)
+        creature = zmyColliderList[index].tower.creature;
+      if ((ZComponent) creature != (object) null && creature.type != CreatureType.Tree && creature.race != CreatureRace.Effector)
+      {
+        ZEffector.SpreadInfection(c, creature, (ZEffector) null, true);
+        break;
+      }
+    }
+  }
+
+  public static void FireRisingLava(Spell theSpell, ZGame game)
+  {
+    ZPerson zperson = game.CurrentPlayer();
+    if (zperson == null || zperson.game.globalEffectors.FindIndex((Predicate<ZEffector>) (a => (ZComponent) a != (object) null && a.type == EffectorType.Rising_Lava)) != -1)
       return;
-    ZEffector.SpreadInfection(c, c1, (ZEffector) null, true);
+    ZEffector zeffector = ZEffector.Create(game, theSpell.toSummon.GetComponent<Effector>(), new Vector3((float) game.map.Width / 2f, 0.0f), Quaternion.identity, game.GetMapTransform());
+    zeffector.game = game;
+    zeffector.active = false;
+    zeffector.position = new MyLocation(game.map.Width / 2, 0);
+    foreach (ZEffector globalEffector in game.globalEffectors)
+    {
+      if (globalEffector.type == EffectorType.Dense_Fog)
+      {
+        globalEffector.halved = true;
+        zeffector.halved = true;
+        globalEffector.VisualUpdate();
+        break;
+      }
+    }
+    game.globalEffectors.Add(zeffector);
+    zeffector.TurnPassed(game.globalEffectors.Count - 1, false, true);
+  }
+
+  public static void FireDenseFog(Spell theSpell, ZGame game)
+  {
+    ZPerson zperson = game.CurrentPlayer();
+    if (zperson == null || zperson.game.globalEffectors.FindIndex((Predicate<ZEffector>) (a => (ZComponent) a != (object) null && a.type == EffectorType.Dense_Fog)) != -1)
+      return;
+    ZEffector zeffector = ZEffector.Create(game, theSpell.toSummon.GetComponent<Effector>(), new Vector3((float) game.map.Width / 2f, (float) game.map.Height), Quaternion.identity, game.GetMapTransform());
+    zeffector.game = game;
+    zeffector.active = false;
+    zeffector.position = new MyLocation(game.map.Width / 2, game.map.Height);
+    foreach (ZEffector globalEffector in game.globalEffectors)
+    {
+      if (globalEffector.type == EffectorType.Rising_Lava)
+      {
+        globalEffector.halved = true;
+        zeffector.halved = true;
+        globalEffector.VisualUpdate();
+        break;
+      }
+    }
+    game.globalEffectors.Add(zeffector);
+    zeffector.TurnPassed(game.globalEffectors.Count - 1, false, true);
   }
 
   public static void FireEffector(
@@ -2118,12 +2288,15 @@ label_7:
         c.followingColliders.Add(zeffector.collider);
         zeffector.collider.Initialize(c.position, c.game.world);
       }
-      if (destroyable)
-        c.destroyableEffectors.Add(zeffector);
-      else
-        c.effectors.Add(zeffector);
       if (theSpell.spellEnum == SpellEnum.Wind_Shield)
+      {
+        for (int index = c.destroyableEffectors.Count - 1; index >= 0; --index)
+        {
+          if ((ZComponent) c.destroyableEffectors[index] != (object) null && c.destroyableEffectors[index].type == EffectorType.Spirit_Shield)
+            c.destroyableEffectors[index].Die(index, true, false);
+        }
         c.game.windShieldEffectors.Add(zeffector);
+      }
       else if (theSpell.spellEnum == SpellEnum.Social_Distancing)
       {
         c.socialDistancing = true;
@@ -2132,6 +2305,10 @@ label_7:
       }
       else if (theSpell.spellEnum == SpellEnum.Arcane_Energiser && c.familiarLevelArcane == 5)
         zeffector.MaxTurnsAlive = 9000;
+      if (destroyable)
+        c.destroyableEffectors.Add(zeffector);
+      else
+        c.effectors.Add(zeffector);
       Achievements.CheckShieldsUp(c);
     }
   }
@@ -2143,7 +2320,7 @@ label_7:
     FixedInt rot_z,
     FixedInt power)
   {
-    if ((ZComponent) c.stormShield != (object) null && c.stormShield.MaxTurnsAlive > 5)
+    if ((ZComponent) c.stormShield != (object) null && c.stormShield.MaxTurnsAlive > 10)
       return;
     if (ZEffector.InSanctuary(c.game.world, c.position))
     {
@@ -2205,26 +2382,35 @@ label_7:
     }
   }
 
-  public static void FireAuraOfDecay(
+  public static ZEffector FireAuraOfDecay(
     Spell theSpell,
     ZCreature c,
     MyLocation pos,
     FixedInt rot_z,
     FixedInt power,
-    MyLocation target)
+    MyLocation target,
+    bool returnWithoutActivating = false)
   {
     c.game.forceRysncPause = true;
-    ZEffector zeffector = ZEffector.Create(c.game, theSpell.toSummon.GetComponent<Effector>(), (Vector3) target.ToSinglePrecision(), Quaternion.identity, c.game.GetMapTransform());
-    zeffector.game = c.game;
-    zeffector.collider.world = zeffector.world;
-    zeffector.collider.Move(target);
-    zeffector.whoSummoned = c;
-    c.effectors.Add(zeffector);
-    zeffector.active = false;
-    zeffector.TurnPassed(c.effectors.Count - 1, false, false);
+    ZEffector e = ZEffector.Create(c.game, theSpell.toSummon.GetComponent<Effector>(), (Vector3) target.ToSinglePrecision(), Quaternion.identity, c.game.GetMapTransform());
+    e.game = c.game;
+    e.collider.world = e.world;
+    e.collider.Move(target);
+    e.whoSummoned = c;
+    c.effectors.Add(e);
+    e.active = false;
+    if (returnWithoutActivating)
+      return e;
+    ZSpell.FinishFireingAura(c, e, target);
+    return e;
+  }
+
+  public static void FinishFireingAura(ZCreature c, ZEffector e, MyLocation target)
+  {
+    e.TurnPassed(c.effectors.Count - 1, false, false);
     if (ZEffector.InSanctuary(c.game.world, target))
     {
-      zeffector?.Die(c.effectors.Count - 1, false, false);
+      e?.Die(c.effectors.Count - 1, false, false);
       if (c.game.isClient)
         ZEffector.SpawnVineExplosion((Vector3) target.ToSinglePrecision());
     }
@@ -2300,13 +2486,11 @@ label_7:
       game = c.game,
       active = false,
       whoSummoned = c,
-      type = EffectorType.Werewolf,
+      type = EffectorType.Bear,
       MaxTurnsAlive = 10
     });
-    c.race = CreatureRace.Werewolf;
-    c.type = CreatureType.Wolf;
-    c.maxHealth += 100;
-    c.health += 100;
+    c.race = CreatureRace.Bear;
+    c.type = CreatureType.Bear;
     c.spells.Add(new SpellSlot(Inert.GetSpell(SpellEnum.Swipe)));
     c.spells.Add(new SpellSlot(Inert.GetSpell(SpellEnum.Rampage)));
     c.SetRadius(25);
@@ -2328,7 +2512,7 @@ label_7:
       c.transform.GetChild(0).GetChild(index).gameObject.SetActive(false);
     c.werewolfObj = ZComponent.Instantiate<GameObject>(theSpell.toSummon, c.position.ToSinglePrecision(), Quaternion.identity, c.transform);
     c.animator = c.werewolfObj.GetComponent<IAnimator>();
-    c.werewolfObj.GetComponent<WerewolfObject>().Init(c.daOriginalTrueParent?.settingsPlayer ?? c.parent.settingsPlayer, c.daOriginalTrueParent?.name ?? c.parent.name);
+    c.werewolfObj.GetComponent<WerewolfObject>().Init(c.daOriginalTrueParent ?? c.parent, c, c.daOriginalTrueParent?.settingsPlayer ?? c.parent.settingsPlayer, c.daOriginalTrueParent?.name ?? c.parent.name);
     ZComponent.Instantiate<GameObject>(theSpell.explosion, c.transform.position, Quaternion.identity);
     c.werewolfObj.transform.localScale = new Vector3(1f / c.scale, 1f / c.scale, 1f);
     c.werewolfObj.transform.localPosition = new Vector3(0.0f, 0.0f, 0.0f);
@@ -2352,6 +2536,32 @@ label_7:
     zeffector.followParent = true;
     zeffector.whoSummoned = c;
     c.effectors.Add(zeffector);
+  }
+
+  public static void WhenPigsFly(Spell theSpell, ZCreature c)
+  {
+    if (c.shiningPower || c.phantom)
+      return;
+    c.flightSpell = theSpell.spellEnum;
+    c.tempFlight = false;
+    c.removeFlight = false;
+    c.permenantFlight = true;
+    if (c.flying)
+    {
+      c.RemoveFlight();
+    }
+    else
+    {
+      c.flying = true;
+      c.flightObj = ZComponent.Instantiate<GameObject>(theSpell.toSummon, c.transform.position + ((double) c.transformscale > 0.0 ? new Vector3(-19.1f, -2.3f) : new Vector3(19.1f, -2.3f)) * c.scale, Quaternion.identity, c.transform);
+      if (c.game.isClient && !c.game.resyncing)
+        ZComponent.Instantiate<GameObject>(theSpell.explosion, c.transform.position, Quaternion.identity);
+    }
+    if (c.entangledOrGravity || c.isMoving)
+      return;
+    c.velocity.x = (FixedInt) 1;
+    c.velocity.y = (FixedInt) 6;
+    c.moving = c.game.ongoing.RunCoroutine(c.FlyMove());
   }
 
   public static void FireFlight(Spell theSpell, ZCreature c, bool shiningPower = false)
@@ -2400,7 +2610,7 @@ label_7:
         c.permenantFlight = false;
         c.flightObj = ZComponent.Instantiate<GameObject>(theSpell.toSummon, c.transform.position - new Vector3(0.0f, (float) (c.radius - 2)), Quaternion.identity, c.transform);
       }
-      if (c.entangledOrGravity)
+      if (c.entangledOrGravity || c.isMoving)
         return;
       c.velocity.x = (FixedInt) 1;
       c.velocity.y = (FixedInt) 6;
@@ -2557,7 +2767,7 @@ label_7:
         return;
       Achievements.Set(Achievement.Sanctify_Yourself, c.parent.account, c.game);
     }
-    else if (t.type == TowerType.Seasons)
+    else if (t.type == TowerType.Holiday)
     {
       ZEffector zeffector = ZEffector.Create(c.game, Inert.Instance.frostGiantBlizzard.GetComponent<Effector>(), new Vector3((float) c.position.x.ToInt(), (float) (c.map.Height + 300)), Quaternion.identity, t.transform);
       zeffector.game = c.game;
@@ -2713,7 +2923,9 @@ label_7:
     ZGame game = c.game;
     ZCreature c1 = c;
     MyLocation target1 = target;
-    ZSpell.FireSummon(spell, game, c1, target1, 1).health = 50;
+    ZCreature zcreature = ZSpell.FireSummon(spell, game, c1, target1, 1);
+    zcreature.health = 50;
+    zcreature.UpdateHealthTxt();
   }
 
   public static void FireHatch(Spell theSpell, ZCreature c)
@@ -2829,36 +3041,12 @@ label_7:
           creature.position = pos;
           if ((ZComponent) c != (object) null)
           {
-            creature.maxHealth += 2 * c.familiarLevelWild;
-            creature.health += 2 * c.familiarLevelWild;
+            creature.maxHealth += 2 * c.familiarLevelDruidism;
+            creature.health += 2 * c.familiarLevelDruidism;
             if (theSpell.spellEnum == SpellEnum.Summon_Monarchs)
             {
               creature.health -= 10;
               creature.maxHealth -= 10;
-            }
-            else if (creature.spellEnum == SpellEnum.Summon_Bear && creature.parent.ritualEnum.Contains(creature.spellEnum))
-            {
-              creature.maxHealth += 35;
-              creature.health += 35;
-              creature.HighJumpData.y += 2;
-              SpellSlot spellSlot = creature.GetSpellSlot(SpellEnum.Bite);
-              if (spellSlot != null)
-                creature.spells.Remove(spellSlot);
-              creature.spells.Insert(0, new SpellSlot(Inert.GetSpell(SpellEnum.Large_Bite)));
-              creature.undeadHead = ClientResources.Instance.grizzlyUndeadHead;
-              creature.head.sprite = ClientResources.Instance.grizzlyHead;
-            }
-            else if (creature.spellEnum == SpellEnum.Summon_Spirit_Owl && creature.parent.ritualEnum.Contains(creature.spellEnum))
-            {
-              SpellSlot spellSlot1 = c.GetSpellSlot(SpellEnum.Summon_Wolf);
-              if (spellSlot1 != null)
-                creature.spells.Add(spellSlot1);
-              SpellSlot spellSlot2 = c.GetSpellSlot(SpellEnum.Summon_Bear);
-              if (spellSlot2 != null)
-                creature.spells.Add(spellSlot2);
-              SpellSlot spellSlot3 = c.GetSpellSlot(SpellEnum.Summon_Spirit_Owl);
-              if (spellSlot3 != null)
-                creature.spells.Add(spellSlot3);
             }
           }
           if ((ZComponent) c != (object) null && amountOverrideIndex == -1 | stillSync)
@@ -2953,6 +3141,25 @@ label_7:
     ZCreature cre = null,
     bool isDeserialization = false)
   {
+    if (sum.phantom)
+    {
+      sum.effectors.Add(new ZEffector()
+      {
+        game = sum.game,
+        whoSummoned = sum,
+        active = false,
+        type = EffectorType.Phantom,
+        MaxTurnsAlive = 100000
+      });
+      if (sum.game.isClient)
+      {
+        ColorLerp component = sum.gameObject.GetComponent<ColorLerp>();
+        if ((UnityEngine.Object) component != (UnityEngine.Object) null)
+          component._creature = sum;
+      }
+      sum.collider.gameObjectLayer = 8;
+      sum.collider.layer = 256;
+    }
     if (sum.spellEnum == SpellEnum.Summon_Frost_Giant)
     {
       ZEffector zeffector = ZEffector.Create(game, Inert.Instance.frostGiantBlizzard.GetComponent<Effector>(), new Vector3((float) target.x.ToInt(), (float) (sum.map.Height + 300)), Quaternion.identity, game.GetMapTransform());
@@ -2979,7 +3186,7 @@ label_7:
       if ((UnityEngine.Object) theSpell != (UnityEngine.Object) null)
         auraOfDecay.TurnPassed(sum.effectors.Count - 1, false, false);
     }
-    else if (sum.spellEnum == SpellEnum.Summon_Wolf || sum.spellEnum == SpellEnum.Summon_Alpha_Wolf || sum.spellEnum == SpellEnum.Pack_Mentality || sum.spellEnum == SpellEnum.Pack_Leader)
+    else if (sum.spellEnum == SpellEnum.Summon_Boar || sum.spellEnum == SpellEnum.Summon_Alpha_Wolf || sum.spellEnum == SpellEnum.Pack_Mentality || sum.spellEnum == SpellEnum.Pack_Leader)
     {
       sum.effectors.Add(new ZEffector()
       {
@@ -2987,13 +3194,18 @@ label_7:
         whoSummoned = sum,
         doNotCreateObjectOnResync = true,
         MaxTurnsAlive = 100000,
-        type = EffectorType.Wolf_Leap,
+        type = EffectorType.Boar_Charge,
         active = false,
         followParent = true
       });
       SpellSlot spellSlot = sum.GetSpellSlot(SpellEnum.Pack_Mentality);
       if (spellSlot != null)
         spellSlot.SetTurnFired = sum.parent.localTurn;
+    }
+    else if (sum.spellEnum == SpellEnum.Summon_Tiger)
+    {
+      if (sum.familiarLevelDruidism > 0)
+        sum.spells.Add(new SpellSlot(Inert.GetSpell(SpellEnum.Compete)));
     }
     else if (sum.spellEnum == SpellEnum.Summon_Elves)
     {
@@ -3103,7 +3315,10 @@ label_7:
     else if (sum.spellEnum == SpellEnum.Summon_Reindeer && (UnityEngine.Object) theSpell != (UnityEngine.Object) null)
     {
       if (sum.familiarLevelSeasons == 5)
-        sum.spells.Add(new SpellSlot(Inert.Instance.spells["Santa's Magic"]));
+        sum.spells.Add(new SpellSlot(Inert.Instance.spells["Santa's Magic"])
+        {
+          MaxUses = 1
+        });
     }
     else if ((sum.spellEnum == SpellEnum.Summon_Snowman || sum.spellEnum == SpellEnum.Summon_Snowman2) && (UnityEngine.Object) theSpell != (UnityEngine.Object) null)
     {
@@ -3142,13 +3357,22 @@ label_7:
 
   public static void Recolor(ZGame game, ZCreature sum)
   {
-    if (sum.spellEnum != SpellEnum.Summon_Imps && sum.spellEnum != SpellEnum.Little_Devil && sum.spellEnum != SpellEnum.Summon_Dwarf && sum.spellEnum != SpellEnum.Summon_Rock_Golem && sum.spellEnum != SpellEnum.Summon_Frost_Giant && sum.spellEnum != SpellEnum.Summon_Dark_Knight && sum.spellEnum != SpellEnum.Summon_Wraith && sum.spellEnum != SpellEnum.Summon_Elves && sum.spellEnum != SpellEnum.Summon_Man_Trap && sum.spellEnum != SpellEnum.Summon_Water_Trolls && sum.spellEnum != SpellEnum.Recall_Device && sum.spellEnum != SpellEnum.Monkey && sum.spellEnum != SpellEnum.Summon_Brine_Goblin && sum.spellEnum != SpellEnum.From_the_Depths && sum.spellEnum != SpellEnum.Summon_Mountain_Goat && sum.spellEnum != SpellEnum.Summon_Vampire && sum.spellEnum != SpellEnum.Summon_Bear && sum.spellEnum != SpellEnum.Summon_Wolf && sum.spellEnum != SpellEnum.Summon_Alpha_Wolf && sum.spellEnum != SpellEnum.Pack_Mentality && sum.spellEnum != SpellEnum.Pack_Leader && sum.spellEnum != SpellEnum.Summon_Spirit_Owl)
+    if (sum.spellEnum != SpellEnum.Summon_Imps && sum.spellEnum != SpellEnum.Little_Devil && sum.spellEnum != SpellEnum.Summon_Dwarf && sum.spellEnum != SpellEnum.Summon_Rock_Golem && sum.spellEnum != SpellEnum.Summon_Frost_Giant && sum.spellEnum != SpellEnum.Summon_Dark_Knight && sum.spellEnum != SpellEnum.Summon_Wraith && sum.spellEnum != SpellEnum.Summon_Elves && sum.spellEnum != SpellEnum.Summon_Man_Trap && sum.spellEnum != SpellEnum.Summon_Water_Trolls && sum.spellEnum != SpellEnum.Recall_Device && sum.spellEnum != SpellEnum.Monkey && sum.spellEnum != SpellEnum.Summon_Brine_Goblin && sum.spellEnum != SpellEnum.From_the_Depths && sum.spellEnum != SpellEnum.Summon_Mountain_Goat && sum.spellEnum != SpellEnum.Summon_Vampire && sum.spellEnum != SpellEnum.Summon_Tiger && sum.spellEnum != SpellEnum.Summon_Boar && sum.spellEnum != SpellEnum.Summon_Alpha_Wolf && sum.spellEnum != SpellEnum.Pack_Mentality && sum.spellEnum != SpellEnum.Pack_Leader && sum.spellEnum != SpellEnum.Summon_Will_o_the_Wisp)
       return;
     foreach (SpriteRenderer componentsInChild in sum.gameObject.GetComponentsInChildren<SpriteRenderer>())
     {
       if ((UnityEngine.Object) componentsInChild.sprite != (UnityEngine.Object) null && componentsInChild.sprite.texture.isReadable)
         ConfigurePlayer.ApplyOutfit(componentsInChild, sum.daOriginalTrueParent != null ? sum.daOriginalTrueParent.settingsPlayer : sum.parent.settingsPlayer);
     }
+  }
+
+  public static void ChangeSprites(ZCreature c, Sprite[] s)
+  {
+    AnimateDragon component = c.gameObject?.GetComponent<AnimateDragon>();
+    if (!((UnityEngine.Object) component != (UnityEngine.Object) null))
+      return;
+    for (int index = 0; index < component.sprites.Length && index < s.Length; ++index)
+      component.sprites[index] = s[index];
   }
 
   public static void FireRedo(Spell theSpell, ZCreature c, bool force = false)
@@ -3436,6 +3660,8 @@ label_7:
     ZCreature zcreature;
     FixedInt power;
     FixedInt fixedInt1;
+    int x1;
+    int y1;
     while (true)
     {
       zcreature = (ZCreature) null;
@@ -3498,21 +3724,33 @@ label_7:
           spell1 = Inert.GetSpell(SpellEnum.Color_Spray);
           spellSlot = (SpellSlot) null;
         }
+        else if (spell1.spellEnum == SpellEnum.Curse_of_Disabling || spell1.spellEnum == SpellEnum.Curse_of_Loneliness)
+        {
+          x1 = (int) c.position.x;
+          y1 = (int) c.position.y;
+          if (!ZSpell.ServerCanFire(spell1, x1, y1, 0, 0, c, fixedInt1, power, new MyLocation(x1, y1)))
+          {
+            spell1 = Inert.GetSpell(SpellEnum.Color_Spray);
+            spellSlot = (SpellSlot) null;
+          }
+          else
+            goto label_43;
+        }
         else if (spell1.maxDistance > 10)
         {
           int max = spell1.maxDistance - spell1.radius;
           if (spell1.spellEnum == SpellEnum.Duplication)
           {
-            int x = (int) zcreature.GetPositionAI.x;
-            int y = (int) zcreature.GetPositionAI.y;
+            int x2 = (int) zcreature.GetPositionAI.x;
+            int y2 = (int) zcreature.GetPositionAI.y;
             for (int index = 0; index < 50; ++index)
             {
               int num4 = (int) c.position.x + c.game.RandomInt(-max, max);
               int num5 = (int) c.position.y + c.game.RandomInt(-max, max);
-              if (ZSpell.ServerCanFire(spell1, x, y, num4, num5, c, fixedInt1, power, new MyLocation(x, y)))
+              if (ZSpell.ServerCanFire(spell1, x2, y2, num4, num5, c, fixedInt1, power, new MyLocation(x2, y2)))
               {
                 spellSlot?.Fired(c);
-                ZSpell.FireWhich(spell1, c, c.position, fixedInt1, power, new MyLocation(x, y), new MyLocation(num4, num5));
+                ZSpell.FireWhich(spell1, c, c.position, fixedInt1, power, new MyLocation(x2, y2), new MyLocation(num4, num5));
                 return;
               }
             }
@@ -3581,7 +3819,7 @@ label_7:
           spell1 = Inert.GetSpell(SpellEnum.Color_Spray);
           spellSlot = (SpellSlot) null;
         }
-        else if (spell1.spellEnum != SpellEnum.Imbued_Axes)
+        else if (spell1.spellEnum != SpellEnum.Enchanted_Axes)
         {
           if (!ZSpell.ServerCanFire(spell1, (int) zcreature.position.x, (int) zcreature.position.y, 0, 0, c, fixedInt1, power, new MyLocation((int) zcreature.position.x, (int) zcreature.position.y)))
           {
@@ -3601,20 +3839,24 @@ label_7:
             spellSlot = (SpellSlot) null;
           }
           else
-            goto label_97;
+            goto label_103;
         }
         else
-          goto label_85;
+          goto label_91;
       }
       else
         break;
     }
     return;
-label_85:
+label_43:
+    spellSlot?.Fired(c);
+    ZSpell.FireWhich(spell1, c, c.position, fixedInt1, power, new MyLocation(x1, y1), NullMyLocation.Get());
+    return;
+label_91:
     spellSlot?.Fired(c);
     ZSpell.FireWhich(spell1, c, c.position, fixedInt1, power, new MyLocation(fixedInt1, (FixedInt) 0), NullMyLocation.Get());
     return;
-label_97:
+label_103:
     spellSlot?.Fired(c);
     ZSpell.FireWhich(spell1, c, c.position, fixedInt1, power, zcreature.GetPositionAI, NullMyLocation.Get());
     if (spell1.EndsTurn)
@@ -3772,7 +4014,7 @@ label_27:
       parent.turnFriendlyDmg = -2;
     if (amount == 0)
     {
-      amount = volley ? 1 : 3;
+      amount = volley ? 3 : 3;
       if (c.familiar.Has(FamiliarType.Nature) && c.familiarLevelNature > 0)
       {
         if (volley)
@@ -3856,6 +4098,8 @@ label_27:
 
   public static void FireSwallowingPit(Spell theSpell, ZCreature c)
   {
+    if (c.isPawn && (ZComponent) c.parent?.first() != (object) null)
+      c = c.parent.first();
     List<MyLocation> myLocationList = new List<MyLocation>();
     Spell spell = Inert.Instance.spells["Aura of Decay"];
     for (int index1 = 0; index1 < c.game._playersExtended.Count; ++index1)
@@ -3866,6 +4110,12 @@ label_27:
           myLocationList.Add(c.game._playersExtended[index1].controlled[index2].position);
       }
     }
+    List<ZEffector> zeffectorList = new List<ZEffector>();
+    foreach (MyLocation pos in myLocationList)
+    {
+      MyLocation target = pos;
+      zeffectorList.Add(ZSpell.FireAuraOfDecay(spell, c, pos, (FixedInt) 0, (FixedInt) 0, target, true));
+    }
     for (int index3 = 0; index3 < c.game._playersExtended.Count; ++index3)
     {
       for (int index4 = c.game._playersExtended[index3].controlled.Count - 1; index4 >= 0; --index4)
@@ -3874,11 +4124,8 @@ label_27:
           c.game._playersExtended[index3].controlled[index4].OnDeath(true);
       }
     }
-    foreach (MyLocation pos in myLocationList)
-    {
-      MyLocation target = pos;
-      ZSpell.FireWhich(spell, c, pos, (FixedInt) 0, (FixedInt) 0, target, NullMyLocation.Get());
-    }
+    for (int index = 0; index < myLocationList.Count; ++index)
+      ZSpell.FinishFireingAura(c, zeffectorList[index], myLocationList[index]);
   }
 
   public static void FireBloodSiphon(Spell theSpell, ZCreature c)
@@ -3915,7 +4162,7 @@ label_27:
 
   public static void FireCommune(Spell theSpell, ZCreature c)
   {
-    c.parent.communeWithNature = c.parent.ritualEnum.Contains(SpellEnum.Commune_With_Nature) ? 2 : 1;
+    c.parent.communeWithNature = 1;
     foreach (ZCreature zcreature in c.parent.controlled)
       zcreature.UpdateHealthTxt();
   }
@@ -4137,7 +4384,7 @@ label_27:
     MyLocation target,
     bool extended)
   {
-    c.game.ongoing.RunSpell(ZSpell.IEnumeratorAutumnLeaves(c, Inert.Instance.spells["Autumn Leaves"], target, -125, 125, 70, extended));
+    c.game.ongoing.RunSpell(ZSpell.IEnumeratorAutumnLeaves(c, Inert.Instance.spells["Autumn Leaves"], target, -125, 125, theSpell.amount, extended));
   }
 
   public static void FireCometArmageddon(Spell theSpell, ZPerson c, MyLocation target)
@@ -4301,16 +4548,6 @@ label_27:
       zspell.damage = !c.HasArcaneEnergizer || theSpell.bookOf != BookOf.Arcane ? 15 : 20;
     else if (theSpell.spellEnum == SpellEnum.Sunder && c.type == CreatureType.Paladin && zspell.damage == 75 && c.familiarLevelOverlight > 0 && c.game.AllowExpansion)
       zspell.damage += c.familiarLevelOverlight * 5;
-    else if (c.parent.ritualEnum.Contains(theSpell.spellEnum))
-    {
-      zspell.explosionCutout = ExplosionCutout.Two_Hundred;
-      zspell.EXORADIUS = 100;
-    }
-    else if (theSpell.spellEnum == SpellEnum.Bite && c.type == CreatureType.Bear)
-    {
-      zspell.explosionCutout = ExplosionCutout.One_O_Eight;
-      zspell.EXORADIUS = 64;
-    }
     c.map.ServerBitBlt((int) zspell.explosionCutout, (int) pos.x, (int) pos.y);
     zspell.ApplyExplosionForce(pos);
     ZComponent.Destroy<GameObject>(zspell.gameObject);
@@ -4409,16 +4646,20 @@ label_27:
     zflameWallSpell.colliderB = effector2.collider;
     c.effectors.Add(effector2);
     effector2.whoSummoned = c;
+    Mathf.Abs(30);
+    if (theSpell.spellEnum == SpellEnum.Prickly_Barrier)
+    {
+      effector2.clientSpriteIndex = effector2.game.RandomInt(0, 5);
+      effector2.VisualUpdate();
+    }
     if (!isActive)
     {
       s.effector2.active = false;
       s.effector2.VisualUpdate();
     }
     zflameWallSpell.SetPosition(target);
-    if (c.parent.ritualEnum.Contains(theSpell.spellEnum))
-      effector2.variable = -667;
     s.SetVelocity(new MyLocation(0, -10));
-    if (theSpell.spellEnum == SpellEnum.Devils_Snare && c.game.isClient)
+    if (theSpell.spellEnum == SpellEnum.Prickly_Barrier && c.game.isClient)
     {
       Color clientColor = c.parent.clientColor with
       {
@@ -4595,7 +4836,7 @@ label_27:
     bool armageddon = false)
   {
     ZEffector zeffector = ZEffector.Create(c.game, theSpell.GetComponent<Effector>(), (Vector3) target.ToSinglePrecision(), Quaternion.identity, c.game.GetMapTransform());
-    zeffector.variable = (double) c.transformscale > 0.0 ? 1 : -1;
+    zeffector.variable = !ZSpell.Controllable(theSpell, c.game) ? (c.game.RandomInt(0, 2) == 1 ? -1 : 1) : ((double) c.transformscale > 0.0 ? 1 : -1);
     zeffector.game = c.game;
     zeffector.fromArmageddon = armageddon;
     zeffector.whoSummoned = c;
@@ -4702,10 +4943,21 @@ label_27:
                     ZComponent.Instantiate<GameObject>(theSpell.explosion, zcreature1.position.ToSinglePrecision() + new Vector2(right ? (float) zcreature1.radius : (float) -zcreature1.radius, (float) (-zcreature1.radius - zcreature1.tower.playerOffsetY)), Quaternion.identity);
                   if (zcreature1.tower.type == TowerType.Seasons)
                   {
+                    Spell fromSpell = zcreature1.tower.baseTower.FromSpell;
+                    MyLocation position = zcreature1.position;
+                    FixedInt fixedInt = (FixedInt) (right ? 45 : 135);
+                    for (int index3 = 0; index3 < 2; ++index3)
+                    {
+                      MyLocation power = right ? Inert.Velocity(game.RandomFixedInt(fixedInt - 20, fixedInt + 45), game.RandomInt(8, 20)) : Inert.Velocity(game.RandomFixedInt(fixedInt - 45, fixedInt + 20), game.RandomInt(8, 20));
+                      ZSpell.BaseFire(fromSpell, zcreature1, position + new MyLocation(game.RandomFixedInt(-15, 15), game.RandomFixedInt(-15, 15)), Quaternion.identity, power);
+                    }
+                  }
+                  else if (zcreature1.tower.type == TowerType.Holiday)
+                  {
                     Spell component = theSpell.toSummon.GetComponent<Spell>();
                     MyLocation position = zcreature1.position;
                     FixedInt fixedInt = (FixedInt) (right ? 45 : 135);
-                    for (int index3 = 0; index3 < 5; ++index3)
+                    for (int index4 = 0; index4 < 5; ++index4)
                     {
                       MyLocation power = right ? Inert.Velocity(game.RandomFixedInt(fixedInt - 20, fixedInt + 45), game.RandomInt(8, 20)) : Inert.Velocity(game.RandomFixedInt(fixedInt - 45, fixedInt + 20), game.RandomInt(8, 20));
                       ZSpell zspell = ZSpell.BaseFire(component, zcreature1, position + new MyLocation(game.RandomFixedInt(-15, 15), game.RandomFixedInt(-15, 15)), Quaternion.identity, power);
@@ -4727,18 +4979,18 @@ label_27:
                 if (zcreature1.GetType() == typeof (ZCreatureBeehive))
                 {
                   List<ZCreature> bees = ((ZCreatureBeehive) zcreature1).bees;
-                  for (int index4 = bees.Count - 1; index4 >= 0 && !ZComponent.IsNull((ZComponent) zcreature1); --index4)
+                  for (int index5 = bees.Count - 1; index5 >= 0 && !ZComponent.IsNull((ZComponent) zcreature1); --index5)
                   {
-                    if (!ZComponent.IsNull((ZComponent) bees[index4]))
+                    if (!ZComponent.IsNull((ZComponent) bees[index5]))
                     {
-                      if (bees[index4].isMoving)
+                      if (bees[index5].isMoving)
                       {
-                        bees[index4].addVelocity = true;
-                        ZCreature zcreature2 = bees[index4];
+                        bees[index5].addVelocity = true;
+                        ZCreature zcreature2 = bees[index5];
                         zcreature2.addedVelocity = zcreature2.addedVelocity + new MyLocation(right ? zcreature1.game.RandomInt(1, 2) : -zcreature1.game.RandomInt(1, 2), zcreature1.game.RandomInt(0, 2));
                       }
                       else
-                        bees[index4].SetVelocity(right || zcreature1.game.RandomInt(0, 10) >= 5 ? zcreature1.game.RandomInt(4, 9) : -zcreature1.game.RandomInt(4, 9), zcreature1.game.RandomInt(2, 5));
+                        bees[index5].SetVelocity(right || zcreature1.game.RandomInt(0, 10) >= 5 ? zcreature1.game.RandomInt(4, 9) : -zcreature1.game.RandomInt(4, 9), zcreature1.game.RandomInt(2, 5));
                     }
                   }
                 }
@@ -4902,7 +5154,8 @@ label_27:
     int spellSlot)
   {
     pos = c.position;
-    MyLocation myLocation = Inert.Velocity(rot_z, 300);
+    int force = (int) theSpell.speedMax + (int) theSpell.speedMax / 5 * c.familiarLevelNature;
+    MyLocation myLocation = Inert.Velocity(rot_z, force);
     Coords start = new Coords((int) pos.x, (int) pos.y);
     Coords end = new Coords((int) (pos.x + myLocation.x), (int) (pos.y + myLocation.y));
     Coords coords = c.map.bresenhamsLineCast(start, end, c, (ZSpell) null, Inert.mask_movement_NoEffector | Inert.mask_Phantom);
@@ -4942,11 +5195,12 @@ label_27:
     int index = spellEnum.Index();
     if (index < 0)
       return;
-    c.spells.Add(new SpellSlot(Inert.Instance.spells[index])
-    {
-      MaxUses = 1,
-      isPresent = true
-    });
+    SpellSlot spellSlot = new SpellSlot(Inert.Instance.spells[index]);
+    spellSlot.MaxUses = 1;
+    spellSlot.isPresent = true;
+    if (spellEnum == SpellEnum.Enchanted_Axes)
+      spellSlot.bonusDmg = c.parent.yourTurn ? c.parent.localTurn : c.parent.localTurn + 1;
+    c.spells.Add(spellSlot);
   }
 
   public static IEnumerator<float> paintBridge(
@@ -5296,23 +5550,15 @@ label_27:
     FixedInt rot_z,
     FixedInt power,
     MyLocation target,
-    FixedInt? accuracy = null)
+    SpellSlot slot)
   {
-    if (!accuracy.HasValue)
-    {
-      FixedInt fixedInt1 = (FixedInt) 2097152L;
-    }
-    else
-    {
-      FixedInt fixedInt2 = accuracy.Value;
-    }
     c.turnFriendlyDmg = -2;
     MyLocation power1 = Inert.Velocity(target.x, (FixedInt) theSpell.speedMax);
     ZSpell zspell1 = ZSpell.BaseFire(theSpell, c, pos, rot, power1, false);
     zspell1.velocity = power1;
-    zspell1.moving = c.game.ongoing.RunSpell(zspell1.SpellMove(checkEffectors: !c.parent.ritualEnum.Contains(theSpell.spellEnum)));
-    if (c.parent.ritualEnum.Contains(theSpell.spellEnum))
-      zspell1.damage += 10;
+    zspell1.moving = c.game.ongoing.RunSpell(zspell1.SpellMove(checkEffectors: false));
+    if (slot != null && slot.bonusDmg > 0)
+      zspell1.damage += Mathf.Min((c.parent.localTurn - slot.bonusDmg) * 2, 30 + c.familiarLevelDruidism * 2);
     if ((UnityEngine.Object) zspell1.transform != (UnityEngine.Object) null && zspell1.velocity.x > 0)
     {
       zspell1.transform.localScale = new Vector3(-1f, 1f, 1f);
@@ -5325,15 +5571,17 @@ label_27:
       MyLocation power2 = Inert.Velocity(rot_z, (FixedInt) theSpell.speedMax);
       ZSpell zspell2 = ZSpell.BaseFire(theSpell, c, pos, rot, power2, false);
       zspell2.velocity = power2;
-      zspell2.moving = c.game.ongoing.RunSpell(zspell2.SpellMove(checkEffectors: !c.parent.ritualEnum.Contains(theSpell.spellEnum)));
-      if (c.parent.ritualEnum.Contains(theSpell.spellEnum))
-        zspell2.damage += 10;
+      zspell2.moving = c.game.ongoing.RunSpell(zspell2.SpellMove(checkEffectors: false));
+      if (slot != null && slot.bonusDmg > 0)
+        zspell2.damage += Mathf.Min((c.parent.localTurn - slot.bonusDmg) * 2, 30 + c.familiarLevelDruidism * 2);
       if ((UnityEngine.Object) zspell2.transform != (UnityEngine.Object) null && zspell2.velocity.x > 0)
       {
         zspell2.transform.localScale = new Vector3(-1f, 1f, 1f);
         zspell2.gameObject.GetComponent<RotateTransformZ>().speed = -500f;
       }
     }
+    if (slot != null)
+      slot.bonusDmg = c.parent.localTurn + 1;
   }
 
   public static IEnumerator<float> IEnumeratorRockBlaster(
@@ -5385,7 +5633,7 @@ label_27:
     }
   }
 
-  public static void FireApparition(ZCreature c, bool unlimited = false)
+  public static void FireApparition(ZCreature c, bool unlimited = false, bool stayVisible = false)
   {
     c.phantom = true;
     c.flying = true;
@@ -5396,21 +5644,35 @@ label_27:
       {
         game = c.game,
         whoSummoned = c,
-        type = EffectorType.Phantom,
+        type = EffectorType.Apparition,
         MaxTurnsAlive = 5
       });
     else
-      c.RemoveEffector(EffectorType.Phantom);
+      c.RemoveEffector(EffectorType.Apparition);
+    c.effectors.Add(new ZEffector()
+    {
+      game = c.game,
+      whoSummoned = c,
+      active = false,
+      type = EffectorType.Phantom,
+      MaxTurnsAlive = 5
+    });
     if (c.game.isClient)
     {
       ColorLerp colorLerp = c.gameObject.GetComponent<ColorLerp>();
       if ((UnityEngine.Object) colorLerp == (UnityEngine.Object) null)
         colorLerp = c.gameObject.AddComponent<ColorLerp>();
       colorLerp.rends = ((IEnumerable<SpriteRenderer>) c.gameObject.GetComponentsInChildren<SpriteRenderer>()).ToList<SpriteRenderer>();
-      if (unlimited)
+      colorLerp._creature = c;
+      if (unlimited && !stayVisible)
       {
         colorLerp.min = 0.0f;
         colorLerp.max = 0.2f;
+      }
+      else
+      {
+        colorLerp.min = 0.2f;
+        colorLerp.max = 0.5f;
       }
       for (int index = colorLerp.rends.Count - 1; index >= 0; --index)
       {
@@ -5441,34 +5703,34 @@ label_27:
       spellSlot.IncreaseUses();
     if (col.phantom && !col.baseCreature.phantom)
     {
-      ZEffector zeffector1 = col.effectors.Find((Predicate<ZEffector>) (et => et.type == EffectorType.Phantom));
+      ZEffector zeffector1 = col.effectors.Find((Predicate<ZEffector>) (et => et.type == EffectorType.Apparition));
       int turnsAlive = (ZComponent) zeffector1 != (object) null ? zeffector1.GetTurnsAlive() : 0;
       if ((ZComponent) zeffector1 != (object) null)
       {
         ZEffector zeffector2 = new ZEffector();
         zeffector2.game = c.game;
         zeffector2.whoSummoned = c1;
-        zeffector2.type = EffectorType.Phantom;
+        zeffector2.type = EffectorType.Apparition;
         zeffector2.MaxTurnsAlive = zeffector1.MaxTurnsAlive;
         zeffector2.SetTurnsAlive(turnsAlive);
         c1.effectors.Add(zeffector2);
       }
     }
-    if (col.race == CreatureRace.Werewolf)
+    if (col.race == CreatureRace.Bear)
     {
-      ZEffector zeffector3 = col.effectors.Find((Predicate<ZEffector>) (et => et.type == EffectorType.Werewolf));
+      ZEffector zeffector3 = col.effectors.Find((Predicate<ZEffector>) (et => et.type == EffectorType.Bear));
       int turnsAlive = (ZComponent) zeffector3 != (object) null ? zeffector3.GetTurnsAlive() : 0;
       if ((ZComponent) zeffector3 != (object) null)
       {
         ZEffector zeffector4 = new ZEffector();
         zeffector4.game = c.game;
         zeffector4.whoSummoned = c1;
-        zeffector4.type = EffectorType.Werewolf;
+        zeffector4.type = EffectorType.Bear;
         zeffector4.MaxTurnsAlive = zeffector3.MaxTurnsAlive;
         zeffector4.SetTurnsAlive(turnsAlive);
         c1.effectors.Add(zeffector4);
         zeffector4.active = false;
-        ZSpell.CreateWerewolfObj(Inert.GetSpell(SpellEnum.Werewolf_Transformation), c1);
+        ZSpell.CreateWerewolfObj(Inert.GetSpell(SpellEnum.Bear_Form), c1);
       }
     }
     c1.team = c.team;
@@ -5550,6 +5812,8 @@ label_27:
     c.CheckEffectorsOnMove();
     if (!armageddon && c1.ShouldFall())
       c1.Fall();
+    if (!c1.game.isClient)
+      c1.game.SendCreatureSpells(c1, false, false);
     return c1;
   }
 
@@ -5621,6 +5885,19 @@ label_27:
     }
   }
 
+  public static void TreeHouse(ZCreature c, Spell spell)
+  {
+    int num = 10;
+    for (int index = 0; index < num; ++index)
+    {
+      ZSpell zspell = ZSpell.BaseFire(spell, c, c.position, Quaternion.identity);
+      zspell.velocity = new MyLocation(c.game.RandomFixedInt(-5, 5), (FixedInt) 5);
+      zspell.moving = zspell.game.ongoing.RunSpell(zspell.SpellMove(), false);
+      if ((ZComponent) zspell.effector != (object) null)
+        zspell.effector.MaxTurnsAlive = 3;
+    }
+  }
+
   public static IEnumerator<float> IEnumeratorRisingStar(
     ZCreature c,
     Spell spell,
@@ -5659,7 +5936,7 @@ label_27:
       if (coords != null)
       {
         c.map.ServerBitBlt((int) kablam.explosionCutout, coords.x, coords.y);
-        ZSpell.BaseFire(Inert.Instance.LightningStrike, c, coords.ToMyLocation(), Quaternion.identity, Inert.Velocity((FixedInt) c.game.RandomInt(0, 360), 8));
+        ZSpell.BaseFire(Inert.Instance.LightningStrike, c, coords.ToMyLocation(), Quaternion.identity, Inert.Velocity((FixedInt) c.game.RandomInt(0, 360), 8), isChild: true);
         if (c.game.isClient && !c.game.resyncing)
         {
           c.game.electricityPool.Spawn(new Vector3((float) x, (float) y), coords.ToVector());
@@ -5714,7 +5991,7 @@ label_27:
       if (coords != null)
       {
         c.map.ServerBitBlt((int) kablam.explosionCutout, coords.x, coords.y);
-        ZSpell.BaseFire(Inert.Instance.LightningStrike, c, coords.ToMyLocation(), Quaternion.identity, Inert.Velocity((FixedInt) c.game.RandomInt(0, 360), 8));
+        ZSpell.BaseFire(Inert.Instance.LightningStrike, c, coords.ToMyLocation(), Quaternion.identity, Inert.Velocity((FixedInt) c.game.RandomInt(0, 360), 8), isChild: true);
         if (c.game.isClient && !c.game.resyncing)
         {
           c.game.electricityPool.Spawn(new Vector3((float) num, (float) (y + 1000)), coords.ToVector());
@@ -5785,13 +6062,14 @@ label_27:
     MyLocation pos,
     FixedInt rot_z,
     bool extended,
-    MyLocation target)
+    MyLocation target,
+    bool armageddon)
   {
     MyLocation myLocation = Inert.Velocity(rot_z, (ZComponent) c.tower != (object) null && c.tower.type == TowerType.Cosmos || c.type == CreatureType.Cosmic_Horror ? 300 : 200);
-    Coords start = new Coords((int) target.x, (int) target.y);
-    Coords end = new Coords((int) (target.x + myLocation.x), (int) (target.y + myLocation.y));
-    Coords coord = c.map.bresenhamsCircleCast(start, end, c, Inert.mask_spell_movement, theSpell.radius);
-    GameObject gameObject = c.game.resyncing ? (GameObject) null : ZComponent.Instantiate<GameObject>(theSpell.explosion, target.ToSinglePrecision(), Quaternion.identity, c.game.GetMapTransform());
+    Coords start = new Coords((int) pos.x, (int) pos.y);
+    Coords end = new Coords((int) (pos.x + myLocation.x), (int) (pos.y + myLocation.y));
+    Coords coord = c.map.bresenhamsCircleCast(start, end, armageddon ? (ZCreature) null : c, Inert.mask_spell_movement, theSpell.radius);
+    GameObject gameObject = c.game.resyncing ? (GameObject) null : ZComponent.Instantiate<GameObject>(theSpell.explosion, pos.ToSinglePrecision(), Quaternion.identity, c.game.GetMapTransform());
     float y1 = start.DistanceSq(coord == null ? end : coord) / 142f;
     if ((UnityEngine.Object) gameObject != (UnityEngine.Object) null)
     {
@@ -5813,7 +6091,7 @@ label_27:
       yield return 0.0f;
     if (coord != null)
     {
-      ZCreature cre = c.game.map.PhysicsCollideCreature(c, coord.x, coord.y);
+      ZCreature cre = c.game.map.PhysicsCollideCreature(armageddon ? (ZCreature) null : c, coord.x, coord.y);
       if ((ZComponent) cre != (object) null && (ZComponent) cre.tower == (object) null)
       {
         cre.moving = cre.CreAbductionMove();
@@ -5834,7 +6112,7 @@ label_27:
         for (i = 0; i < abductionLength && (ZComponent) cre != (object) null && (ZComponent) c != (object) null && !ZComponent.IsNull((ZComponent) cre); ++i)
         {
           MyLocation position = cre.position;
-          if (MyLocation.Distance(cre.position, target) >= cre.radius || cre.type == CreatureType.Tree)
+          if (MyLocation.Distance(cre.position, pos) >= cre.radius || cre.type == CreatureType.Tree)
           {
             cre.MoveToPosition = cre.position + d;
             cre.game.CreatureMoveSurroundings(position, cre.radius + 5, cre.collider);
@@ -5856,7 +6134,7 @@ label_27:
               int y2 = (int) cre.position.y;
               for (int index = 0; index < coordsArray.Length; ++index)
               {
-                if (cre.map.CheckPositionOnlyEntities(x + coordsArray[index].x, y2 + coordsArray[index].y, cre, Inert.mask_entity_movement))
+                if (!cre.map.CheckPositionOnlyEntities(x + coordsArray[index].x, y2 + coordsArray[index].y, cre, Inert.mask_entity_movement))
                   goto label_36;
               }
             }
@@ -5867,7 +6145,7 @@ label_27:
               for (int index1 = 0; index1 < cre.radius * 2; ++index1)
               {
                 int index2 = (index1 + num1) % outlineArray.Count;
-                if (cre.map.CheckPositionOnlyEntities((int) cre.position.x + outlineArray[index2].x, (int) cre.position.y + outlineArray[index2].y, cre, Inert.mask_entity_movement))
+                if (!cre.map.CheckPositionOnlyEntities((int) cre.position.x + outlineArray[index2].x, (int) cre.position.y + outlineArray[index2].y, cre, Inert.mask_entity_movement))
                   goto label_36;
               }
             }
@@ -6232,6 +6510,8 @@ label_36:
       SpellSlot s = new SpellSlot(randomZspello);
       s.MaxUses = 1;
       s.isPresent = true;
+      if (randomZspello.spellEnum == SpellEnum.Enchanted_Axes)
+        s.bonusDmg = c.parent.yourTurn ? c.parent.localTurn : c.parent.localTurn + 1;
       c.spells.Add(s);
       if (!c.isPawn && randomZspello.spellEnum == SpellEnum.Arcane_Gate || randomZspello.spellEnum == SpellEnum.Santas_Magic)
         c.parent.AddGate(s);
@@ -6287,10 +6567,10 @@ label_36:
   public void OnExplosionThornBomb()
   {
     this.OnExplosionGeneric();
-    this.game.ongoing.RunSpell(ZSpell.IEThornBomb(this.game, this));
+    this.game.ongoing.RunSpell(ZSpell.IEThornBomb(this.game, this.parent?.parent, this));
   }
 
-  public static IEnumerator<float> IEThornBomb(ZGame game, ZSpell theSpell)
+  public static IEnumerator<float> IEThornBomb(ZGame game, ZPerson p, ZSpell theSpell)
   {
     ZPerson person = theSpell.parent.parent;
     int amount = 1;
@@ -6310,7 +6590,7 @@ label_36:
         MyLocation myLocation = cPos + new MyLocation(FixedInt.Sin(angle * -i + offset) * fixedInt, FixedInt.Cos(angle * -i + offset) * fixedInt);
         if (!game.map.CheckPositionOnlyMap((int) myLocation.x, (int) myLocation.y) && !ZEffector.InSanctuary(theSpell.game.world, myLocation))
         {
-          ZCreatureThorn thorn = ZCreatureCreate.CreateThorn(game, theSpell.toSummon.GetComponent<CreatureThorn>(), myLocation.ToSinglePrecision(), Quaternion.identity, theSpell.game.GetMapTransform());
+          ZCreatureThorn thorn = ZCreatureCreate.CreateThorn(game, p, theSpell.toSummon.GetComponent<CreatureThorn>(), myLocation.ToSinglePrecision(), Quaternion.identity, theSpell.game.GetMapTransform());
           thorn.game = person.game;
           thorn.spell.parent = person.first();
           thorn.position = myLocation;
@@ -6364,7 +6644,7 @@ label_36:
     for (int index = 0; index < this.amount; ++index)
     {
       MyLocation power = Inert.Velocity(fixedInt * index, (FixedInt) component.speedMax);
-      ZSpell zspell = ZSpell.BaseFire(component, this.parent, this.position, Quaternion.identity, power);
+      ZSpell zspell = ZSpell.BaseFire(component, this.parent, this.position, Quaternion.identity, power, isChild: true);
       if (this.game.isClient)
         zspell.name = this.name;
       zspell.extraCheck = z;
@@ -6389,7 +6669,7 @@ label_36:
     FixedInt angle = (FixedInt) 360 / spell.amount;
     for (int index = 0; index < spell.amount; ++index)
     {
-      ZSpell zspell = ZSpell.BaseFire(child, parent, position, Quaternion.identity, Inert.Velocity(angle * index, (FixedInt) child.speedMax));
+      ZSpell zspell = ZSpell.BaseFire(child, parent, position, Quaternion.identity, Inert.Velocity(angle * index, (FixedInt) child.speedMax), isChild: true);
       if (game.isClient)
         zspell.name = spell.name;
       zspell.extraCheck = ExtraCheck;
@@ -6402,7 +6682,7 @@ label_36:
     yield return 0.0f;
     for (int index = 0; index < spell.amount; ++index)
     {
-      ZSpell zspell = ZSpell.BaseFire(child, parent, position, Quaternion.identity, Inert.Velocity(angle * index, (FixedInt) child.speedMax));
+      ZSpell zspell = ZSpell.BaseFire(child, parent, position, Quaternion.identity, Inert.Velocity(angle * index, (FixedInt) child.speedMax), isChild: true);
       if (game.isClient)
         zspell.name = spell.name;
       zspell.extraCheck = ExtraCheck;
@@ -6418,7 +6698,7 @@ label_36:
     for (int index = 0; index < 4; ++index)
     {
       MyLocation power = Inert.Velocity((FixedInt) (90 * index), 9);
-      ZSpell zspell = ZSpell.BaseFire(component, this.parent, this.position, Quaternion.identity, power);
+      ZSpell zspell = ZSpell.BaseFire(component, this.parent, this.position, Quaternion.identity, power, isChild: true);
       if (this.game.isClient)
         zspell.name = this.name;
     }
@@ -6452,15 +6732,16 @@ label_36:
     Spell component = this.toSummon.GetComponent<Spell>();
     ZCreature z = this.map.PhysicsCollideCreature((ZCreature) null, (int) this.position.x, (int) this.position.y);
     int amount = this.amount;
-    FixedInt fixedInt = (FixedInt) -360;
+    FixedInt fixedInt1 = (FixedInt) -360;
+    FixedInt fixedInt2 = (FixedInt) (360 / amount);
     if (!ZComponent.IsNull((ZComponent) z))
       amount -= 2;
     for (int index = 0; index < amount; ++index)
     {
-      FixedInt angle = this.game.RandomFixedInt(0, 360);
-      if (Mathd.Abs(angle - fixedInt) < 20)
+      FixedInt angle = (FixedInt) index * fixedInt2;
+      if (Mathd.Abs(angle - fixedInt1) < 20)
       {
-        if (angle > fixedInt)
+        if (angle > fixedInt1)
         {
           angle += 45;
           if (angle > 360)
@@ -6473,7 +6754,7 @@ label_36:
             angle += 360;
         }
       }
-      fixedInt = angle;
+      fixedInt1 = angle;
       MyLocation power = Inert.Velocity(angle, (FixedInt) component.speedMax);
       ZSpell zspell = ZSpell.BaseFire(component, this.parent, this.position, Quaternion.identity, power);
       if (this.game.isClient)
@@ -6486,15 +6767,42 @@ label_36:
   {
     this.OnExplosionGeneric();
     Spell component = this.toSummon.GetComponent<Spell>();
-    FixedInt fixedInt1 = this.game.RandomFixedInt(0, 360);
-    FixedInt fixedInt2 = FixedInt.Create(360) / this.amount;
-    for (int index = 0; index < this.amount; ++index)
+    ZCreature zcreature = this.map.PhysicsCollideCreatureCircle((ZCreature) null, (int) this.position.x, (int) this.position.y, this.radius + 10);
+    if ((ZComponent) zcreature != (object) null && zcreature.flying)
     {
-      MyLocation power = Inert.Velocity(this.game.RandomFixedInt(0, 360), (FixedInt) component.speedMax);
-      ZSpell zspell = ZSpell.BaseFire(component, this.parent, this.position, Quaternion.identity, power);
-      if (this.game.isClient)
-        zspell.name = this.name;
-      fixedInt1 += fixedInt2;
+      FixedInt fixedInt1 = this.game.RandomFixedInt(0, 360);
+      FixedInt fixedInt2 = FixedInt.Create(360) / this.amount;
+      FixedInt fixedInt3 = (FixedInt) (360 / this.amount / 2);
+      FixedInt fixedInt4 = fixedInt3 / 2;
+      for (int index = 0; index < this.amount; ++index)
+      {
+        FixedInt angle = (FixedInt) index * fixedInt3 + fixedInt4;
+        if (angle > 360)
+          angle -= 360;
+        MyLocation power = Inert.Velocity(angle, (FixedInt) component.speedMax);
+        ZSpell zspell = ZSpell.BaseFire(component, this.parent, this.position, Quaternion.identity, power, isChild: true);
+        if (this.game.isClient)
+          zspell.name = this.name;
+        fixedInt1 += fixedInt2;
+      }
+    }
+    else
+    {
+      FixedInt fixedInt5 = this.game.RandomFixedInt(0, 360);
+      FixedInt fixedInt6 = FixedInt.Create(360) / this.amount;
+      FixedInt fixedInt7 = (FixedInt) (360 / this.amount);
+      FixedInt fixedInt8 = this.game.RandomFixedInt(0, 360);
+      for (int index = 0; index < this.amount; ++index)
+      {
+        FixedInt angle = (FixedInt) index * fixedInt7 + fixedInt8;
+        if (angle > 360)
+          angle -= 360;
+        MyLocation power = Inert.Velocity(angle, (FixedInt) component.speedMax);
+        ZSpell zspell = ZSpell.BaseFire(component, this.parent, this.position, Quaternion.identity, power, isChild: true);
+        if (this.game.isClient)
+          zspell.name = this.name;
+        fixedInt5 += fixedInt6;
+      }
     }
   }
 
@@ -6509,7 +6817,7 @@ label_36:
     for (int index = 0; index < amount; ++index)
     {
       MyLocation power = Inert.Velocity(this.game.RandomFixedInt(0, 360), 10);
-      ZSpell zspell = ZSpell.BaseFire(component, this.parent, this.position, Quaternion.identity, power);
+      ZSpell zspell = ZSpell.BaseFire(component, this.parent, this.position, Quaternion.identity, power, isChild: true);
       if (this.game.isClient)
         zspell.name = this.name;
       if (ZComponent.IsNull((ZComponent) z))
@@ -6526,7 +6834,7 @@ label_36:
     ZCreature ExtraCheck = theSpell.map.PhysicsCollideCreature((ZCreature) null, (int) theSpell.position.x, (int) theSpell.position.y);
     for (int i = 0; i < theSpell.amount; ++i)
     {
-      ZSpell zspell = ZSpell.BaseFire(child, theSpell.parent, pos, Quaternion.identity, Inert.Velocity(theSpell.game.RandomFixedInt(0, 360), 3));
+      ZSpell zspell = ZSpell.BaseFire(child, theSpell.parent, pos, Quaternion.identity, Inert.Velocity(theSpell.game.RandomFixedInt(0, 360), 3), isChild: true);
       if (theSpell.game.isClient)
         zspell.name = theSpell.name;
       if (ZComponent.IsNull((ZComponent) ExtraCheck))
@@ -6590,7 +6898,7 @@ label_36:
       MyLocation velocity2 = this.velocity;
       velocity2.x *= this.game.RandomFixedInt(524288L, 1572864L);
       velocity2.y *= this.game.RandomFixedInt(524288L, 1572864L);
-      ZSpell zspell = ZSpell.BaseFire(component, this.parent, position, Quaternion.identity, velocity2);
+      ZSpell zspell = ZSpell.BaseFire(component, this.parent, position, Quaternion.identity, velocity2, isChild: true);
       zspell.curDuration = 5;
       if (this.game.isClient)
         zspell.name = this.name;
@@ -6675,15 +6983,9 @@ label_36:
       if (theSpell.game.isClient)
         zspell.name = theSpell.name;
     }
-    if (theSpell.curDuration < 2)
+    if (theSpell.curDuration < 2 && !ZComponent.IsNull((ZComponent) theSpell.parent) && !theSpell.parent.isDead)
     {
-      for (int index = 0; index < 10; ++index)
-      {
-        MyLocation power = Inert.Velocity(theSpell.game.RandomFixedInt(fixedInt - 20, fixedInt + 20), theSpell.game.RandomInt(-3, -1));
-        ZSpell zspell = ZSpell.BaseFire(component, theSpell.parent, position + new MyLocation(theSpell.game.RandomFixedInt(-15, 15), theSpell.game.RandomFixedInt(-15, 15)), Quaternion.identity, power);
-        if (theSpell.game.isClient)
-          zspell.name = theSpell.name;
-      }
+      theSpell.parent.ApplyDamage(theSpell.spellEnum, theSpell.damageType, theSpell.game.RandomInt(16, 30) - theSpell.curDuration, theSpell.parent, theSpell.parent.game.turn, (ISpellBridge) theSpell);
       yield break;
     }
   }
@@ -6696,7 +6998,7 @@ label_36:
     for (int index = 0; index < 4; ++index)
     {
       MyLocation myLocation = Inert.Velocity(this.game.RandomFixedInt(0, 360), (FixedInt) component.speedMax);
-      ZSpell zspell = ZSpell.BaseFire(component, this.parent, this.position, Quaternion.identity, myLocation, false);
+      ZSpell zspell = ZSpell.BaseFire(component, this.parent, this.position, Quaternion.identity, myLocation, false, true);
       zspell.extraCheck = zcreature;
       if ((ZComponent) this.parent != (object) null && this.parent.parent != null && this.parent.parent.localTurn <= 0)
         zspell.damage /= 2;
@@ -6713,7 +7015,7 @@ label_36:
     for (int index = 0; index < 6; ++index)
     {
       MyLocation power = Inert.Velocity(this.game.RandomFixedInt(0, 360), 12);
-      ZSpell zspell = ZSpell.BaseFire(component, this.parent, this.position, Quaternion.identity, power);
+      ZSpell zspell = ZSpell.BaseFire(component, this.parent, this.position, Quaternion.identity, power, isChild: true);
       if (this.game.isClient)
         zspell.name = this.name;
     }
@@ -6751,8 +7053,10 @@ label_36:
 
   public static void FireBlit(Spell theSpell, ZCreature cre, MyLocation target)
   {
-    if (theSpell.spellEnum == SpellEnum.Forest_Seed || theSpell.spellEnum == SpellEnum.Butterfly_Jar)
+    if (theSpell.spellEnum == SpellEnum.Forest_Seed || theSpell.spellEnum == SpellEnum.Butterfly_Jar || theSpell.spellEnum == SpellEnum.Grove_Renewal)
     {
+      if (cre.isPawn)
+        cre = cre.parent.first();
       ZCreature creature1 = ZCreatureCreate.CreateCreature(cre.parent, theSpell.toSummon.GetComponent<Creature>(), target.ToSinglePrecision(), Quaternion.identity, cre.game.GetMapTransform());
       creature1.game = cre.game;
       creature1.position = target;
@@ -6963,7 +7267,7 @@ label_36:
     {
       MyLocation power = Inert.Velocity((FixedInt) (24 * index), 8);
       power.x += power.x / 4;
-      ZSpell zspell = ZSpell.BaseFire(component, this.parent, this.position, Quaternion.identity, power);
+      ZSpell zspell = ZSpell.BaseFire(component, this.parent, this.position, Quaternion.identity, power, isChild: true);
       if (this.game.isClient)
         zspell.name = this.name;
     }
@@ -7048,6 +7352,11 @@ label_36:
     ZMyWorld world = zspell.game.world;
     int x = zspell.GetX();
     int y = zspell.GetY();
+    if (zspell.spellEnum == SpellEnum.Mud_Ball)
+    {
+      x += (int) zspell.velocity.x / 2;
+      y += (int) zspell.velocity.y / 2;
+    }
     FixedInt fixedInt = (FixedInt) zspell.game.RandomInt(0, 360) * FixedInt.Deg2Rad;
     MudBallObject mud = Inert.Instance.mudBallObject;
     if (zspell.curDuration < 10 && zspell.spellEnum == SpellEnum.Mudruption)
@@ -7060,8 +7369,8 @@ label_36:
     }
     if (zspell.spellEnum != SpellEnum.Old_Mud_Ball)
     {
-      zspell.PlaceCircles(x, y, 63);
-      ZSpell.RemoveItemsOnBitBlt(zspell.game, x, y, 63);
+      zspell.PlaceCircles(x, y, 68);
+      ZSpell.RemoveItemsOnBitBlt(zspell.game, x, y, 68);
     }
     else
     {
@@ -7184,7 +7493,7 @@ label_36:
 
   public static int GetSpellMaxDistance(Spell theSpell, ZCreature c)
   {
-    return (ZComponent) c == (object) null || c.familiarLevelWild == 0 || theSpell.bookOf != BookOf.The_Wilds && theSpell.spellEnum != SpellEnum.Duplication && !theSpell.IsMinionSpell() ? theSpell.maxDistance : theSpell.maxDistance + (int) ((FixedInt) (theSpell.maxDistance * c.familiarLevelWild) * (FixedInt) 157286L);
+    return (ZComponent) c == (object) null || c.familiarLevelDruidism == 0 || theSpell.bookOf != BookOf.Druidism && theSpell.spellEnum != SpellEnum.Duplication && !theSpell.IsMinionSpell() ? theSpell.maxDistance : theSpell.maxDistance + (int) ((FixedInt) (theSpell.maxDistance * c.familiarLevelDruidism) * (FixedInt) 157286L);
   }
 
   public static bool ServerCanFire(
@@ -7213,12 +7522,12 @@ label_36:
         return c.map.CheckCircle(x, y, spell.radius, (ZCreature) null, Inert.mask_movement_NoEffector);
       case SpellEnum.Duplication:
         ZCreature zcreature1 = c.map.PhysicsCollideCreature((ZCreature) null, secY == -1000 ? x : secX, secY == -1000 ? y : secY, Inert.mask_Phantom);
-        bool flag = (ZComponent) zcreature1 != (object) null && zcreature1.type != CreatureType.Tree && zcreature1.race != CreatureRace.Effector;
-        if (!flag || secY == -1000)
-          return flag;
+        bool flag1 = (ZComponent) zcreature1 != (object) null && zcreature1.type != CreatureType.Tree && zcreature1.race != CreatureRace.Effector;
+        if (!flag1 || secY == -1000)
+          return flag1;
         int num2 = ZSpell.GetSpellMaxDistance(spell, c) + zcreature1.radius;
         MyLocation position1 = c.position;
-        return zcreature1.phantom ? MyLocation.Distance(new MyLocation(x, y), position1) + zcreature1.radius < num2 && c.map.InBounds(x, y, zcreature1.radius) : MyLocation.Distance(new MyLocation(x, y), position1) + zcreature1.radius < num2 && c.map.CheckCircle(x, y, zcreature1.radius, (ZCreature) null, Inert.mask_movement_NoEffector);
+        return MyLocation.Distance(new MyLocation(x, y), position1) + zcreature1.radius < num2 && c.map.CheckCircle(x, y, zcreature1.radius, (ZCreature) null, Inert.mask_movement_NoEffector);
       case SpellEnum.The_ol_swaparoo:
         if (!c.map.InBounds(x, y, c.radius))
           return false;
@@ -7232,24 +7541,23 @@ label_36:
         return (ZComponent) zcreature3 != (object) null && zcreature3.type != CreatureType.Tree && zcreature3.type != CreatureType.Kraken && zcreature3.race != CreatureRace.Effector && zcreature3.health > 25 && c.health > 25;
       case SpellEnum.Blink:
         return MyLocation.Distance(c.position, new MyLocation(x, y)) < spell.maxDistance && c.map.CheckCircle(x, y, !((ZComponent) c.tower != (object) null) || c.tower.type != TowerType.Arcane ? c.radius : 32, (ZCreature) null, Inert.mask_movement_NoEffector);
-      case SpellEnum.Wild_Mushrooms:
+      case SpellEnum.Healing_Spores:
       case SpellEnum.Spirit_Link:
         MyLocation position2 = c.position;
         int yInt1 = 0;
         if (MyLocation.Distance(new MyLocation(x, y), position2 + new MyLocation(0, yInt1)) + spell.radius >= ZSpell.GetSpellMaxDistance(spell, c))
           return false;
         ZCreature zcreature4 = c.map.PhysicsCollideCreature((ZCreature) null, x, y, Inert.mask_Phantom);
-        if (!((ZComponent) zcreature4 != (object) null) || zcreature4.type == CreatureType.Tree || zcreature4.race == CreatureRace.Effector)
+        bool flag2 = (ZComponent) zcreature4 != (object) null && zcreature4.type != CreatureType.Tree && zcreature4.race != CreatureRace.Effector && (spell.spellEnum != SpellEnum.Spirit_Link || zcreature4.parent.team == c.parent.team);
+        if (spell.spellEnum == SpellEnum.Spirit_Link && (ZComponent) zcreature4 == (object) c)
           return false;
-        return spell.spellEnum != SpellEnum.Spirit_Link || zcreature4.parent.team == c.parent.team;
+        return flag2 && spell.spellEnum == SpellEnum.Spirit_Link ? (ZComponent) c.map.PhysicsCollideCreatureCircle(c, (int) c.position.x, (int) c.position.y, zcreature4.radius, Inert.mask_movement_NoEffector) == (object) null : flag2;
       case SpellEnum.Wormhole:
         if (!c.map.CheckCircle(x, y, spell.radius + 1, (ZCreature) null, Inert.mask_movement_NoEffector))
           return false;
         int num3 = c.radius - 18;
         y = (int) c.OverHeadOffset.y + (int) c.position.y + (!((ZComponent) c.tower != (object) null) || c.tower.type == TowerType.Nature ? 42 : 24) + num3;
         return c.map.CheckCircle((int) c.position.x, y, spell.radius + 1, (ZCreature) null, Inert.mask_movement_NoEffector);
-      case SpellEnum.Spirit_Walk:
-        return MyLocation.Distance(c.position, new MyLocation(x, y)) < ZSpell.GetSpellMaxDistance(spell, c) && c.map.CheckCircle(x, y, !((ZComponent) c.tower != (object) null) || c.tower.type != TowerType.Arcane ? c.radius : 32, (ZCreature) null, Inert.mask_movement_NoEffector);
       default:
         if (spell.type == CastType.Placement)
         {
@@ -7265,7 +7573,7 @@ label_36:
             Spell spell1 = Inert.GetSpell(c.game.lastMinionToDie[index].spell);
             Creature component = spell1.toSummon?.GetComponent<Creature>();
             int yInt2 = !spell1.affectedByGravity || spell1.maxDistance <= 150 ? 0 : spell1.maxDistance - 150;
-            return spell1.spellEnum == SpellEnum.Summon_Phantom || spell1.spellEnum == SpellEnum.Summon_Spirit_Owl ? MyLocation.Distance(new MyLocation(x, y), c.position + new MyLocation(0, yInt2)) + component.radius < ZSpell.GetSpellMaxDistance(spell1, c) && c.map.InBounds(x, y, component.radius) : MyLocation.Distance(new MyLocation(x, y), c.position + new MyLocation(0, yInt2)) + component.radius < ZSpell.GetSpellMaxDistance(spell1, c) && c.map.CheckCircle(x, y, component.radius, (ZCreature) null, Inert.mask_movement_NoEffector);
+            return MyLocation.Distance(new MyLocation(x, y), c.position + new MyLocation(0, yInt2)) + component.radius < ZSpell.GetSpellMaxDistance(spell1, c) && c.map.CheckCircle(x, y, component.radius, (ZCreature) null, Inert.mask_movement_NoEffector);
           }
           if (spell.spellEnum == SpellEnum.Summon_Titan)
           {
@@ -7275,13 +7583,13 @@ label_36:
             Spell spell2 = Inert.GetSpell(c.parent.minionBookTitans[index].spell);
             Creature component = spell2.toSummon?.GetComponent<Creature>();
             int yInt3 = !spell2.affectedByGravity || spell2.maxDistance <= 150 ? 0 : spell2.maxDistance - 150;
-            return spell2.spellEnum == SpellEnum.Summon_Phantom || spell2.spellEnum == SpellEnum.Summon_Spirit_Owl ? MyLocation.Distance(new MyLocation(x, y), c.position + new MyLocation(0, yInt3)) + component.radius < ZSpell.GetSpellMaxDistance(spell2, c) && c.map.InBounds(x, y, component.radius) : MyLocation.Distance(new MyLocation(x, y), c.position + new MyLocation(0, yInt3)) + component.radius < ZSpell.GetSpellMaxDistance(spell2, c) && c.map.CheckCircle(x, y, component.radius, (ZCreature) null, Inert.mask_movement_NoEffector);
+            return MyLocation.Distance(new MyLocation(x, y), c.position + new MyLocation(0, yInt3)) + component.radius < ZSpell.GetSpellMaxDistance(spell2, c) && c.map.CheckCircle(x, y, component.radius, (ZCreature) null, Inert.mask_movement_NoEffector);
           }
           MyLocation position3 = c.position;
           if (spell.maxDistance > 0)
           {
             int yInt4 = !spell.affectedByGravity || spell.maxDistance <= 150 ? 0 : spell.maxDistance - 150;
-            return spell.spellEnum == SpellEnum.Summon_Phantom ? MyLocation.Distance(new MyLocation(x, y), position3 + new MyLocation(0, yInt4)) + spell.radius < ZSpell.GetSpellMaxDistance(spell, c) && c.map.InBounds(x, y, spell.radius) : (spell.spellEnum == SpellEnum.Summon_Wolf && c.parent.ritualEnum.Contains(SpellEnum.Summon_Wolf) ? MyLocation.Distance(new MyLocation(x, y), position3 + new MyLocation(0, yInt4)) + spell.radius < ZSpell.GetSpellMaxDistance(spell, c) && c.map.CheckCircle(x, y, 23, (ZCreature) null, Inert.mask_movement_NoEffector) : MyLocation.Distance(new MyLocation(x, y), position3 + new MyLocation(0, yInt4)) + spell.radius < ZSpell.GetSpellMaxDistance(spell, c) && c.map.CheckCircle(x, y, spell.radius, (ZCreature) null, Inert.mask_movement_NoEffector));
+            return MyLocation.Distance(new MyLocation(x, y), position3 + new MyLocation(0, yInt4)) + spell.radius < ZSpell.GetSpellMaxDistance(spell, c) && c.map.CheckCircle(x, y, spell.radius, (ZCreature) null, Inert.mask_movement_NoEffector);
           }
           return spell.spellEnum == SpellEnum.Black_Hole ? !c.game.world.OverlapCircle((Point) new MyLocation(x, y), spell.radius, (ZMyCollider) null, Inert.mask_movement_NoEffector) : c.map.CheckCircle(x, y, spell.radius, (ZCreature) null, Inert.mask_movement_NoEffector);
         }
@@ -7302,20 +7610,16 @@ label_36:
         }
         if (spell.type == CastType.Blit)
         {
-          if (spell.maxDistance > 0 && MyLocation.Distance(c.position, new MyLocation(x, y)) > spell.maxDistance - spell.radius)
+          if (spell.maxDistance > 0 && MyLocation.Distance(c.position, new MyLocation(x, y)) > ZSpell.GetSpellMaxDistance(spell, c) - spell.radius)
             return false;
           Sprite sprite = spell.GetComponent<SpriteRenderer>().sprite;
           return c.map.CheckTexuture(x, y, sprite.texture, spell.spellEnum == SpellEnum.Rock_Slab || spell.spellEnum == SpellEnum.Stepping_Stone || spell.spellEnum == SpellEnum.Christmas_Tree, (ZCreature) null);
         }
         if (spell.spellEnum == SpellEnum.Abduction)
         {
-          if (targetPreFire.IsNull())
-            return MyLocation.Distance(c.position, new MyLocation(x, y)) <= spell.maxDistance && c.map.InBounds(x, y);
-          if (MyLocation.Distance(c.position, targetPreFire) > spell.maxDistance || !c.map.InBounds(x, y))
-            return false;
           MyLocation myLocation = Inert.Velocity(rot_z, (ZComponent) c.tower != (object) null && c.tower.type == TowerType.Cosmos || c.type == CreatureType.Cosmic_Horror ? 300 : 200);
-          Coords start = new Coords((int) targetPreFire.x, (int) targetPreFire.y);
-          Coords end = new Coords((int) (targetPreFire.x + myLocation.x), (int) (targetPreFire.y + myLocation.y));
+          Coords start = new Coords((int) c.position.x, (int) c.position.y);
+          Coords end = new Coords((int) (c.position.x + myLocation.x), (int) (c.position.y + myLocation.y));
           Coords coords = c.map.bresenhamsCircleCast(start, end, c, Inert.mask_spell_movement, spell.radius);
           if (coords == null)
             return false;
@@ -7326,7 +7630,8 @@ label_36:
         {
           if (spell.spellEnum != SpellEnum.Vine_Bridge)
             return true;
-          MyLocation myLocation = Inert.Velocity(rot_z, 300);
+          int force = (int) spell.speedMax + (int) spell.speedMax / 5 * c.familiarLevelNature;
+          MyLocation myLocation = Inert.Velocity(rot_z, force);
           Coords start = new Coords((int) c.position.x, (int) c.position.y);
           Coords end = new Coords((int) (c.position.x + myLocation.x), (int) (c.position.y + myLocation.y));
           return c.map.bresenhamsLineCast(start, end, c, (ZSpell) null, Inert.mask_movement_NoEffector | Inert.mask_Phantom) != null;
@@ -7343,7 +7648,19 @@ label_36:
       return false;
     bool flag = ZSpell.ServerCanFire(theSpell, (int) Player.Instance.mouseWorldPos.x, (int) Player.Instance.mouseWorldPos.y, (int) Player.Instance.secTarget.x, (int) Player.Instance.secTarget.y, Player.Instance.selected, Player.Instance.rot_z, Player.Instance.power, Player.Instance.target);
     if (Player.Instance.meter_subs[6].activeInHierarchy)
-      Player.Instance.meter_subs[6].GetComponent<Image>().color = flag ? Color.red : Color.white;
+    {
+      if (Player.Instance.selectedSpell.spellEnum == SpellEnum.The_ol_swaparoo && flag)
+      {
+        ZCreature selected = Player.Instance.selected;
+        ZCreature zcreature = selected.map.PhysicsCollideCreature((ZCreature) null, (int) Player.Instance.mouseWorldPos.x, (int) Player.Instance.mouseWorldPos.y, Inert.mask_Phantom);
+        if ((ZComponent) zcreature != (object) null && (ZComponent) zcreature != (object) selected && zcreature.type != CreatureType.Tree && zcreature.race != CreatureRace.Effector)
+          Player.Instance.meter_subs[6].GetComponent<Image>().color = Color.blue;
+        else
+          Player.Instance.meter_subs[6].GetComponent<Image>().color = Color.red;
+      }
+      else
+        Player.Instance.meter_subs[6].GetComponent<Image>().color = flag ? Color.red : Color.white;
+    }
     return flag;
   }
 
@@ -7356,7 +7673,9 @@ label_36:
     MyLocation target,
     MyLocation secTarget,
     int spellSlot = 0,
-    bool extended = false)
+    bool extended = false,
+    SpellSlot slot = null,
+    bool fromArmageddon = false)
   {
     c.animator?.Play(AnimateState.Attack);
     if (c.game.isClient && !c.game.resyncing && (!theSpell.spellEnum.IsFlight() || !c.flying))
@@ -7395,7 +7714,9 @@ label_36:
         ZSpell.FireImpDestruction(theSpell, c, target);
         break;
       case SpellEnum.Arcane_Glyph:
-        c.game.ongoing.RunSpell(ZSpell.IEnumeratorArcaneGlyph(theSpell, c, pos));
+        if (theSpell.type == CastType.Flight)
+          target = pos;
+        c.game.ongoing.RunSpell(ZSpell.IEnumeratorArcaneGlyph(theSpell, c, target));
         break;
       case SpellEnum.Arcane_Sigil:
         ZSpell.FireArcaneSigil(theSpell, c, pos, rot_z, power, target);
@@ -7845,8 +8166,10 @@ label_36:
       case SpellEnum.Coal:
         c.game.ongoing.RunSpell(ZSpell.IEnumeratorFireCoal(theSpell, c, pos, Quaternion.identity, rot_z, power, target));
         break;
-      case SpellEnum.Snow_Globe:
-      case SpellEnum.Snow_Globe2:
+      case SpellEnum.Tree_House:
+        c.parent.hasCastTheFourSeasons = true;
+        if (c.game.isClient)
+          HUD.instance?.UpdateSeasonIcon(c.game.currentSeason);
         ZSpell.FireTower(theSpell, c, pos, rot_z, power);
         break;
       case SpellEnum.Firework_Show:
@@ -8176,12 +8499,12 @@ label_36:
         c.parent.hasCastTheFourSeasons = true;
         if (c.game.isClient && (UnityEngine.Object) Player.Instance != (UnityEngine.Object) null && c.parent == Player.Instance.person)
           HUD.instance.usedFourSeasons = true;
-        ZEffector zeffector = new ZEffector();
-        zeffector.type = EffectorType.Remove_Four_Seasons;
-        zeffector.whoSummoned = c;
-        zeffector.MaxTurnsAlive = int.MaxValue;
-        zeffector.active = false;
-        zeffector.game = c.game;
+        ZEffector zeffector1 = new ZEffector();
+        zeffector1.type = EffectorType.Remove_Four_Seasons;
+        zeffector1.whoSummoned = c;
+        zeffector1.MaxTurnsAlive = int.MaxValue;
+        zeffector1.active = false;
+        zeffector1.game = c.game;
         bool flag1 = true;
         for (int index6 = 0; index6 < c.spells.Count; ++index6)
         {
@@ -8193,7 +8516,7 @@ label_36:
         }
         if (flag1)
           c.spells.Add(new SpellSlot(Inert.Instance.spells["Seasonal"]));
-        c.effectors.Add(zeffector);
+        c.effectors.Add(zeffector1);
         if (c.game.isClient)
           HUD.instance?.UpdateSeasonIcon(c.game.currentSeason);
         target.y = (FixedInt) (c.map.Height + 300);
@@ -8242,35 +8565,36 @@ label_36:
       case SpellEnum.Summon_Bees:
         ZSpell.FireSummon(theSpell, c.game, c, target, 1);
         break;
-      case SpellEnum.Summon_Spirit_Owl:
-      case SpellEnum.Summon_Bear:
+      case SpellEnum.Snow_Globe2:
+        ZSpell.FireTower(theSpell, c, pos, rot_z, power);
+        break;
+      case SpellEnum.Summon_Will_o_the_Wisp:
+      case SpellEnum.Summon_Tiger:
+      case SpellEnum.Compete:
         ZSpell.FireSummon(theSpell, c.game, c, target);
         break;
-      case SpellEnum.Summon_Wolf:
+      case SpellEnum.Summon_Boar:
       case SpellEnum.Summon_Alpha_Wolf:
-        if (c.parent.ritualEnum.Contains(SpellEnum.Summon_Wolf) || theSpell.spellEnum == SpellEnum.Summon_Alpha_Wolf)
-        {
-          ZSpell.FireSummon(Inert.GetSpell(SpellEnum.Summon_Alpha_Wolf), c.game, c, target);
-          break;
-        }
         ZSpell.FireSummon(theSpell, c.game, c, target);
         break;
-      case SpellEnum.Werewolf_Transformation:
+      case SpellEnum.Bear_Form:
         ZSpell.FireWerewolf(theSpell, c);
         break;
-      case SpellEnum.Imbued_Axes:
-        c.game.ongoing.RunSpell(ZSpell.IEnumeratorImbuedAxes(theSpell, c, pos, Quaternion.identity, rot_z, power, target, new FixedInt?((FixedInt) 0)));
+      case SpellEnum.Enchanted_Axes:
+        c.game.ongoing.RunSpell(ZSpell.IEnumeratorImbuedAxes(theSpell, c, pos, Quaternion.identity, rot_z, power, target, slot));
         break;
-      case SpellEnum.Commune_With_Nature:
+      case SpellEnum.Harmony:
         ZSpell.FireCommune(theSpell, c);
         break;
-      case SpellEnum.Spear_Throw:
+      case SpellEnum.Verdant_Javelin:
         ZSpell zspell = ZSpell.FireGenericReturn(theSpell, c, pos, rot_z, power);
-        if (!c.parent.ritualEnum.Contains(SpellEnum.Spear_Throw))
+        if (slot == null)
           break;
-        zspell.damage += 20;
+        zspell.damage += slot.bonusDmg;
+        slot.bonusDmg += 7;
         break;
-      case SpellEnum.Leap:
+      case SpellEnum.Faiere_Jump:
+      case SpellEnum.Pounce:
         if ((ZComponent) c.tower != (object) null)
           break;
         MyLocation position4 = c.position;
@@ -8290,57 +8614,33 @@ label_36:
         if (!flag2)
           c.SetPosition(pos);
         c.velocity = myLocation;
+        if (theSpell.spellEnum == SpellEnum.Pounce)
+        {
+          c.moving = c.game.ongoing.RunCoroutine(c.WolfLeap(50));
+          c.game.CreatureMoveSurroundings(position4, c.radius, c.collider);
+          break;
+        }
         c.StartMoving(true);
         c.game.CreatureMoveSurroundings(position4, c.radius, c.collider);
+        if (!((UnityEngine.Object) theSpell.toSummon != (UnityEngine.Object) null) || !c.game.isClient || !((UnityEngine.Object) c.transform != (UnityEngine.Object) null) || c.game.resyncing)
+          break;
+        ZComponent.Instantiate<GameObject>(theSpell.toSummon, c.transform.position, Quaternion.identity, c.transform);
         break;
-      case SpellEnum.Ferocious_Strike:
+      case SpellEnum.Bear_Claw:
       case SpellEnum.Swipe:
         ZSpell.FireArcaneFlash(theSpell, c, pos, rot_z, power, 2);
-        if (!((UnityEngine.Object) c.transform != (UnityEngine.Object) null) || c.game.resyncing)
-          break;
-        ZComponent.Instantiate<GameObject>(theSpell.toSummon, pos.ToSinglePrecision(), Quaternion.identity, c.game.GetMapTransform()).transform.localScale = c.transform.localScale * (c.parent.ritualEnum.Contains(SpellEnum.Ferocious_Strike) ? 2f : 1f);
         break;
-      case SpellEnum.Ritual:
-        SpellEnum y = (SpellEnum) (int) target.y;
-        switch (y)
-        {
-          case SpellEnum.Summon_Spirit_Owl:
-          case SpellEnum.Summon_Wolf:
-          case SpellEnum.Summon_Bear:
-          case SpellEnum.Imbued_Axes:
-          case SpellEnum.Commune_With_Nature:
-          case SpellEnum.Spear_Throw:
-          case SpellEnum.Leap:
-          case SpellEnum.Ferocious_Strike:
-          case SpellEnum.Devils_Snare:
-          case SpellEnum.Wild_Mushrooms:
-            c.parent.ritualEnum.Add(y);
-            SpellSlot spellSlot1 = c.GetSpellSlot(y);
-            if (spellSlot1 != null && c.familiarLevelWild == 0)
-              spellSlot1.disabledturn = c.parent.localTurn;
-            if (y == SpellEnum.Leap)
-            {
-              SpellSlot spellSlot2 = c.GetSpellSlot(SpellEnum.Leap);
-              if (spellSlot2 != null)
-                spellSlot2.RechargeTime = 1;
-            }
-            if (!c.game.isClient || c.game.resyncing || !((UnityEngine.Object) c.transform != (UnityEngine.Object) null))
-              return;
-            ChatBox.Instance?.NewChatMsg("", c.parent.name + " empowered " + Inert.GetSpell(y).GetName + ".", (Color) ColorScheme.GetColor(Global.ColorWhiteText), "", ChatOrigination.System);
-            ZComponent.Instantiate<GameObject>(theSpell.explosion, c.transform.position + new Vector3(0.0f, (float) (c.radius + 50)), Quaternion.identity, c.game.GetMapTransform()).GetComponent<ParticleRitual>().icon.sprite = ClientResources.Instance.GetSpellIcon(Inert.GetSpell(y).name);
-            c.UpdateHealthTxt();
-            return;
-          default:
-            return;
-        }
-      case SpellEnum.Devils_Snare:
+      case SpellEnum.Grove_Renewal:
+        ZSpell.FireBlit(theSpell, c, target);
+        break;
+      case SpellEnum.Prickly_Barrier:
         ZSpell.FireFlameWall(theSpell, c, target, rot_z, power);
         break;
-      case SpellEnum.Wild_Mushrooms:
+      case SpellEnum.Healing_Spores:
         ZCreature zcreature5 = c.map.PhysicsCollideCreature((ZCreature) null, (int) target.x, (int) target.y, Inert.mask_Phantom);
         if (!((ZComponent) zcreature5 != (object) null))
           break;
-        zcreature5.DoHeal(theSpell.damage * (zcreature5.isPawn || zcreature5.race == CreatureRace.Werewolf && c.parent.ritualEnum.Contains(SpellEnum.Wild_Mushrooms) ? 2 : 1) + (c.parent.ritualEnum.Contains(SpellEnum.Wild_Mushrooms) ? (zcreature5.isPawn || zcreature5.race == CreatureRace.Werewolf ? 20 : 10) : 0), enemy: c);
+        zcreature5.DoHeal(theSpell.damage * (zcreature5.isPawn ? 2 : 1), enemy: c);
         if (!((UnityEngine.Object) zcreature5.transform != (UnityEngine.Object) null) || c.game.resyncing)
           break;
         ZComponent.Instantiate<GameObject>(theSpell.explosion, zcreature5.transform.position, Quaternion.identity, c.game.GetMapTransform());
@@ -8385,7 +8685,7 @@ label_36:
         ZSpell.FireTower(theSpell, c, pos, rot_z, power);
         break;
       case SpellEnum.Abduction:
-        c.game.ongoing.RunSpell(ZSpell.IEnumeratorAbduction(theSpell, c, pos, rot_z, extended, target));
+        c.game.ongoing.RunSpell(ZSpell.IEnumeratorAbduction(theSpell, c, pos, rot_z, extended, target, fromArmageddon));
         break;
       case SpellEnum.Cosmic_Horror:
       case SpellEnum.Summon_Drone:
@@ -8413,9 +8713,9 @@ label_36:
         ZSpell.FireDeathAndDecay(theSpell, c);
         break;
       case SpellEnum.Spirit_Walk:
-        if (c.parent.ritualEnum.Contains(SpellEnum.Summon_Spirit_Owl) && spellSlot >= 0 && spellSlot < c.spells.Count && c.spells[spellSlot].spell.spellEnum == theSpell.spellEnum)
-          c.spells[spellSlot].SetTurnFired = -1;
-        ZSpell.FireTeleport(theSpell, c, pos, rot_z, power, target);
+        if (c.type == CreatureType.Wisp)
+          ZSpell.ChangeSprites(c, ClientResources.Instance.wispPhantomSprites);
+        ZSpell.FireApparition(c, true, true);
         break;
       case SpellEnum.Retribution:
         c.retribution = 50;
@@ -8445,6 +8745,35 @@ label_36:
         if (!extended)
           break;
         ZSpell.TryMountOnSummon(sum2, c);
+        break;
+      case SpellEnum.Stalk:
+        if (c.game.isClient && !c.game.resyncing && (UnityEngine.Object) c.transform != (UnityEngine.Object) null)
+          ZComponent.Instantiate<GameObject>(theSpell.explosion, c.transform.position, Quaternion.identity);
+        c.MoveToPosition = new MyLocation(c.position.x, (FixedInt) -1000);
+        c.inWater = true;
+        ZEffector zeffector2 = new ZEffector()
+        {
+          whoSummoned = c,
+          position = target,
+          MaxTurnsAlive = 2,
+          active = false,
+          type = EffectorType.Stalk,
+          game = c.game
+        };
+        c.effectors.Add(zeffector2);
+        c.controllable = false;
+        if (!((UnityEngine.Object) Player.Instance != (UnityEngine.Object) null) || !((ZComponent) Player.Instance.selected == (object) c))
+          break;
+        Player.Instance.NextControlled();
+        break;
+      case SpellEnum.Rising_Lava:
+        ZSpell.FireRisingLava(theSpell, c.game);
+        break;
+      case SpellEnum.When_Pigs_Fly:
+        ZSpell.WhenPigsFly(theSpell, c);
+        break;
+      case SpellEnum.Dense_Fog:
+        ZSpell.FireDenseFog(theSpell, c.game);
         break;
       default:
         ZSpell.FireGeneric(theSpell, c, pos, rot_z, power);
@@ -8671,10 +9000,10 @@ label_36:
       case SpellEnum.Rock_Blaster:
         this.OnExplosionGeneric();
         break;
-      case SpellEnum.Imbued_Axes:
+      case SpellEnum.Enchanted_Axes:
         this.OnExplosionGeneric();
         break;
-      case SpellEnum.Leap:
+      case SpellEnum.Faiere_Jump:
         this.OnExplosionGeneric();
         break;
       case SpellEnum.Star_Bolt:

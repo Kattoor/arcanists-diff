@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: RecycledScrollView
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System;
 using System.Collections.Generic;
@@ -30,10 +30,44 @@ public class RecycledScrollView : MonoBehaviour
 
   public List<PfabChatMsg.contain> GetList => this.list;
 
+  public void ChangeLineCount(int i)
+  {
+    double num = (double) this._bar.value;
+    if (this.notmaxed && i > this.pfabs.Count)
+    {
+      this.firstVisible -= i - this.MaxVisible;
+      if (this.firstVisible < 0)
+        this.firstVisible = 0;
+    }
+    this.MaxVisible = i;
+    for (int index = 0; index < i && index < this.pfabs.Count; ++index)
+      this.pfabs[index].gameObject.SetActive(true);
+    for (int index = i; index < this.pfabs.Count; ++index)
+      this.pfabs[index].gameObject.SetActive(false);
+    if (this.pfabs.Count < this.list.Count && this.pfabs.Count < this.MaxVisible)
+    {
+      for (int count = this.pfabs.Count; count < this.MaxVisible && count < this.list.Count; ++count)
+      {
+        GameObject andApply = Controller.Instance.CreateAndApply(this.pfabChat, (Transform) this.chatContainer);
+        PfabChatMsg component = andApply.GetComponent<PfabChatMsg>();
+        ((RectTransform) andApply.transform).anchoredPosition = new Vector2(0.0f, (float) ((this.chatContainer.childCount - 1) * -24));
+        this.pfabs.Add(component);
+      }
+    }
+    if (this.pfabs.Count < this.MaxVisible)
+      this.firstVisible = 0;
+    else if (this.firstVisible > this.list.Count - this.MaxVisible)
+      this.firstVisible = this.list.Count - this.MaxVisible;
+    this.chatContainerScroller.sizeDelta = new Vector2(this.chatContainerScroller.sizeDelta.x, (float) Mathf.Max(this.MaxVisible * 24, this.list.Count * 24));
+    this._bar.value = 0.009f;
+    this._bar.value = 0.0f;
+    this.Render();
+  }
+
   private int GetLastVisible(int firstVisible)
   {
     int lastVisible = firstVisible;
-    for (int index = 0; index < this.pfabs.Count; ++index)
+    for (int index = 0; index < this.MaxCount; ++index)
     {
       ++lastVisible;
       if (lastVisible >= this.list.Count)
@@ -45,7 +79,7 @@ public class RecycledScrollView : MonoBehaviour
   private bool downPassesFirst(int firstVisible)
   {
     int num = firstVisible;
-    for (int index = 0; index < this.pfabs.Count; ++index)
+    for (int index = 0; index < this.MaxCount; ++index)
     {
       if (num == this.nextindex)
         return true;
@@ -121,7 +155,7 @@ public class RecycledScrollView : MonoBehaviour
 
   public void ForceRender()
   {
-    int index1 = this.firstVisible + this.pfabs.Count - 1;
+    int index1 = this.firstVisible + this.MaxCount - 1;
     if (index1 > this.list.Count)
       index1 -= this.list.Count;
     if (index1 > this.firstVisible && index1 < this.list.Count && this.list[this.firstVisible]._id > this.list[index1]._id)
@@ -132,7 +166,7 @@ public class RecycledScrollView : MonoBehaviour
     }
     this.lastRender = this.firstVisible;
     int index2 = this.firstVisible;
-    for (int index3 = 0; index3 < this.pfabs.Count; ++index3)
+    for (int index3 = 0; index3 < this.pfabs.Count && index3 < this.MaxVisible; ++index3)
     {
       this.pfabs[index3].FromContain(this.list[index2]);
       ++index2;
@@ -141,11 +175,13 @@ public class RecycledScrollView : MonoBehaviour
     }
   }
 
+  public int MaxCount => Mathf.Min(this.pfabs.Count, this.MaxVisible);
+
   private void Render()
   {
     if (this.lastRender == this.firstVisible)
       return;
-    int index1 = this.firstVisible + this.pfabs.Count - 1;
+    int index1 = this.firstVisible + this.MaxCount - 1;
     if (index1 > this.list.Count)
       index1 -= this.list.Count;
     if (index1 > this.firstVisible && index1 < this.list.Count && this.list[this.firstVisible]._id > this.list[index1]._id)
@@ -156,7 +192,7 @@ public class RecycledScrollView : MonoBehaviour
     }
     this.lastRender = this.firstVisible;
     int index2 = this.firstVisible;
-    for (int index3 = 0; index3 < this.pfabs.Count; ++index3)
+    for (int index3 = 0; index3 < this.pfabs.Count && index3 < this.MaxVisible && index2 < this.list.Count; ++index3)
     {
       this.pfabs[index3].FromContain(this.list[index2]);
       ++index2;

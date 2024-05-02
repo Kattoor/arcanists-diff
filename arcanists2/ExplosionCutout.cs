@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: ExplosionCutout
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System;
 
@@ -70,7 +70,7 @@ public enum ExplosionCutout
   Leaf_reversed,
   CogFall,
   Foreststation,
-  Spear,
+  Javelin,
   Volcano0,
   Volcano1,
   Volcano2,
@@ -83,4 +83,5 @@ public enum ExplosionCutout
   SteppingStone,
   Coal,
   ChristmasTree,
+  Grove_Renewal,
 }

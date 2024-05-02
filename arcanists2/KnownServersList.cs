@@ -1,12 +1,14 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: KnownServersList
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Net.Http;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -38,5 +40,26 @@ public class KnownServersList
   {
     Global.systemCopyBuffer = JsonUtility.ToJson((object) this);
     Debug.Log((object) ("Known Severs copied to clipboard: " + Global.systemCopyBuffer));
+  }
+
+  public static async Task<KnownServersList> GetServerList()
+  {
+    using (HttpClient client = new HttpClient())
+    {
+      string requestUri = "http://play.arcanists2.com/ServerList.json";
+      try
+      {
+        using (HttpResponseMessage response = await client.GetAsync(requestUri))
+        {
+          response.EnsureSuccessStatusCode();
+          return JsonUtility.FromJson<KnownServersList>(await response.Content.ReadAsStringAsync());
+        }
+      }
+      catch (HttpRequestException ex)
+      {
+        Debug.LogError((object) ("Error getting ServerMesh Server List: " + ex.Message));
+      }
+    }
+    return Inert.Instance.servers;
   }
 }

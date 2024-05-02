@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: Achievement
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 #nullable disable
 public enum Achievement
@@ -32,7 +32,7 @@ public enum Achievement
   Master_of_Seasons = 22, // 0x00000016
   Master_of_Illusion = 23, // 0x00000017
   Master_of_Blood = 24, // 0x00000018
-  Master_of_The_Wilds = 25, // 0x00000019
+  Master_of_Druidism = 25, // 0x00000019
   Master_of_Cosmos = 26, // 0x0000001A
   Master_of_Book15 = 27, // 0x0000001B
   Master_of_Book16 = 28, // 0x0000001C
@@ -48,7 +48,7 @@ public enum Achievement
   Seasons_Arcanist = 38, // 0x00000026
   Illusion_Arcanist = 39, // 0x00000027
   Blood_Arcanist = 40, // 0x00000028
-  The_Wilds_Arcanist = 41, // 0x00000029
+  Druidism_Arcanist = 41, // 0x00000029
   Cosmos_Arcanist = 42, // 0x0000002A
   Book15_Arcanist = 43, // 0x0000002B
   Book16_Arcanist = 44, // 0x0000002C

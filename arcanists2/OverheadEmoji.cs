@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: OverheadEmoji
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using TMPro;
 using UnityEngine;
@@ -27,7 +27,6 @@ public class OverheadEmoji : MonoBehaviour
       this.cur += Time.deltaTime * this.speed;
       float num = 1f / this.transform.parent.localScale.x * this.curve.Evaluate(this.cur);
       this.transform.localScale = new Vector3(num, Mathf.Abs(num), 1f);
-      Debug.Log((object) this.transform.localScale);
       if ((double) this.cur < 1.0)
         return;
       ++this.state;

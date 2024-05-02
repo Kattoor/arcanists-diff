@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: MyPolling.MyPoll
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using Educative;
 using Hazel;
@@ -13,6 +13,7 @@ using Newtonsoft.Json.Serialization;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Text.RegularExpressions;
 using UnityEngine;
@@ -71,6 +72,7 @@ namespace MyPolling
         {
           if (this.items[index1].answers[index2].allowUserInput && !string.IsNullOrEmpty(this.items[index1].answers[index2].userInput))
           {
+            this.items[index1].answers[index2].userInput = WordFilter.FilterRealBadWords(this.items[index1].answers[index2].userInput);
             this.items[index1].answers[index2].userInput = WordFilter.FilterBadWords(this.items[index1].answers[index2].userInput);
             this.items[index1].answers[index2].userInput = WordFilter.FilterForbiddenWords(this.items[index1].answers[index2].userInput);
             this.items[index1].answers[index2].userInput = MyPoll.sanitize.Replace(this.items[index1].answers[index2].userInput, " ");

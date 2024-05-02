@@ -1,11 +1,10 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: ChessUI
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using ChessConsole;
-using ChessConsole.Pieces;
 using Hazel;
 using System;
 using System.Collections;
@@ -18,7 +17,7 @@ using UnityEngine.Events;
 using UnityEngine.UI;
 
 #nullable disable
-public class ChessUI : MonoBehaviour
+public class ChessUI : MonoBehaviour, IMiniGameUI
 {
   public RectTransform rectTransform;
   public RectTransform rectMove;
@@ -109,6 +108,7 @@ public class ChessUI : MonoBehaviour
     ChessUI.Instance.buttonDraw.SetActive(!b.isSpectator);
     ChessUI.Instance.useAudio = Global.GetPrefBool("prefchessaudio", true);
     ChessUI.Instance.buttonAudio.AlwaysOn = !ChessUI.Instance.useAudio;
+    ChessUI.Instance.board.gameObject = (IMiniGameUI) ChessUI.Instance;
   }
 
   public void ToggleAudio()
@@ -140,7 +140,7 @@ public class ChessUI : MonoBehaviour
   private void Start()
   {
     this.boardSet = Mathf.Clamp(PlayerPrefs.GetInt("prefchessBoard", 5), 0, this.imageBoards.Count - 1);
-    this.pieceSet = Mathf.Clamp(PlayerPrefs.GetInt("prefchessPiece", 1), 0, this.imagePieces.Count - 1);
+    this.pieceSet = Mathf.Clamp(PlayerPrefs.GetInt("prefchessPiece", 0), 0, this.imagePieces.Count - 1);
     this.chessboardBg.sprite = this.imageBoards[this.boardSet];
     if (this.board == null)
     {
@@ -610,7 +610,7 @@ public class ChessUI : MonoBehaviour
           }
           else if ((this.holdedNode == null || this.holdedNode != cell) && this.holdedNode != null && this.holdedNode.Piece.LegalMoves.Contains(cell))
           {
-            if (this.holdedNode.Piece is Pawn && cell.Y == (this.holdedNode.Piece.Color == PlayerColor.White ? 7 : 0))
+            if (this.holdedNode.Piece is ChessConsole.Pieces.Pawn && cell.Y == (this.holdedNode.Piece.Color == PlayerColor.White ? 7 : 0))
             {
               MyContextMenu myContextMenu = MyContextMenu.Show();
               myContextMenu.AddSeperator("Promotion Options");

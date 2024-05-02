@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: Creature
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using Educative;
 using System;
@@ -126,7 +126,7 @@ public class Creature : Entity
       return;
     this.overheadEmoji = UnityEngine.Object.Instantiate<OverheadEmoji>(ClientResources.Instance.overheadEmoji, this.overheadCanvas.transform.position + new Vector3(0.0f, spectator ? 20f : 40f), Quaternion.identity, this.transform);
     this.overheadEmoji.OnEmoji(index);
-    if ((!Client.emojiSound || spectator) && !Spectator.isConnected)
+    if (!Client.emojiSound || spectator && !Spectator.isConnected)
       return;
     AudioManager.Play(AudioManager.instance.emojiShow);
   }

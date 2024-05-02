@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: Global
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using Educative;
 using Hazel;
@@ -39,6 +39,7 @@ public static class Global
   public const byte MsgGameInfo = 6;
   public const byte MsgJoin = 7;
   public const byte MsgPlayerLeftUnrated = 8;
+  public const byte MsgCanStart = 9;
   public const byte MsgSyncLobby = 10;
   public const byte MsgPlayerLeftLobby = 11;
   public const byte MsgStartGame = 12;
@@ -115,7 +116,7 @@ public static class Global
   public const byte MsgClanUpdate = 84;
   public const byte MsgPlayerLocation = 85;
   public const byte MsgClientReplay = 86;
-  public const byte MsgChess = 87;
+  public const byte MsgMinigame = 87;
   public const byte MsgCreateMinigame = 88;
   public const byte MsgJoinMiniGame = 89;
   public const byte MsgPoll = 90;
@@ -131,6 +132,10 @@ public static class Global
   public const byte MsgCompleteSerialization = 100;
   public const byte MsgPreStartGame = 101;
   public const byte ErrNetwork2 = 102;
+  public const byte MsgUpdateBadges = 103;
+  public const byte MsgGetBadges = 104;
+  public const byte MsgServerUpdateMsg = 105;
+  public const byte MsgRandomRestrictions = 106;
   public const byte MsgClanChat = 150;
   public const byte MsgPrivateChat = 151;
   public const byte MsgTeamChat = 152;
@@ -139,6 +144,9 @@ public static class Global
   public const byte MsgQuickChat = 155;
   public const byte MsgTest = 156;
   public const byte MsgEmoji = 157;
+  public const byte MsgCreatureSpells = 188;
+  public const byte MsgCreatureHealth = 189;
+  public const byte MsgSpellbookInfo = 190;
   public const byte MsgVisualResign = 191;
   public const byte MsgBid = 192;
   public const byte MsgTryJoinLobby = 193;
@@ -221,6 +229,10 @@ public static class Global
   public const string prefOverheadRender = "toggleOverheadRender";
   public const string prefOverheadSpectator = "toggleOverheadSpectator";
   public const string prefOverheadSound = "toggleOverheadSound";
+  public const string prefServer = "prefserver";
+  public const string prefChatTransparency = "prefchattransparency";
+  public const string prefSpellBarTransparency = "prefSpellBarTransparency";
+  public const string prefColoredNames = "prefcolorednames";
   public const string publicKey = "<RSAKeyValue><Modulus>mJbQP4q78dSvBUsCKXJXMnPQVVBtwEoC6IZH/n+jVWwT4P/AUw3pIGY69LzcLSjVErJmx2cTFHOk61mlqyQp0+51fUOkHL7Z9Xz7A486O9Sb85AtcUBfpyRuTdS9mgOVuXUeLzxwzuxiTqRRhLv7zOWPBze5nZG97luHkIWQ3AkjIdlurCIqeS2KHlwtdPgqzrAev/Qt38z/dug1bYJkxq3zVUBJR67JHR/WjBP6g8ZvU8dNTNNROU/gaaACnBOgx4IQOtJTAF4x9AWt3TG13opXlo/Pr5HD2FtWIcmPYf+cKLqtGd6tbN+GZvTgDsEic2w+HH9c5bRTHlBVcCvr3w==</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>";
   public static Color ColorLobbyText = (Color) new Color32(byte.MaxValue, (byte) 210, (byte) 83, byte.MaxValue);
   public static Color ColorGameText = (Color) new Color32((byte) 85, (byte) 223, (byte) 85, byte.MaxValue);
@@ -232,6 +244,7 @@ public static class Global
   public static Color ColorSystem = Color.red;
   public static Color ColorNotification = (Color) new Color32(byte.MaxValue, (byte) 0, (byte) 182, byte.MaxValue);
   public static Color ColorTeamText = Color.cyan;
+  public static Color ColorNoteText = (Color) new Color32((byte) 150, byte.MaxValue, byte.MaxValue, byte.MaxValue);
   public static Color ColorAnnoucement = Color.yellow;
   public static Color ColorWhiteText = Color.white;
 
@@ -269,7 +282,7 @@ public static class Global
 
   public static bool IsChatMsg(byte b)
   {
-    return b == (byte) 153 || b == (byte) 152 || b == (byte) 33 || b == (byte) 151 || b == (byte) 150 || b == (byte) 51 || b == (byte) 73 || b == (byte) 97 || b == (byte) 10 || b == (byte) 58 || b == (byte) 56 || b == (byte) 155 || b == (byte) 157;
+    return b == (byte) 153 || b == (byte) 152 || b == (byte) 33 || b == (byte) 151 || b == (byte) 150 || b == (byte) 51 || b == (byte) 73 || b == (byte) 103 || b == (byte) 97 || b == (byte) 10 || b == (byte) 58 || b == (byte) 56 || b == (byte) 155 || b == (byte) 157;
   }
 
   public static bool NoPlayerID(byte b)
@@ -423,6 +436,14 @@ public static class Global
   }
 
   public static string ColorToString(Color c) => ColorUtility.ToHtmlStringRGB(c);
+
+  public static string ToTime(float cur)
+  {
+    int num = (int) cur % 60;
+    return ((int) cur / 60).ToString("0") + ":" + num.ToString("00");
+  }
+
+  public static string ToTime(int m, int s) => m.ToString("0") + ":" + s.ToString("00");
 
   public static float ParseTime(string t, float def, bool defMinutes = true)
   {
@@ -641,6 +662,12 @@ public static class Global
     str = Regex.Replace(str, "[^a-zA-Z0-9_]", "_", RegexOptions.Compiled);
     if (char.IsDigit(str[0]))
       str = "_" + str;
+    return str;
+  }
+
+  public static string ValidClanName(string str)
+  {
+    str = Regex.Replace(str, "[^a-zA-Z0-9_\\s]", "_", RegexOptions.Compiled);
     return str;
   }
 

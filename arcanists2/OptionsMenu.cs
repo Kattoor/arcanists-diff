@@ -1,9 +1,10 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: OptionsMenu
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
+using System;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
@@ -26,6 +27,9 @@ public class OptionsMenu : Catalogue
   public Toggle toggleOverheadRender;
   public Toggle toggleOverheadSpectator;
   public Toggle toggleOverheadSound;
+  public Toggle toggleNewSpellIcons;
+  public Toggle toggleNewPanelPlayer;
+  public Toggle toggleColoredNames;
   public Image bigImage;
   [Header("Sound")]
   public UIOnSlider sliderSound;
@@ -44,24 +48,24 @@ public class OptionsMenu : Catalogue
     this.sliderTurnStartVolume.SetValue(PlayerPrefs.GetFloat("prefturnstartvolume", 0.5f));
     this.sliderSound.onPointerUp.AddListener((UnityAction<float>) (v => AudioManager.instance.InstancePlay(AudioManager.instance.spellBounce, PlayerPrefs.GetFloat("prefvolsound", 0.5f))));
     this.sliderTurnStartVolume.onPointerUp.AddListener((UnityAction<float>) (v => AudioManager.PlayTurnStart()));
-    if (!((Object) ClientResources.Instance != (Object) null) || MainMenu.bigIndex <= -1 || !((Object) this.bigImage != (Object) null) || MainMenu.bigIndex >= ClientResources.Instance.MainMenuSprites.Length)
+    if (!((UnityEngine.Object) ClientResources.Instance != (UnityEngine.Object) null) || MainMenu.bigIndex <= -1 || !((UnityEngine.Object) this.bigImage != (UnityEngine.Object) null) || MainMenu.bigIndex >= ClientResources.Instance.MainMenuSprites.Length)
       return;
     this.bigImage.sprite = ClientResources.Instance.MainMenuSprites[MainMenu.bigIndex];
   }
 
   private void Start()
   {
-    if ((Object) this.toggleFollowSpells != (Object) null)
+    if ((UnityEngine.Object) this.toggleFollowSpells != (UnityEngine.Object) null)
     {
       this.toggleFollowSpells.isOn = Global.GetPrefBool("preffollowtargets", true);
       this.toggleFollowSpells.onValueChanged.AddListener(new UnityAction<bool>(this.ToggleFollowSpells));
     }
-    if ((Object) this.toggleRefollowCamera != (Object) null)
+    if ((UnityEngine.Object) this.toggleRefollowCamera != (UnityEngine.Object) null)
     {
       this.toggleRefollowCamera.isOn = Global.GetPrefBool("prefrefollowcamera", true);
       this.toggleRefollowCamera.onValueChanged.AddListener(new UnityAction<bool>(this.ToggleRefollowCamera));
     }
-    if ((Object) this.toggleBlood != (Object) null)
+    if ((UnityEngine.Object) this.toggleBlood != (UnityEngine.Object) null)
     {
       this.toggleBlood.isOn = Client.showBlood;
       this.toggleBlood.onValueChanged.AddListener((UnityAction<bool>) (v =>
@@ -70,37 +74,37 @@ public class OptionsMenu : Catalogue
         this.toggleBlood.isOn = v;
       }));
     }
-    if ((Object) this.toggleFPS != (Object) null)
+    if ((UnityEngine.Object) this.toggleFPS != (UnityEngine.Object) null)
     {
       this.toggleFPS.isOn = Global.GetPrefBool("preffps", false);
       this.toggleFPS.onValueChanged.AddListener(new UnityAction<bool>(this.ToggleFPS));
     }
-    if ((Object) this.toggleLockMeter != (Object) null)
+    if ((UnityEngine.Object) this.toggleLockMeter != (UnityEngine.Object) null)
     {
       this.toggleLockMeter.isOn = Global.GetPrefBool("preflockmeter", false);
       this.toggleLockMeter.onValueChanged.AddListener(new UnityAction<bool>(this.LockMeter));
     }
-    if ((Object) this.toggleMapPing != (Object) null)
+    if ((UnityEngine.Object) this.toggleMapPing != (UnityEngine.Object) null)
     {
       this.toggleMapPing.isOn = Global.GetPrefBool("prefmapping", true);
       this.toggleMapPing.onValueChanged.AddListener(new UnityAction<bool>(this.ToggleMapPing));
     }
-    if ((Object) this.toggleMapPingSound != (Object) null)
+    if ((UnityEngine.Object) this.toggleMapPingSound != (UnityEngine.Object) null)
     {
       this.toggleMapPingSound.AlwaysOn = !Global.GetPrefBool("prefmappingsound", true);
       this.toggleMapPingSound.onClick.AddListener(new UnityAction(this.ToggleMapPingSound));
     }
-    if ((Object) this.toggleHD != (Object) null)
+    if ((UnityEngine.Object) this.toggleHD != (UnityEngine.Object) null)
     {
       this.toggleHD.isOn = Global.GetPrefBool("prefhdbg", false);
       this.toggleHD.onValueChanged.AddListener(new UnityAction<bool>(this.ToggleHD));
     }
-    if ((Object) this.toggleSkipIntro != (Object) null)
+    if ((UnityEngine.Object) this.toggleSkipIntro != (UnityEngine.Object) null)
     {
       this.toggleSkipIntro.isOn = Global.GetPrefBool("prefSkipIntro", false);
       this.toggleSkipIntro.onValueChanged.AddListener(new UnityAction<bool>(this.ToggleSkipIntro));
     }
-    if ((Object) this.sliderBgColor != (Object) null)
+    if ((UnityEngine.Object) this.sliderBgColor != (UnityEngine.Object) null)
     {
       this.sliderBgColor.SetValue(PlayerPrefs.GetFloat("prefblackBg", 1f));
       this.sliderBgColor.onClick.AddListener((UnityAction<float>) (f =>
@@ -109,7 +113,7 @@ public class OptionsMenu : Catalogue
         CameraMovement.PrefChanged();
       }));
     }
-    if ((Object) this.sliderFgColor != (Object) null)
+    if ((UnityEngine.Object) this.sliderFgColor != (UnityEngine.Object) null)
     {
       this.sliderFgColor.SetValue(PlayerPrefs.GetFloat("prefblackFg", PlayerPrefs.GetFloat("prefblackBg", 1f)));
       this.sliderFgColor.onClick.AddListener((UnityAction<float>) (f =>
@@ -118,40 +122,83 @@ public class OptionsMenu : Catalogue
         CameraMovement.PrefChanged();
       }));
     }
-    if ((Object) this.toggleNativeKeyboard != (Object) null)
+    if ((UnityEngine.Object) this.toggleNativeKeyboard != (UnityEngine.Object) null)
       this.toggleNativeKeyboard.gameObject.SetActive(false);
-    if ((Object) this.toggleConfirmResign != (Object) null)
+    if ((UnityEngine.Object) this.toggleConfirmResign != (UnityEngine.Object) null)
     {
       this.toggleConfirmResign.isOn = !Global.GetPrefBool(HUD.doNotShowResign, false);
       this.toggleConfirmResign.onValueChanged.AddListener((UnityAction<bool>) (v => Global.SetPrefBool(HUD.doNotShowResign, !v)));
     }
-    if ((Object) this.toggleConfirmLeave != (Object) null)
+    if ((UnityEngine.Object) this.toggleConfirmLeave != (UnityEngine.Object) null)
     {
       this.toggleConfirmLeave.isOn = !Global.GetPrefBool(HUD.doNotShowLeave, false);
       this.toggleConfirmLeave.onValueChanged.AddListener((UnityAction<bool>) (v => Global.SetPrefBool(HUD.doNotShowLeave, !v)));
     }
-    if ((Object) this.toggleOverheadRender != (Object) null)
+    if ((UnityEngine.Object) this.toggleOverheadRender != (UnityEngine.Object) null)
     {
       this.toggleOverheadRender.isOn = Client.renderEmoji;
       this.toggleOverheadRender.onValueChanged.AddListener((UnityAction<bool>) (v => Client.renderEmoji = v));
     }
-    if ((Object) this.toggleOverheadSpectator != (Object) null)
+    if ((UnityEngine.Object) this.toggleOverheadSpectator != (UnityEngine.Object) null)
     {
       this.toggleOverheadSpectator.isOn = Client.renderEmojiSpectator;
       this.toggleOverheadSpectator.onValueChanged.AddListener((UnityAction<bool>) (v => Client.renderEmojiSpectator = v));
     }
-    if (!((Object) this.toggleOverheadSound != (Object) null))
+    if ((UnityEngine.Object) this.toggleOverheadSound != (UnityEngine.Object) null)
+    {
+      this.toggleOverheadSound.isOn = Client.emojiSound;
+      this.toggleOverheadSound.onValueChanged.AddListener((UnityAction<bool>) (v => Client.emojiSound = v));
+    }
+    if ((UnityEngine.Object) this.toggleNewSpellIcons != (UnityEngine.Object) null)
+    {
+      this.toggleNewSpellIcons.isOn = Global.GetPrefBool("newspellicons", true);
+      this.toggleNewSpellIcons.onValueChanged.AddListener((UnityAction<bool>) (v => HUD.ToggleSpellBgIcons(v)));
+    }
+    if ((UnityEngine.Object) this.toggleNewPanelPlayer != (UnityEngine.Object) null)
+    {
+      this.toggleNewPanelPlayer.isOn = Global.GetPrefBool("useNewPanelPlayer", true);
+      this.toggleNewPanelPlayer.onValueChanged.AddListener((UnityAction<bool>) (v => HUD.TogglePanelPlayer(v)));
+    }
+    if (!((UnityEngine.Object) this.toggleColoredNames != (UnityEngine.Object) null))
       return;
-    this.toggleOverheadSound.isOn = Client.emojiSound;
-    this.toggleOverheadSound.onValueChanged.AddListener((UnityAction<bool>) (v => Client.emojiSound = v));
+    this.toggleColoredNames.isOn = Global.GetPrefBool("prefcolorednames", !HUD.useNewPanelPlayer);
+    this.toggleColoredNames.onValueChanged.AddListener((UnityAction<bool>) (v => HUD.ToggleColoredNames(v)));
+  }
+
+  public static void ShowHUDContextMenu()
+  {
+    MyContextMenu myContextMenu = MyContextMenu.Show();
+    myContextMenu.AddItem("Toggle Spell Backgrounds", (Action) (() =>
+    {
+      bool flag = !Global.GetPrefBool("newspellicons", true);
+      Global.SetPrefBool("newspellicons", flag);
+      HUD.ToggleSpellBgIcons(flag);
+    }), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+    myContextMenu.AddItem("Toggle Player Panel", (Action) (() =>
+    {
+      bool flag = !Global.GetPrefBool("useNewPanelPlayer", true);
+      Global.SetPrefBool("useNewPanelPlayer", flag);
+      HUD.TogglePanelPlayer(flag);
+    }), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+    myContextMenu.AddItem("Toggle Colored Names", (Action) (() =>
+    {
+      bool flag = !Global.GetPrefBool("prefcolorednames", !HUD.useNewPanelPlayer);
+      Global.SetPrefBool("prefcolorednames", flag);
+      HUD.ToggleColoredNames(flag);
+    }), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+    myContextMenu.Rebuild();
   }
 
   private void OnDestroy()
   {
-    if (!((Object) OptionsMenu.Instance == (Object) this))
+    if (!((UnityEngine.Object) OptionsMenu.Instance == (UnityEngine.Object) this))
       return;
     OptionsMenu.Instance = (OptionsMenu) null;
   }
+
+  public void Tooltip(string s) => MyToolTip.Show(s);
+
+  public void HideTooltip() => MyToolTip.Close();
 
   public void ToggleFPS(bool v)
   {
@@ -162,7 +209,7 @@ public class OptionsMenu : Catalogue
   public void ToggleFollowSpells(bool v)
   {
     Global.SetPrefBool("preffollowtargets", v);
-    if (!((Object) HUD.instance != (Object) null))
+    if (!((UnityEngine.Object) HUD.instance != (UnityEngine.Object) null))
       return;
     HUD.instance.FollowSpells = v;
     CameraMovement.FOLLOWTARGETS = HUD.instance.FollowSpells;
@@ -179,6 +226,8 @@ public class OptionsMenu : Catalogue
   public void LockMeter(bool v)
   {
     Global.SetPrefBool("preflockmeter", v);
+    if (!((UnityEngine.Object) Player.Instance != (UnityEngine.Object) null))
+      return;
     Player.Instance.LockMeter = v;
   }
 
@@ -194,7 +243,7 @@ public class OptionsMenu : Catalogue
   public void ToggleHD(bool v)
   {
     Global.SetPrefBool("prefhdbg", v);
-    if (!((Object) CameraMovement.Instance != (Object) null))
+    if (!((UnityEngine.Object) CameraMovement.Instance != (UnityEngine.Object) null))
       return;
     CameraMovement.Instance.SetBounds();
   }
@@ -217,9 +266,11 @@ public class OptionsMenu : Catalogue
 
   public void ClickScreenSize() => Controller.ShowScreenSizeMenu();
 
+  public void ClickChatBoxOnly() => ChatBox._ShowFilterOptions();
+
   public void ClickMainMenu()
   {
-    Object.Destroy((Object) this.gameObject);
+    UnityEngine.Object.Destroy((UnityEngine.Object) this.gameObject);
     if (!ColorSchemeUI.ForceApply)
       return;
     Controller.Instance.ReopenMenu();

@@ -1,10 +1,11 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: LocalServerConn
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using Educative;
+using Newtonsoft.Json;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -16,6 +17,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
+using UnityEngine.Networking;
 using UnityEngine.UI;
 using UnityThreading;
 
@@ -34,6 +36,10 @@ public class LocalServerConn : Catalogue
   public GameObject discordButton;
   public TextMeshProUGUI discordText;
   public Shader glowMac;
+  [Header("Server stuff")]
+  public RectTransform serverContainer;
+  public GameObject panelServers;
+  public PfabServerButton pfabServer;
   [Header("Account Creation")]
   public GameObject panelAccountCreation;
   public TMP_InputField inputNameCreation;
@@ -61,6 +67,8 @@ public class LocalServerConn : Catalogue
   private bool localEncryption;
   public static bool UseEncryption = true;
   private bool showOrb = true;
+  private List<PfabServerButton> serverButtons = new List<PfabServerButton>();
+  public TMP_Text txtCurServer;
   public string filePath = "";
   private float lastPress = -3000f;
   private string lastPass = "";
@@ -73,6 +81,62 @@ public class LocalServerConn : Catalogue
 
   public TMP_InputField temp => this.input_pass;
 
+  private IEnumerator FindServers()
+  {
+    LocalServerConn localServerConn1 = this;
+    using (UnityWebRequest webRequest = UnityWebRequest.Get("http://play.arcanists2.com/ServerList.json"))
+    {
+      yield return (object) webRequest.SendWebRequest();
+      if (webRequest.isNetworkError)
+      {
+        UnityEngine.Debug.Log((object) ("Error: " + webRequest.error));
+      }
+      else
+      {
+        KnownServersList knownServersList = JsonConvert.DeserializeObject<KnownServersList>(webRequest.downloadHandler.text);
+        Server.serverList = knownServersList;
+        if (knownServersList.servers.Count > 1)
+        {
+          localServerConn1.panelServers.SetActive(true);
+          foreach (KnownServers server in knownServersList.servers)
+          {
+            LocalServerConn localServerConn = localServerConn1;
+            PfabServerButton g = UnityEngine.Object.Instantiate<PfabServerButton>(localServerConn1.pfabServer, (Transform) localServerConn1.serverContainer);
+            g.gameObject.SetActive(true);
+            g.txtName.text = server.name + " (" + server.location + ")";
+            g.Ping(server.ip);
+            KnownServers b = server;
+            g.uibutton.onClick.AddListener((UnityAction) (() =>
+            {
+              foreach (PfabServerButton serverButton in localServerConn.serverButtons)
+                serverButton.uibutton.AlwaysOn = false;
+              g.uibutton.AlwaysOn = true;
+              localServerConn.SelectServer(b);
+            }));
+            localServerConn1.serverButtons.Add(g);
+            if (string.Equals(server.ip, PlayerPrefs.GetString("prefserver", knownServersList.servers[0].ip)))
+            {
+              localServerConn1.txtCurServer.text = "Server: " + server.name + " (" + server.location + ")";
+              g.uibutton.AlwaysOn = true;
+            }
+          }
+        }
+        else if (knownServersList.servers.Count > 0)
+        {
+          KnownServers server = knownServersList.servers[0];
+          localServerConn1.txtCurServer.text = "Server: " + server.name + " (" + server.location + ")";
+          PlayerPrefs.SetString("prefserver", knownServersList.servers[0].ip);
+        }
+      }
+    }
+  }
+
+  private void SelectServer(KnownServers x)
+  {
+    this.txtCurServer.text = "Server: " + x.name + " (" + x.location + ")";
+    PlayerPrefs.SetString("prefserver", x.ip);
+  }
+
   private void Awake()
   {
     Client.clan = (Clan) null;
@@ -82,6 +146,7 @@ public class LocalServerConn : Catalogue
     this.panelOrb.SetActive(this.showOrb);
     this.toggleOrb.onClick.AddListener(new UnityAction(this.ToggleOrb));
     Dispatcher dispatcher = UnityThreadHelper.Dispatcher;
+    this.StartCoroutine(this.FindServers());
   }
 
   [ContextMenu("Play replay")]

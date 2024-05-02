@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: ZGame
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using Educative;
 using Hazel;
@@ -15,7 +15,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
-using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.SceneManagement;
@@ -133,8 +132,10 @@ public class ZGame
   private List<ZPerson> tempResignFix = new List<ZPerson>();
   public int totalTurnsCombined;
   private bool firstTurn = true;
+  private bool firstRerplayTurn = true;
   public List<ZCreature> tempList = new List<ZCreature>(5);
   internal int _nextturn;
+  internal List<ZEffector> turnEffectors = new List<ZEffector>();
   private float frameTime = 0.0333333351f;
   public float tickTime;
   private IEnumerator<float> ieKillWait;
@@ -143,6 +144,7 @@ public class ZGame
   private float nextKeepAlive = 360f;
   internal Dictionary<Connection, int> _oldData = new Dictionary<Connection, int>();
   public List<byte[]> timeline = new List<byte[]>();
+  public int numExplosionsAndMovement;
   private bool resyncOnError = true;
   private bool rematchSent;
   internal List<ZGame.DynamicType> returnData = new List<ZGame.DynamicType>();
@@ -156,6 +158,7 @@ public class ZGame
   public int replayPastTimeLine;
   private bool replayPaused;
   public bool forceRysncPause;
+  public int replayIndex;
   public ZGame.SerializationHelper helper;
   public HashSet<ZSpell> xSpell;
   public HashSet<SpellSlot> xSlot;
@@ -319,7 +322,7 @@ public class ZGame
     }
     if (this.ieKillWait != null)
       this.ieKillWait = (IEnumerator<float>) null;
-    UnityEngine.Resources.UnloadUnusedAssets();
+    Resources.UnloadUnusedAssets();
   }
 
   public void init_Client(ServerState.Busy busy = ServerState.Busy.Not_started)
@@ -697,24 +700,29 @@ label_66:
     this.portalUsedThisSpellTurn = false;
     this.skimmed_on_water = false;
     if ((UnityEngine.Object) p.panelPlayer != (UnityEngine.Object) null)
-      p.panelPlayer.rect.anchoredPosition = new Vector2(0.0f, p.panelPlayer.rect.anchoredPosition.y);
+      p.panelPlayer.MyTurn(false);
     ZCreature zcreature = p.first();
     if (ZComponent.IsNull((ZComponent) zcreature) || zcreature.isDead || this.First_Turn_Teleport && p.localTurn < 0)
       return;
     p.awards.TurnEndedAt(zcreature.position);
     if (zcreature.inWater && (p.localTurn > 0 || !this.First_Turn_Teleport))
     {
-      if (zcreature.health < 8)
+      if (this.isServer)
       {
-        zcreature.DoDamage(5 * p.waterMultipler);
-        if (zcreature.health > 0)
+        if (zcreature.health < 8)
+        {
+          zcreature.DoDamage(5 * p.waterMultipler);
+          this.SendCreatureHealth(zcreature);
+          if (zcreature.health > 0)
+            return;
+          this.with_the_fishes = true;
+          zcreature.OnDeath(true);
           return;
-        this.with_the_fishes = true;
-        zcreature.OnDeath(true);
-        return;
+        }
+        zcreature.health = (int) ((FixedInt) zcreature.health * ((FixedInt) 692060L / ((FixedInt) p.waterMultipler * (p.waterMultipler > 1 ? (FixedInt) 524288L : FixedInt.Create(1)))));
+        this.SendCreatureHealth(zcreature);
+        zcreature.UpdateHealthTxt();
       }
-      zcreature.health = (int) ((FixedInt) zcreature.health * ((FixedInt) 692060L / ((FixedInt) p.waterMultipler * (p.waterMultipler > 1 ? (FixedInt) 524288L : FixedInt.Create(1)))));
-      zcreature.UpdateHealthTxt();
       p.SetGates(p.localTurn);
       ++p.waterMultipler;
       if (zcreature.health <= 5)
@@ -786,6 +794,69 @@ label_66:
     }
   }
 
+  public void SendCreatureHealth(ZCreature c)
+  {
+    using (MemoryStream memoryStream = new MemoryStream())
+    {
+      using (myBinaryWriter myBinaryWriter = new myBinaryWriter((Stream) memoryStream))
+      {
+        myBinaryWriter.Write((byte) 189);
+        myBinaryWriter.Write(c.parent.id);
+        myBinaryWriter.Write(c.parent.controlled.IndexOf(c));
+        myBinaryWriter.Write(c.health);
+      }
+      this.SendAllMessage(memoryStream.ToArray());
+    }
+  }
+
+  public void SendCreatureSpells(ZCreature c, bool allPlayers, bool sync)
+  {
+    using (MemoryStream memoryStream = new MemoryStream())
+    {
+      using (myBinaryWriter writer = new myBinaryWriter((Stream) memoryStream))
+      {
+        writer.Write((byte) 188);
+        writer.Write(c.parent.id);
+        writer.Write(c.parent.controlled.IndexOf(c));
+        writer.Write(c.spells.Count);
+        writer.Write(sync);
+        for (int index = 0; index < c.spells.Count; ++index)
+          c.spells[index].Serialize(this, writer, true);
+      }
+      if (allPlayers)
+        this.SendAllMessage(memoryStream.ToArray());
+      else
+        this.SendTeamMessage(memoryStream.ToArray(), c.parent.team);
+    }
+  }
+
+  public void SendSpellBookInfo(ZPerson p)
+  {
+    if (this.isClient)
+      return;
+    using (MemoryStream memoryStream = new MemoryStream())
+    {
+      using (myBinaryWriter myBinaryWriter = new myBinaryWriter((Stream) memoryStream))
+      {
+        myBinaryWriter.Write((byte) 190);
+        myBinaryWriter.Write(p.id);
+        myBinaryWriter.Write(p.MinionMaster);
+        myBinaryWriter.Write(p.BombMaster);
+        myBinaryWriter.Write(p.FullArcane);
+        myBinaryWriter.Write(p.minionBookTitans.Count);
+        for (int index = 0; index < p.minionBookTitans.Count; ++index)
+        {
+          myBinaryWriter.Write((int) p.minionBookTitans[index].spell);
+          myBinaryWriter.Write(p.minionBookTitans[index].used);
+        }
+        myBinaryWriter.Write(p.shownLevel3.Count);
+        for (int index = 0; index < p.shownLevel3.Count; ++index)
+          myBinaryWriter.Write((int) p.shownLevel3[index]);
+      }
+      this.SendAllMessage(memoryStream.ToArray());
+    }
+  }
+
   private void SendResigned(ZPerson p)
   {
     if (p == null || p.controlled.Count == 0 || this.resigned.Contains(p))
@@ -841,6 +912,60 @@ label_66:
     if (!this.isClient)
       return;
     HUD.instance?.UpdateSeasonIcon(this.currentSeason);
+  }
+
+  public void ReplayNextTurn()
+  {
+    if (!this.isTeam)
+      return;
+    if (this.firstRerplayTurn)
+    {
+      this.firstRerplayTurn = false;
+      int numberPlayersPerTeam = this.gameFacts.GetNumberPlayersPerTeam();
+      int num1 = (int) this.serverState.playersTurn % numberPlayersPerTeam;
+      int num2 = num1 - 1;
+      if (num2 < 0)
+        num2 = numberPlayersPerTeam - 1;
+      this.lastTeamsTurn = (int) this.serverState.playersTurn / numberPlayersPerTeam;
+      for (int index = 0; index < this.teamIndex.Length; ++index)
+        this.teamIndex[index] = index <= this.lastTeamsTurn ? num1 : num2;
+    }
+    else
+    {
+      int num = 0;
+      bool flag = false;
+      int lastTeamsTurn = this.lastTeamsTurn;
+      do
+      {
+        ++this.lastTeamsTurn;
+        if (this.lastTeamsTurn >= this.TEAM_COUNT)
+          this.lastTeamsTurn = 0;
+        if (lastTeamsTurn == this.lastTeamsTurn && this.team2Players.Count > 0)
+          return;
+        int numberPlayersPerTeam = this.gameFacts.GetNumberPlayersPerTeam();
+        for (int index = 0; index < numberPlayersPerTeam; ++index)
+        {
+          ++this.teamIndex[this.lastTeamsTurn];
+          if (this.teamIndex[this.lastTeamsTurn] >= numberPlayersPerTeam)
+            this.teamIndex[this.lastTeamsTurn] = 0;
+          this.serverState.playersTurn = (byte) (this.teamIndex[this.lastTeamsTurn] + this.lastTeamsTurn * numberPlayersPerTeam);
+          if (this.players[(int) this.serverState.playersTurn].controlled.Count > 0)
+          {
+            flag = true;
+            break;
+          }
+        }
+        if (!flag)
+          ++num;
+        else
+          goto label_23;
+      }
+      while (num <= 25);
+      goto label_13;
+label_23:
+      return;
+label_13:;
+    }
   }
 
   public void NextTurn()
@@ -992,16 +1117,48 @@ label_46:
     if (this.decreasePlayer2Cooldowns)
     {
       if (this.players.Count != 2 || this.ArcaneZero)
+      {
         this.decreasePlayer2Cooldowns = false;
+        foreach (ZPerson player in this.players)
+        {
+          if (player != p)
+          {
+            ZCreature zcreature = player.first();
+            if ((ZComponent) zcreature != (object) null && !zcreature.isDead)
+            {
+              foreach (SpellSlot spell in zcreature.spells)
+              {
+                if (spell.TurnsTillFirstUse > 0 && spell.spell.halfFirstTurn)
+                  --spell.TurnsTillFirstUse;
+              }
+            }
+          }
+        }
+      }
       else if (this.turn == -1)
       {
         this.decreasePlayer2Cooldowns = false;
-        ZCreature zcreature = p.first();
-        if ((ZComponent) zcreature != (object) null && !zcreature.isDead)
+        foreach (ZPerson player in this.players)
         {
-          foreach (SpellSlot spell in zcreature.spells)
+          if (player != p)
           {
-            if (spell.TurnsTillFirstUse > 0)
+            ZCreature zcreature = player.first();
+            if ((ZComponent) zcreature != (object) null && !zcreature.isDead)
+            {
+              foreach (SpellSlot spell in zcreature.spells)
+              {
+                if (spell.TurnsTillFirstUse > 0 && spell.spell.halfFirstTurn)
+                  --spell.TurnsTillFirstUse;
+              }
+            }
+          }
+        }
+        ZCreature zcreature1 = p.first();
+        if ((ZComponent) zcreature1 != (object) null)
+        {
+          foreach (SpellSlot spell in zcreature1.spells)
+          {
+            if (spell.TurnsTillFirstUse > 0 && !spell.spell.halfFirstTurn)
               ++spell.TurnsTillFirstUse;
           }
         }
@@ -1067,13 +1224,13 @@ label_46:
           temp.stunned = false;
         if ((ZComponent) temp.tower != (object) null)
           temp.tower.NextTurn();
-        if (temp.shiningPower && temp.health < temp.maxHealth && !temp.inWater)
+        if (temp.shiningPower && temp.health < temp.maxHealth && !temp.inWater && temp.health < temp.maxHealth)
         {
           temp.DoHeal(10);
           if (temp.health > temp.maxHealth)
             temp.health = temp.maxHealth;
         }
-        if (temp.type == CreatureType.Gargoyle && !temp.canMove)
+        if (temp.type == CreatureType.Gargoyle && !temp.canMove && (temp.health < 100 || temp.health < temp.maxHealth))
         {
           if (temp.maxHealth < 100)
             temp.maxHealth += 25;
@@ -1081,13 +1238,13 @@ label_46:
           if (temp.health > temp.maxHealth)
             temp.health = temp.maxHealth;
         }
-        if (temp.type == CreatureType.Dragon && temp.race == CreatureRace.Arcane && !temp.FullArcane)
+        if (temp.type == CreatureType.Dragon && temp.race == CreatureRace.Arcane && !temp.FullArcane && temp.health < temp.maxHealth)
         {
           temp.DoHeal(25);
           if (temp.health > temp.maxHealth)
             temp.health = temp.maxHealth;
         }
-        else if (temp.type == CreatureType.DragonJr)
+        else if (temp.type == CreatureType.DragonJr && temp.health < temp.maxHealth)
         {
           temp.DoHeal(15);
           if (temp.health > temp.maxHealth)
@@ -1108,7 +1265,7 @@ label_46:
         if (!ZComponent.IsNull((ZComponent) this.dwarfMapEffector) && temp.minerMarket != null && !temp.isMoving)
         {
           Spell spell = Inert.GetSpell(SpellEnum.Mine);
-          ZSpell.FireMine(spell, temp, this.dwarfMapEffector.position, -(spell.maxDuration / 2));
+          ZSpell.FireMine(spell, temp, this.dwarfMapEffector.position, -(spell.maxDuration / 2), true);
         }
         if (temp.familiar.Has(FamiliarType.OverLight) && temp.familiarLevelOverlight > 0 && temp.shield < 50)
         {
@@ -1130,34 +1287,7 @@ label_46:
         }
         else if (temp.type == CreatureType.Vampire && temp.health > 1)
         {
-          Coords start = new Coords((int) temp.position.x, (int) temp.position.y);
-          Coords end = new Coords((int) temp.position.x, temp.map.Height);
-          Coords coords = this.map.bresenhamsLineCast(start, end, temp, (ZSpell) null, Inert.mask_entity_movement);
-          if (coords != null)
-            coords = this.map.bresenhamsLineCast(start, new Coords((int) temp.position.x - 100, temp.map.Height), temp, (ZSpell) null, Inert.mask_entity_movement);
-          if (coords != null)
-            coords = this.map.bresenhamsLineCast(start, new Coords((int) temp.position.x + 100, temp.map.Height), temp, (ZSpell) null, Inert.mask_entity_movement);
-          if (coords != null)
-            coords = this.map.bresenhamsLineCast(start, new Coords((int) temp.position.x - 25, temp.map.Height), temp, (ZSpell) null, Inert.mask_entity_movement);
-          if (coords != null)
-            coords = this.map.bresenhamsLineCast(start, new Coords((int) temp.position.x + 25, temp.map.Height), temp, (ZSpell) null, Inert.mask_entity_movement);
-          if (coords != null)
-            coords = this.map.bresenhamsLineCast(start, new Coords((int) temp.position.x - 50, temp.map.Height), temp, (ZSpell) null, Inert.mask_entity_movement);
-          if (coords != null)
-            coords = this.map.bresenhamsLineCast(start, new Coords((int) temp.position.x + 50, temp.map.Height), temp, (ZSpell) null, Inert.mask_entity_movement);
-          if (coords != null)
-            coords = this.map.bresenhamsLineCast(start, new Coords((int) temp.position.x - 75, temp.map.Height), temp, (ZSpell) null, Inert.mask_entity_movement);
-          if (coords != null)
-            coords = this.map.bresenhamsLineCast(start, new Coords((int) temp.position.x + 75, temp.map.Height), temp, (ZSpell) null, Inert.mask_entity_movement);
-          if (coords != null)
-            coords = this.map.bresenhamsLineCast(start, new Coords((int) temp.position.x - 125, temp.map.Height), temp, (ZSpell) null, Inert.mask_entity_movement);
-          if (coords != null)
-            coords = this.map.bresenhamsLineCast(start, new Coords((int) temp.position.x + 125, temp.map.Height), temp, (ZSpell) null, Inert.mask_entity_movement);
-          if (coords != null)
-            coords = this.map.bresenhamsLineCast(start, new Coords((int) temp.position.x - 150, temp.map.Height), temp, (ZSpell) null, Inert.mask_entity_movement);
-          if (coords != null)
-            coords = this.map.bresenhamsLineCast(start, new Coords((int) temp.position.x + 150, temp.map.Height), temp, (ZSpell) null, Inert.mask_entity_movement);
-          if (coords == null)
+          if (temp.InSunlight())
           {
             temp.DoDamage(Mathf.Min(temp.health - 1, 10));
             if (temp.health <= 0)
@@ -1171,12 +1301,27 @@ label_46:
             temp.health = temp.maxHealth;
           temp.OnNextTurn();
         }
-        for (int index2 = temp.effectors.Count - 1; index2 >= 0; --index2)
+        int count = temp.effectors.Count;
+        for (int index2 = 0; index2 < count && index2 < temp.effectors.Count; ++index2)
         {
           if (ZComponent.IsNull((ZComponent) temp.effectors[index2]) || temp.effectors[index2].dead)
+          {
             temp.effectors.RemoveAt(index2);
+            --index2;
+            --count;
+          }
           else
+          {
+            ZEffector effector = temp.effectors[index2];
             temp.effectors[index2].TurnPassed(index2, false, false);
+            if (ZComponent.IsNull((ZComponent) effector))
+            {
+              if (index2 < temp.effectors.Count && (ZComponent) temp.effectors[index2] == (object) effector)
+                temp.effectors.RemoveAt(index2);
+              --index2;
+              --count;
+            }
+          }
         }
         for (int index3 = temp.destroyableEffectors.Count - 1; index3 >= 0; --index3)
         {
@@ -1209,7 +1354,18 @@ label_46:
       {
         if (ZComponent.IsNull((ZComponent) this.globalEffectors[index].whoSummoned) && (ZComponent) p.first() != (object) null)
           this.globalEffectors[index].whoSummoned = p.controlled[0];
-        this.globalEffectors[index].TurnPassed(index, false, true);
+        if (this.globalEffectors[index].type != EffectorType.Portal && this.globalEffectors[index].type != EffectorType.Wormhole)
+          this.globalEffectors[index].TurnPassed(index, false, true);
+      }
+    }
+    for (int index = this.thorns.Count - 1; index >= 0; --index)
+    {
+      if (ZComponent.IsNull((ZComponent) this.thorns[index]))
+        this.thorns.RemoveAt(index);
+      else if (this.thorns[index].parent.localTurn >= this.thorns[index].tries)
+      {
+        this.thorns[index].ApplyDamage(SpellEnum.Fire_Ball, DamageType.None, 1, (ZCreature) null, 1, (ISpellBridge) null, false);
+        this.thorns.RemoveAt(index);
       }
     }
     ++this.turn;
@@ -1229,8 +1385,8 @@ label_46:
       this.CheckDraw(p);
     if (!this.isSandbox && !this.isTutorial && p.localTurn > 0)
       this.AllowMovement = !this.gameFacts.GetStyle().HasStyle(GameStyle.No_Movement);
-    if ((UnityEngine.Object) p.panelPlayer != (UnityEngine.Object) null)
-      p.panelPlayer.rect.anchoredPosition = new Vector2(50f, p.panelPlayer.rect.anchoredPosition.y);
+    if ((UnityEngine.Object) p.panelPlayer != (UnityEngine.Object) null && p.game.players.Count > 1)
+      p.panelPlayer.MyTurn(true);
     if (this.resigned.Count <= 0)
       return;
     this.RemoveResigned();
@@ -1481,7 +1637,7 @@ label_46:
               try
               {
                 // ISSUE: reference to a compiler-generated method
-                int index2 = zgame.GetTeam(zgame.players[(int) zgame.serverState.playersTurn].team).FindIndex(new Predicate<ZPerson>(zgame.\u003CBidUpdate\u003Eb__170_1));
+                int index2 = zgame.GetTeam(zgame.players[(int) zgame.serverState.playersTurn].team).FindIndex(new Predicate<ZPerson>(zgame.\u003CBidUpdate\u003Eb__176_1));
                 if (index2 > 0)
                 {
                   for (int index3 = 0; index3 < zgame.teamIndex.Length; ++index3)
@@ -1596,7 +1752,7 @@ label_46:
       return false;
     foreach (ZPerson player in this.players)
     {
-      if (player == player.connection.player.player && (!player.Connected || !player.ready) && player.controlled.Count > 0 && !player.didResign && !player.isFake)
+      if (player == player.connection.player.player && (!player.Connected || !player.canStart) && player.controlled.Count > 0 && !player.didResign && !player.isFake)
         return false;
     }
     return true;
@@ -1730,6 +1886,14 @@ label_46:
       else
         AudioManager.Play(AudioManager.instance.clipChargeFamiliar[(int) b00k]);
     }
+    if (p.familiarLevels[(int) b00k] == 1 && (ZComponent) p.first() != (object) null)
+    {
+      foreach (SpellSlot spell in p.first().spells)
+      {
+        if (spell.TurnsTillFirstUse == 1 && spell.spell.bookOf == b00k && spell.spell.damage <= 0)
+          spell.TurnsTillFirstUse = 0;
+      }
+    }
     switch (b00k)
     {
       case BookOf.Seasons:
@@ -1763,7 +1927,7 @@ label_46:
           float num = fixedInt.ToFloat();
           if (!zcreature1.FullArcane)
             zcreature1.massMulti = (FixedInt) 1 - FixedInt.Create(p.GetLevel(BookOf.Seasons)) * 20971L;
-          if (zcreature1.race == CreatureRace.Werewolf)
+          if (zcreature1.race == CreatureRace.Bear)
           {
             zcreature1.TrueSize = (int) (fixedInt * 18);
             return;
@@ -1859,7 +2023,7 @@ label_46:
         float num1 = fixedInt1.ToFloat();
         if (!zcreature6.FullArcane)
           zcreature6.massMulti = (FixedInt) 1 - FixedInt.Create(p.GetLevel(BookOf.Illusion)) * 20971L;
-        if (zcreature6.race == CreatureRace.Werewolf)
+        if (zcreature6.race == CreatureRace.Bear)
         {
           zcreature6.TrueSize = (int) (fixedInt1 * 18);
           break;
@@ -1995,23 +2159,9 @@ label_46:
           if (p.GetLevel(b00k) == 5)
           {
             p.controlled[0].AddLevel5Spell(new SpellSlot(Inert.Instance.spells.GetValue("Forestation")), b00k);
-            using (List<SpellSlot>.Enumerator enumerator = p.first().spells.GetEnumerator())
-            {
-              while (enumerator.MoveNext())
-              {
-                SpellSlot current = enumerator.Current;
-                if (current.spell.spellEnum == SpellEnum.Vine_Bomb)
-                  ++current.MaxUses;
-                else if (current.spell.spellEnum == SpellEnum.Thorn_Bomb)
-                  ++current.MaxUses;
-                else if (current.spell.spellEnum == SpellEnum.Vine_Bridge)
-                  ++current.MaxUses;
-              }
-              break;
-            }
-          }
-          else
             break;
+          }
+          break;
         case BookOf.Seas:
           if (p.GetLevel(b00k) == 1)
             p.controlled[0].AddLevel5Spell(new SpellSlot(Inert.GetSpell(SpellEnum.Brine_Burst)), b00k);
@@ -2094,9 +2244,7 @@ label_46:
           }
           else
             break;
-        case BookOf.The_Wilds:
-          if (p.GetLevel(b00k) == 5)
-            p.first().GetSpellSlot(SpellEnum.Ritual).EndsTurn = false;
+        case BookOf.Druidism:
           if ((UnityEngine.Object) Player.Instance != (UnityEngine.Object) null && (UnityEngine.Object) Player.Instance.selectedSpell != (UnityEngine.Object) null)
           {
             int selectedSpellIndex = Player.Instance.selectedSpellIndex;
@@ -2205,13 +2353,15 @@ label_46:
 
   public void SendOldDataOlD(ZPerson p, Connection c, string err, bool wait = true, Action onTrue = null)
   {
-    if (p.resyncIE != null)
+    if (this.serverState.busy == ServerState.Busy.Ended || p.resyncIE != null)
       return;
     p.resyncIE = Timing.RunCoroutine(this.WaitForResync(p, c, err, wait, onTrue));
   }
 
   public void SendOldData(ZPerson p, Connection c, string err, bool wait = true, Action onTrue = null)
   {
+    if (this.serverState.busy == ServerState.Busy.Ended)
+      return;
     if (p == null)
     {
       Timing.RunCoroutine(this.WaitForSerialization(p, c, err, wait, onTrue));
@@ -2263,6 +2413,7 @@ label_46:
       if (p != null)
       {
         p.ready = true;
+        p.canStart = true;
         p.clientResyncing = false;
         p.resyncIE = (IEnumerator<float>) null;
       }
@@ -2329,11 +2480,13 @@ label_46:
 
   public void SendResyncMsg(ZPerson p, string err, bool wait = true, Action onTrue = null)
   {
+    if (this.serverState.busy == ServerState.Busy.Ended)
+      return;
     if (this.isSpectator)
       HUD.instance?.OnSpectatorShouldResync(err);
     if (this.isMulti && this.GetTeam(p.team).Count > 0)
       p = this.GetTeam(p.team)[0];
-    if (!p.Connected)
+    if (!p.Connected && this.isServer)
       return;
     Connection connection = p.connection;
     if (!this.isClient && connection != null && connection.State == ConnectionState.Connected)
@@ -2402,10 +2555,23 @@ label_46:
 
   public void SendTeamMessage(byte[] b, int team)
   {
-    foreach (ZPerson zperson in this.GetTeam(team))
+    if (!this.isTeam)
     {
-      if (zperson.Connected)
-        zperson.connection?.SendBytes(b);
+      try
+      {
+        this.players[team].GetMultiConnection.SendBytes(b);
+      }
+      catch (Exception ex)
+      {
+      }
+    }
+    else
+    {
+      foreach (ZPerson zperson in this.GetTeam(team))
+      {
+        if (zperson.Connected)
+          zperson.connection?.SendBytes(b);
+      }
     }
   }
 
@@ -2578,8 +2744,13 @@ label_46:
       p.id = (byte) index;
       p.team = this.isTeam ? index / g.GetNumberPlayersPerTeam() : index;
       p.name = g.players[index];
-      p.settingsPlayer = g.settingsPlayer[index];
-      ZCreature character = Inert.CreateCharacter(p, g.settingsPlayer[index], new MyLocation(0, 1000), index);
+      p.settingsPlayer = new SettingsPlayer();
+      p.settingsPlayer.CopyOutfit(g.settingsPlayer[index]);
+      if (g.realSpells.Count > index)
+        p.settingsPlayer.CopySpells(g.realSpells[index]);
+      else
+        p.settingsPlayer.CopySpells(g.settingsPlayer[index]);
+      ZCreature character = Inert.CreateCharacter(p, p.settingsPlayer, new MyLocation(0, 1000), index);
       if (this.gameFacts.settings.startHealth != (ushort) 250)
       {
         character.health = (int) this.gameFacts.settings.startHealth;
@@ -2672,6 +2843,12 @@ label_46:
       {
         player.first().waterWalking = false;
         player.first().frostWalking = false;
+        if (!player.first().FullArcane)
+        {
+          player.first().massMulti = (FixedInt) 1;
+          if (player.first().radius != 18)
+            player.first().SetRadius(18);
+        }
       }
       if (player.familiars != null)
       {
@@ -2730,6 +2907,7 @@ label_46:
                 switch (num1)
                 {
                   case 201:
+                    BookOf fam = (BookOf) myBinaryReader.ReadInt32();
                     this.MoveQue.Enqueue((Action) (() =>
                     {
                       p.inactiveTurns = 0;
@@ -2740,40 +2918,50 @@ label_46:
                       else
                       {
                         ZCreature zcreature = p.controlled[0];
-                        if (zcreature.familiarLevelActivateable >= 5 || zcreature.familiar == FamiliarType.Nothing || zcreature.health <= 20)
-                          this.SendResyncMsg(p, "unable to process - When using familiar");
-                        else if (zcreature.FullArcane)
+                        if (this.isServer && fam != zcreature.parent.ActivateableFamiliar)
                         {
-                          if (zcreature.health <= 100)
-                          {
-                            this.SendResyncMsg(p, "full arcane less then 100 hp - When using familiar");
-                          }
-                          else
-                          {
-                            zcreature.DoDamage(100);
-                            this.RemoveFamiliars();
-                            if (!this.isClient)
-                              this.SendAllMessage(b);
-                            if (!this.isClient)
-                              return;
-                            zcreature.UpdateHealthTxt();
-                          }
+                          this.SendResyncMsg(p, "unable to process - When using familiar");
                         }
                         else
                         {
-                          p.IncreaseLevel();
-                          zcreature.DoDamage(20);
-                          if (zcreature.hasDarkDefenses)
-                            zcreature.DarkDefenses(true);
-                          if (!this.isClient)
-                            this.SendAllMessage(b);
-                          this.CreateFamiliar(p.ActivateableFamiliar, p);
-                          if (!this.isClient)
-                            return;
-                          zcreature.UpdateHealthTxt();
-                          if (!((UnityEngine.Object) Player.Instance != (UnityEngine.Object) null) || p != Player.Instance.person)
-                            return;
-                          HUD.instance.fullBookTextLevel.text = "Level " + (object) zcreature.familiarLevelActivateable;
+                          if (this.isClient && fam != zcreature.parent.ActivateableFamiliar)
+                            zcreature.parent.ActivateableFamiliar = fam;
+                          zcreature.parent.familiarBook |= (FamiliarType) (1 << (int) (fam & (BookOf) 31));
+                          if (this.isServer && (zcreature.familiarLevelActivateable >= 5 || zcreature.familiar == FamiliarType.Nothing) || zcreature.health <= 20)
+                            this.SendResyncMsg(p, "unable to process - When using familiar");
+                          else if (zcreature.FullArcane)
+                          {
+                            if (zcreature.health <= 100)
+                            {
+                              this.SendResyncMsg(p, "full arcane less then 100 hp - When using familiar");
+                            }
+                            else
+                            {
+                              zcreature.DoDamage(100);
+                              this.RemoveFamiliars();
+                              if (!this.isClient)
+                                this.SendAllMessage(b);
+                              if (!this.isClient)
+                                return;
+                              zcreature.UpdateHealthTxt();
+                            }
+                          }
+                          else
+                          {
+                            p.IncreaseLevel();
+                            zcreature.DoDamage(20);
+                            if (zcreature.hasDarkDefenses)
+                              zcreature.DarkDefenses(true);
+                            if (!this.isClient)
+                              this.SendAllMessage(b);
+                            this.CreateFamiliar(p.ActivateableFamiliar, p);
+                            if (!this.isClient)
+                              return;
+                            zcreature.UpdateHealthTxt();
+                            if (!((UnityEngine.Object) Player.Instance != (UnityEngine.Object) null) || p != Player.Instance.person)
+                              return;
+                            HUD.instance.fullBookTextLevel.text = "Level " + (object) zcreature.familiarLevelActivateable;
+                          }
                         }
                       }
                     }));
@@ -2806,54 +2994,59 @@ label_46:
                         ZCreature cre = person1.controlled[(int) selectedIndex];
                         if (cre.position.x != validPos1.x || cre.position.y != validPos1.y)
                         {
-                          this.SendResyncMsg(p, "invalid position on move right #id" + (object) moveID + ": " + (object) validPos1 + " expected: " + (object) cre.position, onTrue: (Action) (() =>
+                          if (this.isReplay)
                           {
-                            if (this.loggedToDiscord)
-                              return;
-                            this.loggedToDiscord = true;
-                            Server.Instance?.communicator?.SendResync(this, "Invalid position on move right #id " + (object) moveID + ": " + (object) validPos1 + " expected: " + (object) cre.position + " inwater: " + cre.inWater.ToString());
-                          }));
+                            ChatBox.Instance?.NewChatMsg("invalid position on move right #id" + (object) moveID + ": " + (object) validPos1 + " expected: " + (object) cre.position, Color.red);
+                            cre.position = validPos1;
+                          }
+                          else
+                          {
+                            this.SendResyncMsg(p, "invalid position on move right #id" + (object) moveID + ": " + (object) validPos1 + " expected: " + (object) cre.position, onTrue: (Action) (() =>
+                            {
+                              if (this.loggedToDiscord)
+                                return;
+                              this.loggedToDiscord = true;
+                              Server.Instance?.communicator?.SendResync(this, "Invalid position on move right #id " + (object) moveID + ": " + (object) validPos1 + " expected: " + (object) cre.position + " inwater: " + cre.inWater.ToString());
+                            }));
+                            return;
+                          }
+                        }
+                        if (ZComponent.IsNull((ZComponent) cre) || cre.stunned || !this.AllowMovement || p.InWater() && cre.type != CreatureType.Recall_Device || !fromServer && !p.yourTurn || !cre.canMove && !cre.flying || !cre.controllable || cre.InDarkTotem())
+                          return;
+                        this.serverState.busy = ServerState.Busy.No;
+                        if (!this.isClient)
+                        {
+                          this.SendAllMessage(bites1);
                         }
                         else
                         {
-                          if (ZComponent.IsNull((ZComponent) cre) || cre.stunned || !this.AllowMovement || p.InWater() && cre.type != CreatureType.Recall_Device || !fromServer && !p.yourTurn || !cre.canMove && !cre.flying || !cre.controllable || cre.InDarkTotem())
+                          this._lastActiveCreature = cre;
+                          if (cre.pawn || !cre.flying || cre.entangledOrGravity)
+                            cre.animator?.Play(AnimateState.Walk, 0.05f);
+                          if (CameraMovement.FOLLOWTARGETS && (ZComponent) CameraMovement.Instance.target != (object) cre.transform && !CameraMovement.Instance.IsfollowingBee(cre))
+                            CameraMovement.Instance.LerpToTransform(cre);
+                        }
+                        cre.parent.movedThisTurn = true;
+                        cre.OnMoved();
+                        ++this.numExplosionsAndMovement;
+                        if (cre.flying && !cre.entangledOrGravity)
+                        {
+                          cre.velocity = new MyLocation((FixedInt) ((double) scaleX1 < 0.0 ? -11010048L : -6291456L), (FixedInt) 0);
+                          cre.SetScale(-1f);
+                          cre.moving = this.ongoing.RunCoroutine(cre.FlyMove(true));
+                        }
+                        else
+                        {
+                          if (!sprinting1)
+                            cre.sprinting = 0;
+                          else if (cre.sprinting > 0)
+                            cre.sprinting = 0;
+                          else
+                            --cre.sprinting;
+                          cre.MoveLeft(extraBits1);
+                          if (!sprinting1 || cre.isMoving)
                             return;
-                          this.serverState.busy = ServerState.Busy.No;
-                          if (!this.isClient)
-                          {
-                            this.SendAllMessage(bites1);
-                          }
-                          else
-                          {
-                            this._lastActiveCreature = cre;
-                            if (cre.pawn || !cre.flying || cre.entangledOrGravity)
-                              cre.animator?.Play(AnimateState.Walk, 0.05f);
-                            if (CameraMovement.FOLLOWTARGETS && (ZComponent) CameraMovement.Instance.target != (object) cre.transform && !CameraMovement.Instance.IsfollowingBee(cre))
-                              CameraMovement.Instance.LerpToTransform(cre);
-                          }
-                          cre.parent.movedThisTurn = true;
-                          cre.OnMoved();
-                          if (cre.flying && !cre.entangledOrGravity)
-                          {
-                            cre.velocity = new MyLocation((FixedInt) ((double) scaleX1 < 0.0 ? -11010048L : -6291456L), (FixedInt) 0);
-                            cre.SetScale(-1f);
-                            cre.moving = this.ongoing.RunCoroutine(cre.FlyMove(true));
-                          }
-                          else
-                          {
-                            if (cre.type == CreatureType.Wolf)
-                              sprinting1 = true;
-                            if (!sprinting1)
-                              cre.sprinting = 0;
-                            else if (cre.sprinting > 0)
-                              cre.sprinting = 0;
-                            else
-                              --cre.sprinting;
-                            cre.MoveLeft(extraBits1);
-                            if (!sprinting1 || cre.isMoving)
-                              return;
-                            cre.MoveLeft(extraBits1);
-                          }
+                          cre.MoveLeft(extraBits1);
                         }
                       }
                     }));
@@ -2886,54 +3079,59 @@ label_46:
                         ZCreature cre = person2.controlled[(int) selectedIndex];
                         if (cre.position.x != validPos2.x || cre.position.y != validPos2.y)
                         {
-                          this.SendResyncMsg(p, "invalid position on move left #id" + (object) moveID + ": " + (object) validPos2 + " expected: " + (object) cre.position, onTrue: (Action) (() =>
+                          if (this.isReplay)
                           {
-                            if (this.loggedToDiscord)
-                              return;
-                            this.loggedToDiscord = true;
-                            Server.Instance?.communicator?.SendResync(this, "Invalid position on move left #id " + (object) moveID + ": " + (object) validPos2 + " expected: " + (object) cre.position + " inwater: " + cre.inWater.ToString());
-                          }));
+                            ChatBox.Instance?.NewChatMsg("invalid position on move left #id" + (object) moveID + ": " + (object) validPos2 + " expected: " + (object) cre.position, Color.red);
+                            cre.position = validPos2;
+                          }
+                          else
+                          {
+                            this.SendResyncMsg(p, "invalid position on move left #id" + (object) moveID + ": " + (object) validPos2 + " expected: " + (object) cre.position, onTrue: (Action) (() =>
+                            {
+                              if (this.loggedToDiscord)
+                                return;
+                              this.loggedToDiscord = true;
+                              Server.Instance?.communicator?.SendResync(this, "Invalid position on move left #id " + (object) moveID + ": " + (object) validPos2 + " expected: " + (object) cre.position + " inwater: " + cre.inWater.ToString());
+                            }));
+                            return;
+                          }
+                        }
+                        if (ZComponent.IsNull((ZComponent) cre) || cre.stunned || !this.AllowMovement || p.InWater() && cre.type != CreatureType.Recall_Device || !fromServer && !p.yourTurn || !cre.canMove && !cre.flying || !cre.controllable || cre.InDarkTotem())
+                          return;
+                        this.serverState.busy = ServerState.Busy.No;
+                        if (!this.isClient)
+                        {
+                          this.SendAllMessage(bites2);
                         }
                         else
                         {
-                          if (ZComponent.IsNull((ZComponent) cre) || cre.stunned || !this.AllowMovement || p.InWater() && cre.type != CreatureType.Recall_Device || !fromServer && !p.yourTurn || !cre.canMove && !cre.flying || !cre.controllable || cre.InDarkTotem())
+                          this._lastActiveCreature = cre;
+                          if (cre.pawn || !cre.flying || cre.entangledOrGravity)
+                            cre.animator?.Play(AnimateState.Walk, 0.05f);
+                          if (CameraMovement.FOLLOWTARGETS && (ZComponent) CameraMovement.Instance.target != (object) cre.transform && !CameraMovement.Instance.IsfollowingBee(cre))
+                            CameraMovement.Instance.LerpToTransform(cre);
+                        }
+                        cre.parent.movedThisTurn = true;
+                        cre.OnMoved();
+                        ++this.numExplosionsAndMovement;
+                        if (cre.flying && !cre.entangledOrGravity)
+                        {
+                          cre.velocity = new MyLocation((FixedInt) ((double) scaleX2 > 0.0 ? 9437184L : 4194304L), (FixedInt) 0);
+                          cre.SetScale(1f);
+                          cre.moving = this.ongoing.RunCoroutine(cre.FlyMove(true));
+                        }
+                        else
+                        {
+                          if (!sprinting2)
+                            cre.sprinting = 0;
+                          else if (cre.sprinting < 0)
+                            cre.sprinting = 0;
+                          else
+                            ++cre.sprinting;
+                          cre.MoveRight(extraBits2);
+                          if (!sprinting2 || cre.isMoving)
                             return;
-                          this.serverState.busy = ServerState.Busy.No;
-                          if (!this.isClient)
-                          {
-                            this.SendAllMessage(bites2);
-                          }
-                          else
-                          {
-                            this._lastActiveCreature = cre;
-                            if (cre.pawn || !cre.flying || cre.entangledOrGravity)
-                              cre.animator?.Play(AnimateState.Walk, 0.05f);
-                            if (CameraMovement.FOLLOWTARGETS && (ZComponent) CameraMovement.Instance.target != (object) cre.transform && !CameraMovement.Instance.IsfollowingBee(cre))
-                              CameraMovement.Instance.LerpToTransform(cre);
-                          }
-                          cre.parent.movedThisTurn = true;
-                          cre.OnMoved();
-                          if (cre.flying && !cre.entangledOrGravity)
-                          {
-                            cre.velocity = new MyLocation((FixedInt) ((double) scaleX2 > 0.0 ? 9437184L : 4194304L), (FixedInt) 0);
-                            cre.SetScale(1f);
-                            cre.moving = this.ongoing.RunCoroutine(cre.FlyMove(true));
-                          }
-                          else
-                          {
-                            if (cre.type == CreatureType.Wolf)
-                              sprinting2 = true;
-                            if (!sprinting2)
-                              cre.sprinting = 0;
-                            else if (cre.sprinting < 0)
-                              cre.sprinting = 0;
-                            else
-                              ++cre.sprinting;
-                            cre.MoveRight(extraBits2);
-                            if (!sprinting2 || cre.isMoving)
-                              return;
-                            cre.MoveRight(extraBits2);
-                          }
+                          cre.MoveRight(extraBits2);
                         }
                       }
                     }));
@@ -2966,50 +3164,57 @@ label_46:
                         ZCreature cre = person3.controlled[(int) selectedIndex];
                         if (cre.position.x != validPos3.x || cre.position.y != validPos3.y)
                         {
-                          this.SendResyncMsg(p, "invalid position on high jump #id" + (object) moveID + ": " + (object) validPos3 + " expected: " + (object) cre.position, onTrue: (Action) (() =>
+                          if (this.isReplay)
                           {
-                            if (this.loggedToDiscord)
-                              return;
-                            this.loggedToDiscord = true;
-                            Server.Instance?.communicator?.SendResync(this, "Invalid position on high jump #id " + (object) moveID + ": " + (object) validPos3 + " expected: " + (object) cre.position + " inwater: " + cre.inWater.ToString());
-                          }));
-                        }
-                        else
-                        {
-                          if (ZComponent.IsNull((ZComponent) cre) || cre.stunned || !this.AllowMovement || p.InWater() && cre.type != CreatureType.Recall_Device || !fromServer && !p.yourTurn || !cre.canMove && !cre.flying || !cre.controllable || cre.InDarkTotem())
-                            return;
-                          if ((ZComponent) cre.tower != (object) null)
-                          {
-                            if (cre.tower.type != TowerType.Cosmos)
-                              return;
-                            if (!this.isClient)
-                              this.SendAllMessage(bites3);
-                            cre.tower.TowerMoveUp();
+                            ChatBox.Instance?.NewChatMsg("invalid position on high jump #id" + (object) moveID + ": " + (object) validPos3 + " expected: " + (object) cre.position, Color.red);
+                            cre.position = validPos3;
                           }
                           else
                           {
-                            this.serverState.busy = ServerState.Busy.Moving;
-                            cre.parent.movedThisTurn = true;
-                            cre.OnMoved();
-                            if (cre.pawn || !cre.flying || cre.entangledOrGravity)
-                              cre.animator?.Play(AnimateState.Jump);
-                            if (!this.isClient)
+                            this.SendResyncMsg(p, "invalid position on high jump #id" + (object) moveID + ": " + (object) validPos3 + " expected: " + (object) cre.position, onTrue: (Action) (() =>
                             {
-                              this.SendAllMessage(bites3);
-                            }
-                            else
-                            {
-                              this._lastActiveCreature = cre;
-                              if (CameraMovement.FOLLOWTARGETS && (ZComponent) CameraMovement.Instance.target != (object) cre.transform && !CameraMovement.Instance.IsfollowingBee(cre))
-                                CameraMovement.Instance.LerpToTransform(cre);
-                            }
-                            if ((double) cre.transformscale != (double) scaleX3)
-                              cre.SetScale(scaleX3);
-                            if (!sprinting3)
-                              cre.sprinting = 0;
-                            cre.DoHighJump(extraBits3);
-                            cre.sprinting = 0;
+                              if (this.loggedToDiscord)
+                                return;
+                              this.loggedToDiscord = true;
+                              Server.Instance?.communicator?.SendResync(this, "Invalid position on high jump #id " + (object) moveID + ": " + (object) validPos3 + " expected: " + (object) cre.position + " inwater: " + cre.inWater.ToString());
+                            }));
+                            return;
                           }
+                        }
+                        if (ZComponent.IsNull((ZComponent) cre) || cre.stunned || !this.AllowMovement || p.InWater() && cre.type != CreatureType.Recall_Device || !fromServer && !p.yourTurn || !cre.canMove && !cre.flying || !cre.controllable || cre.InDarkTotem())
+                          return;
+                        if ((ZComponent) cre.tower != (object) null)
+                        {
+                          if (cre.tower.type != TowerType.Cosmos)
+                            return;
+                          if (!this.isClient)
+                            this.SendAllMessage(bites3);
+                          cre.tower.TowerMoveUp();
+                        }
+                        else
+                        {
+                          this.serverState.busy = ServerState.Busy.Moving;
+                          cre.parent.movedThisTurn = true;
+                          cre.OnMoved();
+                          ++this.numExplosionsAndMovement;
+                          if (cre.pawn || !cre.flying || cre.entangledOrGravity)
+                            cre.animator?.Play(AnimateState.Jump);
+                          if (!this.isClient)
+                          {
+                            this.SendAllMessage(bites3);
+                          }
+                          else
+                          {
+                            this._lastActiveCreature = cre;
+                            if (CameraMovement.FOLLOWTARGETS && (ZComponent) CameraMovement.Instance.target != (object) cre.transform && !CameraMovement.Instance.IsfollowingBee(cre))
+                              CameraMovement.Instance.LerpToTransform(cre);
+                          }
+                          if ((double) cre.transformscale != (double) scaleX3)
+                            cre.SetScale(scaleX3);
+                          if (!sprinting3)
+                            cre.sprinting = 0;
+                          cre.DoHighJump(extraBits3);
+                          cre.sprinting = 0;
                         }
                       }
                     }));
@@ -3042,44 +3247,51 @@ label_46:
                         ZCreature cre = person4.controlled[(int) selectedIndex];
                         if (cre.position.x != validPos4.x || cre.position.y != validPos4.y)
                         {
-                          this.SendResyncMsg(p, "invalid position on long jump #id" + (object) moveID + ": " + (object) validPos4 + " expected: " + (object) cre.position, onTrue: (Action) (() =>
+                          if (this.isReplay)
                           {
-                            if (this.loggedToDiscord)
-                              return;
-                            this.loggedToDiscord = true;
-                            Server.Instance?.communicator?.SendResync(this, "Invalid position on long jump #id " + (object) moveID + ": " + (object) validPos4 + " expected: " + (object) cre.position + " inwater: " + cre.inWater.ToString());
-                          }));
-                        }
-                        else
-                        {
-                          if (ZComponent.IsNull((ZComponent) cre) || cre.stunned || !this.AllowMovement || p.InWater() && cre.type != CreatureType.Recall_Device || !fromServer && !p.yourTurn || !cre.canMove && !cre.flying || !cre.controllable || cre.InDarkTotem())
-                            return;
-                          if ((ZComponent) cre.tower != (object) null)
-                          {
-                            if (cre.tower.type != TowerType.Cosmos)
-                              return;
-                            if (!this.isClient)
-                              this.SendAllMessage(bites4);
-                            cre.tower.TowerMoveDown();
+                            ChatBox.Instance?.NewChatMsg("invalid position on long jump #id" + (object) moveID + ": " + (object) validPos4 + " expected: " + (object) cre.position, Color.red);
+                            cre.position = validPos4;
                           }
                           else
                           {
-                            this.serverState.busy = ServerState.Busy.Moving;
-                            cre.parent.movedThisTurn = true;
-                            cre.OnMoved();
-                            if (cre.pawn || !cre.flying || cre.entangledOrGravity)
-                              cre.animator?.Play(AnimateState.Jump);
-                            if (!this.isClient)
-                              this.SendAllMessage(bites4);
-                            else if (CameraMovement.FOLLOWTARGETS && (ZComponent) CameraMovement.Instance.target != (object) cre.transform && !CameraMovement.Instance.IsfollowingBee(cre))
-                              CameraMovement.Instance.LerpToTransform(cre);
-                            if ((double) cre.transformscale != (double) scaleX4)
-                              cre.SetScale(scaleX4);
-                            if (!sprinting4)
-                              cre.sprinting = 0;
-                            cre.DoLongJump(extraBits4);
-                            cre.sprinting = 0;
+                            this.SendResyncMsg(p, "invalid position on long jump #id" + (object) moveID + ": " + (object) validPos4 + " expected: " + (object) cre.position, onTrue: (Action) (() =>
+                            {
+                              if (this.loggedToDiscord)
+                                return;
+                              this.loggedToDiscord = true;
+                              Server.Instance?.communicator?.SendResync(this, "Invalid position on long jump #id " + (object) moveID + ": " + (object) validPos4 + " expected: " + (object) cre.position + " inwater: " + cre.inWater.ToString());
+                            }));
+                            return;
                           }
+                        }
+                        if (ZComponent.IsNull((ZComponent) cre) || cre.stunned || !this.AllowMovement || p.InWater() && cre.type != CreatureType.Recall_Device || !fromServer && !p.yourTurn || !cre.canMove && !cre.flying || !cre.controllable || cre.InDarkTotem())
+                          return;
+                        if ((ZComponent) cre.tower != (object) null)
+                        {
+                          if (cre.tower.type != TowerType.Cosmos)
+                            return;
+                          if (!this.isClient)
+                            this.SendAllMessage(bites4);
+                          cre.tower.TowerMoveDown();
+                        }
+                        else
+                        {
+                          this.serverState.busy = ServerState.Busy.Moving;
+                          cre.parent.movedThisTurn = true;
+                          cre.OnMoved();
+                          ++this.numExplosionsAndMovement;
+                          if (cre.pawn || !cre.flying || cre.entangledOrGravity)
+                            cre.animator?.Play(AnimateState.Jump);
+                          if (!this.isClient)
+                            this.SendAllMessage(bites4);
+                          else if (CameraMovement.FOLLOWTARGETS && (ZComponent) CameraMovement.Instance.target != (object) cre.transform && !CameraMovement.Instance.IsfollowingBee(cre))
+                            CameraMovement.Instance.LerpToTransform(cre);
+                          if ((double) cre.transformscale != (double) scaleX4)
+                            cre.SetScale(scaleX4);
+                          if (!sprinting4)
+                            cre.sprinting = 0;
+                          cre.DoLongJump(extraBits4);
+                          cre.sprinting = 0;
                         }
                       }
                     }));
@@ -3130,14 +3342,25 @@ label_46:
                         {
                           ZCreature cre = person5.controlled[(int) selectedIndex];
                           if (cre.position.x != validPos5.x || cre.position.y != validPos5.y)
-                            this.SendResyncMsg(p, "invalid position on flip flop #id" + (object) moveID + ": " + (object) validPos5 + " expected: " + (object) cre.position, onTrue: (Action) (() =>
+                          {
+                            if (this.isReplay)
                             {
-                              if (this.loggedToDiscord)
-                                return;
-                              this.loggedToDiscord = true;
-                              Server.Instance?.communicator?.SendResync(this, "Invalid position on flip flop #id " + (object) moveID + ": " + (object) validPos5 + " expected: " + (object) cre.position + " inwater: " + cre.inWater.ToString());
-                            }));
-                          else if (ZComponent.IsNull((ZComponent) cre) || p.InWater() && cre.type != CreatureType.Recall_Device)
+                              ChatBox.Instance?.NewChatMsg("invalid position on flip flop #id" + (object) moveID + ": " + (object) validPos5 + " expected: " + (object) cre.position, Color.red);
+                              cre.position = validPos5;
+                            }
+                            else
+                            {
+                              this.SendResyncMsg(p, "invalid position on flip flop #id" + (object) moveID + ": " + (object) validPos5 + " expected: " + (object) cre.position, onTrue: (Action) (() =>
+                              {
+                                if (this.loggedToDiscord)
+                                  return;
+                                this.loggedToDiscord = true;
+                                Server.Instance?.communicator?.SendResync(this, "Invalid position on flip flop #id " + (object) moveID + ": " + (object) validPos5 + " expected: " + (object) cre.position + " inwater: " + cre.inWater.ToString());
+                              }));
+                              return;
+                            }
+                          }
+                          if (ZComponent.IsNull((ZComponent) cre) || p.InWater() && cre.type != CreatureType.Recall_Device)
                           {
                             this.SendResyncMsg(p, "could not flip flop");
                           }
@@ -3186,16 +3409,27 @@ label_46:
                         {
                           ZCreature cre = person6.controlled[(int) selectedIndex];
                           if (cre.position.x != validPos6.x || cre.position.y != validPos6.y)
-                            this.SendResyncMsg(p, "invalid position on flip flop #id" + (object) moveID + ": " + (object) validPos6 + " expected: " + (object) cre.position, onTrue: (Action) (() =>
-                            {
-                              if (this.loggedToDiscord)
-                                return;
-                              this.loggedToDiscord = true;
-                              Server.Instance?.communicator?.SendResync(this, "Invalid position on detower #id " + (object) moveID + ": " + (object) validPos6 + " expected: " + (object) cre.position + " inwater: " + cre.inWater.ToString());
-                            }));
-                          else if (ZComponent.IsNull((ZComponent) cre) || p.InWater() && cre.type != CreatureType.Recall_Device)
                           {
-                            this.SendResyncMsg(p, "could not flip flop");
+                            if (this.isReplay)
+                            {
+                              ChatBox.Instance?.NewChatMsg("invalid position on detower #id" + (object) moveID + ": " + (object) validPos6 + " expected: " + (object) cre.position, Color.red);
+                              cre.position = validPos6;
+                            }
+                            else
+                            {
+                              this.SendResyncMsg(p, "invalid position on detower #id" + (object) moveID + ": " + (object) validPos6 + " expected: " + (object) cre.position, onTrue: (Action) (() =>
+                              {
+                                if (this.loggedToDiscord)
+                                  return;
+                                this.loggedToDiscord = true;
+                                Server.Instance?.communicator?.SendResync(this, "Invalid position on detower #id " + (object) moveID + ": " + (object) validPos6 + " expected: " + (object) cre.position + " inwater: " + cre.inWater.ToString());
+                              }));
+                              return;
+                            }
+                          }
+                          if (ZComponent.IsNull((ZComponent) cre))
+                          {
+                            this.SendResyncMsg(p, "could not detower");
                           }
                           else
                           {
@@ -3239,14 +3473,25 @@ label_46:
                           return;
                         ZCreature cre = person7.controlled[(int) selectedIndex];
                         if (cre.position.x != validPos7.x || cre.position.y != validPos7.y)
-                          this.SendResyncMsg(p, "invalid position on controlled jump #id" + (object) moveID + ": " + (object) validPos7 + " expected: " + (object) cre.position, onTrue: (Action) (() =>
+                        {
+                          if (this.isReplay)
                           {
-                            if (this.loggedToDiscord)
-                              return;
-                            this.loggedToDiscord = true;
-                            Server.Instance?.communicator?.SendResync(this, "Invalid position on controlled jump #id " + (object) moveID + ": " + (object) validPos7 + " expected: " + (object) cre.position + " inwater: " + cre.inWater.ToString());
-                          }));
-                        else if (cre.minerMarket == null || !cre.minerMarket.Has(MinerMarket.Types.Platinum_Climbing_Hooks))
+                            ChatBox.Instance?.NewChatMsg("invalid position on controlled jump #id" + (object) moveID + ": " + (object) validPos7 + " expected: " + (object) cre.position, Color.red);
+                            cre.position = validPos7;
+                          }
+                          else
+                          {
+                            this.SendResyncMsg(p, "invalid position on controlled jump #id" + (object) moveID + ": " + (object) validPos7 + " expected: " + (object) cre.position, onTrue: (Action) (() =>
+                            {
+                              if (this.loggedToDiscord)
+                                return;
+                              this.loggedToDiscord = true;
+                              Server.Instance?.communicator?.SendResync(this, "Invalid position on controlled jump #id " + (object) moveID + ": " + (object) validPos7 + " expected: " + (object) cre.position + " inwater: " + cre.inWater.ToString());
+                            }));
+                            return;
+                          }
+                        }
+                        if (cre.minerMarket == null || !cre.minerMarket.Has(MinerMarket.Types.Platinum_Climbing_Hooks))
                         {
                           this.SendResyncMsg(p, "This minion cannot use controlled jumps :(");
                         }
@@ -3257,6 +3502,7 @@ label_46:
                           this.serverState.busy = ServerState.Busy.Moving;
                           cre.parent.movedThisTurn = true;
                           cre.OnMoved();
+                          ++this.numExplosionsAndMovement;
                           if (cre.pawn || !cre.flying || cre.entangledOrGravity)
                             cre.animator?.Play(AnimateState.Jump);
                           if (!this.isClient)
@@ -3274,6 +3520,10 @@ label_46:
                     break;
                   case 220:
                     ZPerson person8 = p;
+                    SpellEnum spellEnum = (SpellEnum) myBinaryReader.ReadInt32();
+                    int bonusDmg = myBinaryReader.ReadInt32();
+                    bool isPresent = myBinaryReader.ReadBoolean();
+                    bool endsTurn = myBinaryReader.ReadBoolean();
                     byte selectedZSpell = myBinaryReader.ReadByte();
                     FixedInt rot_z2 = (FixedInt) myBinaryReader.ReadInt64();
                     float scaleX7 = myBinaryReader.ReadBoolean() ? 1f : -1f;
@@ -3311,15 +3561,35 @@ label_46:
                         else
                         {
                           ZCreature creature = person8.controlled[(int) selectedIndex];
+                          if (!creature.controllable)
+                            return;
+                          if (this.isClient && (int) selectedZSpell >= creature.spells.Count)
+                          {
+                            selectedZSpell = (byte) 0;
+                            if (creature.spells.Count == 0)
+                              creature.spells.Add(new SpellSlot(Inert.Instance._spells[0]));
+                          }
                           if (!creature.inWater && creature.spells.Count <= (int) selectedZSpell)
                           {
                             this.SendResyncMsg(p, "server spell count does not match");
                           }
                           else
                           {
-                            if (!creature.controllable)
-                              return;
                             SpellSlot spellSlot = creature.inWater ? creature.GetAvailableGate(ref selectedZSpell) ?? Inert.Instance.waterGate : creature.spells[(int) selectedZSpell];
+                            if (this.isClient)
+                            {
+                              if (spellSlot.spell.spellEnum != spellEnum)
+                              {
+                                spellSlot.spell = Inert.GetSpell(spellEnum);
+                                spellSlot.serializedSpellEnum = spellSlot.spell.spellEnum;
+                              }
+                              if (spellSlot != Inert.Instance.waterGate)
+                              {
+                                spellSlot.EndsTurn = endsTurn;
+                                spellSlot.bonusDmg = bonusDmg;
+                                spellSlot.isPresent = isPresent;
+                              }
+                            }
                             Spell spell = spellSlot.spell;
                             if ((UnityEngine.Object) spell == (UnityEngine.Object) null)
                             {
@@ -3328,19 +3598,31 @@ label_46:
                             else
                             {
                               int localTurn = creature.parent.localTurn;
-                              if (spellSlot.MaxUses >= 0 && spellSlot.UsedUses >= spellSlot.MaxUses && !creature.inWater)
-                                this.SendResyncMsg(p, "uses mismatch - When casting a spell");
-                              else if (spellSlot.TurnsTillFirstUse > localTurn && !creature.inWater)
-                                this.SendResyncMsg(p, "not enough turns have passed to cast this spell");
-                              else if ((spellSlot.LastTurnFired == localTurn && (!creature.flying || !spell.spellEnum.IsFlight()) || (spellSlot.RechargeTime > 0 || spellSlot.LastTurnFired > localTurn) && spellSlot.LastTurnFired + spellSlot.RechargeTime >= localTurn && (!spellSlot.spell.spellEnum.IsFlight() || !creature.flying) && (spellSlot.TurnsTillFirstUse > localTurn || spellSlot.LastTurnFired > -1)) && !creature.inWater)
+                              if (this.isServer)
                               {
-                                this.SendResyncMsg(p, "unable to cast this turn " + (object) spellSlot.spell + " ltf: " + (object) spellSlot.LastTurnFired + " flying: " + creature.flying.ToString() + " recharge: " + (object) spellSlot.RechargeTime + " curTurn: " + (object) localTurn + " ttfs: " + (object) spellSlot.TurnsTillFirstUse);
-                              }
-                              else
-                              {
+                                if (spellSlot.spell.spellEnum != spellEnum || spellSlot.bonusDmg != bonusDmg || spellSlot.isPresent != isPresent || spellSlot.EndsTurn != endsTurn)
+                                {
+                                  this.SendResyncMsg(p, "spell mismatch");
+                                  return;
+                                }
+                                if (spellSlot.MaxUses >= 0 && spellSlot.UsedUses >= spellSlot.MaxUses && !creature.inWater)
+                                {
+                                  this.SendResyncMsg(p, "uses mismatch - When casting a spell");
+                                  return;
+                                }
+                                if (spellSlot.TurnsTillFirstUse > localTurn && !creature.inWater)
+                                {
+                                  this.SendResyncMsg(p, "not enough turns have passed to cast this spell");
+                                  return;
+                                }
+                                if ((spellSlot.LastTurnFired == localTurn && (!creature.flying || !spell.spellEnum.IsFlight()) || (spellSlot.RechargeTime > 0 || spellSlot.LastTurnFired > localTurn) && spellSlot.LastTurnFired + spellSlot.RechargeTime >= localTurn && (!spellSlot.spell.spellEnum.IsFlight() || !creature.flying) && (spellSlot.TurnsTillFirstUse > localTurn || spellSlot.LastTurnFired > -1)) && !creature.inWater)
+                                {
+                                  this.SendResyncMsg(p, "unable to cast this turn " + (object) spellSlot.spell + " ltf: " + (object) spellSlot.LastTurnFired + " flying: " + creature.flying.ToString() + " recharge: " + (object) spellSlot.RechargeTime + " curTurn: " + (object) localTurn + " ttfs: " + (object) spellSlot.TurnsTillFirstUse);
+                                  return;
+                                }
                                 if (!creature.inWater)
                                 {
-                                  if (creature.phantom && spell.bookOf != BookOf.Arcane && spell.bookOf != BookOf.Illusion)
+                                  if (creature.phantom && !spellSlot.isPresent && spell.bookOf != BookOf.Arcane && spell.bookOf != BookOf.Illusion && spell.spellEnum != SpellEnum.Spirit_Link)
                                   {
                                     this.SendResyncMsg(p, "spell unavailable when phantom");
                                     return;
@@ -3373,10 +3655,24 @@ label_46:
                                   }
                                 }
                                 if (ClickSpell.Level3(spell, spell.spellEnum, creature, spellSlot) != 0 && !creature.inWater)
+                                {
                                   this.SendResyncMsg(p, "spell could not be cast");
-                                else if (this.ArcaneZero && (spell.damage > 0 || spell.spellEnum == SpellEnum.Snowball) && !creature.inWater)
+                                  return;
+                                }
+                                if (this.ArcaneZero && (spell.damage > 0 || spell.spellEnum == SpellEnum.Snowball) && !creature.inWater)
+                                {
                                   this.SendResyncMsg(p, "Zero shield was active (damaging spell)");
-                                else if (creature.position.x != validPos8.x || creature.position.y != validPos8.y)
+                                  return;
+                                }
+                              }
+                              if (creature.position.x != validPos8.x || creature.position.y != validPos8.y)
+                              {
+                                if (this.isReplay)
+                                {
+                                  ChatBox.Instance?.NewChatMsg("invalid position when casting: " + (object) validPos8 + " expected: " + (object) creature.position, Color.red);
+                                  creature.position = validPos8;
+                                }
+                                else
                                 {
                                   this.SendResyncMsg(p, "invalid position when casting: " + (object) validPos8 + " expected: " + (object) creature.position, onTrue: (Action) (() =>
                                   {
@@ -3385,144 +3681,154 @@ label_46:
                                     this.loggedToDiscord = true;
                                     Server.Instance?.communicator?.SendResync(this, "Invalid position: " + (object) validPos8 + " expected: " + (object) creature.position + " inwater: " + creature.inWater.ToString() + " spell: " + (object) spell.spellEnum + " (" + (object) selectedZSpell + ") Busy: " + (object) this.serverState.busy + " turn time: " + (object) this.serverState.turnTime);
                                   }));
-                                }
-                                else
-                                {
-                                  if (selectedIndex != (byte) 0 && p.InWater() && creature.type != CreatureType.Recall_Device)
-                                    return;
-                                  if ((double) creature.transformscale != (double) scaleX7)
-                                    creature.SetScale(scaleX7);
-                                  if (!this.isClient)
-                                  {
-                                    if (!ZSpell.ServerCanFire(spell, (int) target.x, (int) target.y, (int) secTarget.x, (int) secTarget.y, creature, rot_z2, power, new MyLocation(target.x, target.y)))
-                                    {
-                                      this.SendResyncMsg(p, "spell could not be fired");
-                                      return;
-                                    }
-                                    this.SendAllMessage(bites8);
-                                  }
-                                  if (creature.inWater)
-                                  {
-                                    if (!this.First_Turn_Teleport || creature.parent.localTurn > 0)
-                                    {
-                                      if ((spell.spellEnum == SpellEnum.Arcane_Gate || spell.spellEnum == SpellEnum.Santas_Magic) && (spellSlot.LastTurnFired > localTurn - 5 && spellSlot.LastTurnFired > -1 || creature.parent.arcaneGateSpellSlot == null))
-                                      {
-                                        if (creature.health < 8)
-                                        {
-                                          creature.DoDamage(5);
-                                          creature.UpdateHealthTxt();
-                                          if (creature.health <= 0)
-                                          {
-                                            this.with_the_fishes = true;
-                                            if (this.isClient && Global.GetPrefBool("prefdeathmsg", true))
-                                              ChatBox.Instance?.NewChatMsg("", Descriptions.GetDrownMessage(creature), (Color) ColorScheme.GetColor(Global.ColorWhiteText), "", ChatOrigination.System);
-                                            creature.OnDeath(true);
-                                          }
-                                        }
-                                        else
-                                        {
-                                          creature.health = (int) ((FixedInt) creature.health * (FixedInt) 692060L);
-                                          creature.UpdateHealthTxt();
-                                        }
-                                      }
-                                      spellSlot.SetTurnFired = localTurn;
-                                      Inert.Instance.waterGate.SetTurnFired = localTurn;
-                                    }
-                                  }
-                                  else
-                                  {
-                                    if (!this.isSandbox || this.isTutorial)
-                                      spellSlot.IncreaseUses();
-                                    if (!spellSlot.spell.spellEnum.IsFlight() || !creature.flying)
-                                    {
-                                      if (!spellSlot.EndsTurn || spellSlot.RechargeTime > 0)
-                                        spellSlot.SetTurnFired = localTurn;
-                                    }
-                                    else
-                                      spellSlot.SetTurnFired = Mathf.Max(localTurn - 4, spellSlot.LastTurnFired);
-                                  }
-                                  if (spellSlot.EndsTurn)
-                                  {
-                                    this.serverState.busy = ServerState.Busy.Between_Turns;
-                                    p.yourTurn = false;
-                                  }
-                                  else
-                                  {
-                                    this.serverState.busy = ServerState.Busy.Moving;
-                                    p.movedThisTurn = true;
-                                  }
-                                  if (creature.fusion > 0)
-                                  {
-                                    creature.fusion = 0;
-                                    creature.UpdateHealthTxt();
-                                  }
-                                  rot_z2 = creature.ClampAngle(rot_z2);
-                                  FixedInt force = (FixedInt) (creature.radius - 5);
-                                  MyLocation position = creature.position;
-                                  if (spell.type == CastType.Naplem)
-                                    power = (FixedInt) 0;
-                                  if (extended && spell.type != CastType.Placement && spell.type != CastType.Target_Placement)
-                                  {
-                                    rot_z2 = Player.ClampAngle(rot_z2);
-                                    Player.PowerLevel powerLevel = Player.GetPowerLevel(rot_z2);
-                                    power += Player.PowerExtend(spell.type, powerLevel, power);
-                                    force += Player.LinearExtend(powerLevel, (FixedInt) creature.radius);
-                                    if (spell.type == CastType.Flash)
-                                    {
-                                      if (spell.spellEnum == SpellEnum.Arcane_Flash)
-                                        position += Global.VelocityRight(rot_z2, force);
-                                      else
-                                        position += Global.VelocityRight(rot_z2, force / 6);
-                                    }
-                                  }
-                                  if (spell.type == CastType.Naplem || spell.type == CastType.Flash || spell.type == CastType.Power || spell.type == CastType.Target_Power || spell.type == CastType.Double_Naplem)
-                                    position += Global.VelocityRight(rot_z2, force);
-                                  if (creature.invulnerable > 0 && creature.invulnerable < 1000)
-                                    creature.invulnerable = 0;
-                                  for (int index = this.windShieldEffectors.Count - 1; index >= 0; --index)
-                                  {
-                                    if (ZComponent.IsNull((ZComponent) this.windShieldEffectors[index]))
-                                      this.windShieldEffectors.RemoveAt(index);
-                                    else
-                                      this.windShieldEffectors[index].SetWindShieldActive();
-                                  }
-                                  if (spellSlot.EndsTurn && !this.resyncing)
-                                    this.ongoing.RunCoroutine(this.castWait(110f));
-                                  if (creature.fusion > 0)
-                                  {
-                                    creature.fusion = 0;
-                                    creature.UpdateHealthTxt();
-                                  }
-                                  if (this.isClient && !this.resyncing && (spellSlot.EndsTurn || (UnityEngine.Object) Player.Instance == (UnityEngine.Object) null || !Player.Instance.person.yourTurn))
-                                    HUD.instance.CastSpell(spell, creature);
-                                  if (this.isClient && !this.resyncing && HUD.instance.FollowSpells)
-                                  {
-                                    CameraMovement.FOLLOWTARGETS = true;
-                                    CameraMovement.Instance.activeTarget = (IFollowTarget) null;
-                                    CameraMovement.followTargets.Clear();
-                                    if (spell.type == CastType.Placement || spell.type == CastType.Blit)
-                                      CameraMovement.followTargets.Enqueue((IFollowTarget) new FollowPosition(target.ToSinglePrecision()));
-                                    else if (spell.type == CastType.Tower || spell.type == CastType.Flight)
-                                      CameraMovement.followTargets.Enqueue((IFollowTarget) new FollowPosition(creature.position.ToSinglePrecision()));
-                                  }
-                                  this.forceRysncPause = true;
-                                  person8.curDamageDealtInOneAttack = 0;
-                                  person8.awards.OnCasted(spell);
-                                  this.lastSpellCast = spell.spellEnum;
-                                  this.portalUsedThisSpellTurn = false;
-                                  this.sinksThisTurn = 0;
-                                  ++person8.spellsCastTHISTurn;
-                                  if (!creature.isPawn)
-                                    person8.IncreaseCastCount(spell.spellEnum);
-                                  ZSpell.FireWhich(spell, creature, position, rot_z2, power, target, secTarget, (int) selectedZSpell, extended);
-                                  if (this.isTutorial && Client._tutorial.onCast != null)
-                                    Client._tutorial.onCast(new ContainerCreature(creature), new ContainerSpell(spellSlot));
-                                  if (!spellSlot.isPresent)
-                                    return;
-                                  spellSlot.IncreaseUses();
-                                  creature?.spells.RemoveAt((int) selectedZSpell);
+                                  return;
                                 }
                               }
+                              if (selectedIndex != (byte) 0 && p.InWater() && creature.type != CreatureType.Recall_Device)
+                                return;
+                              if ((double) creature.transformscale != (double) scaleX7)
+                                creature.SetScale(scaleX7);
+                              if (!this.isClient)
+                              {
+                                if (!ZSpell.ServerCanFire(spell, (int) target.x, (int) target.y, (int) secTarget.x, (int) secTarget.y, creature, rot_z2, power, new MyLocation(target.x, target.y)))
+                                {
+                                  this.SendResyncMsg(p, "spell could not be fired");
+                                  return;
+                                }
+                                this.SendAllMessage(bites8);
+                              }
+                              if (creature.inWater)
+                              {
+                                if (!this.First_Turn_Teleport || creature.parent.localTurn > 0)
+                                {
+                                  if ((spell.spellEnum == SpellEnum.Arcane_Gate || spell.spellEnum == SpellEnum.Santas_Magic) && (spellSlot.LastTurnFired > localTurn - 5 && spellSlot.LastTurnFired > -1 || creature.parent.arcaneGateSpellSlot == null) && this.isServer)
+                                  {
+                                    if (creature.health < 8)
+                                    {
+                                      creature.DoDamage(5);
+                                      this.SendCreatureHealth(creature);
+                                      creature.UpdateHealthTxt();
+                                      if (creature.health <= 0)
+                                      {
+                                        this.with_the_fishes = true;
+                                        if (this.isClient && Global.GetPrefBool("prefdeathmsg", true))
+                                          ChatBox.Instance?.NewChatMsg("", Descriptions.GetDrownMessage(creature), (Color) ColorScheme.GetColor(Global.ColorWhiteText), "", ChatOrigination.System);
+                                        creature.OnDeath(true);
+                                      }
+                                    }
+                                    else
+                                    {
+                                      creature.health = (int) ((FixedInt) creature.health * (FixedInt) 692060L);
+                                      this.SendCreatureHealth(creature);
+                                      creature.UpdateHealthTxt();
+                                    }
+                                  }
+                                  spellSlot.SetTurnFired = localTurn;
+                                  Inert.Instance.waterGate.SetTurnFired = localTurn;
+                                }
+                              }
+                              else
+                              {
+                                if (!this.isSandbox || this.isTutorial)
+                                  spellSlot.IncreaseUses();
+                                if (!spellSlot.spell.spellEnum.IsFlight() || !creature.flying)
+                                {
+                                  if (!spellSlot.EndsTurn || spellSlot.RechargeTime > 0)
+                                    spellSlot.SetTurnFired = localTurn;
+                                }
+                                else
+                                  spellSlot.SetTurnFired = Mathf.Max(localTurn - 4, spellSlot.LastTurnFired);
+                              }
+                              if (creature.phantom && creature.spellEnum != SpellEnum.None)
+                              {
+                                creature.collider.gameObjectLayer = 8;
+                                creature.collider.layer = 256;
+                              }
+                              if (spellSlot.EndsTurn)
+                              {
+                                this.serverState.busy = ServerState.Busy.Between_Turns;
+                                p.yourTurn = false;
+                              }
+                              else
+                              {
+                                this.serverState.busy = ServerState.Busy.Moving;
+                                p.movedThisTurn = true;
+                              }
+                              if (creature.fusion > 0)
+                              {
+                                creature.fusion = 0;
+                                creature.UpdateHealthTxt();
+                              }
+                              rot_z2 = creature.ClampAngle(rot_z2);
+                              FixedInt force = (FixedInt) (creature.radius - 5);
+                              MyLocation position = creature.position;
+                              if (spell.type == CastType.Naplem)
+                                power = (FixedInt) 0;
+                              if (extended && spell.type != CastType.Placement && spell.type != CastType.Target_Placement)
+                              {
+                                rot_z2 = Player.ClampAngle(rot_z2);
+                                Player.PowerLevel powerLevel = Player.GetPowerLevel(rot_z2);
+                                power += Player.PowerExtend(spell.type, powerLevel, power);
+                                force += Player.LinearExtend(powerLevel, (FixedInt) creature.radius);
+                                if (spell.type == CastType.Flash)
+                                {
+                                  if (spell.spellEnum == SpellEnum.Arcane_Flash)
+                                    position += Global.VelocityRight(rot_z2, force);
+                                  else
+                                    position += Global.VelocityRight(rot_z2, force / 6);
+                                }
+                              }
+                              if (spell.type == CastType.Naplem || spell.type == CastType.Flash || spell.type == CastType.Power || spell.type == CastType.Target_Power || spell.type == CastType.Double_Naplem)
+                                position += Global.VelocityRight(rot_z2, force);
+                              if (creature.invulnerable > 0 && creature.invulnerable < 1000)
+                                creature.invulnerable = 0;
+                              for (int index1 = this.windShieldEffectors.Count - 1; index1 >= 0; --index1)
+                              {
+                                if (ZComponent.IsNull((ZComponent) this.windShieldEffectors[index1]))
+                                  this.windShieldEffectors.RemoveAt(index1);
+                                else
+                                  this.windShieldEffectors[index1].SetWindShieldActive();
+                              }
+                              if (spellSlot.EndsTurn && !this.resyncing)
+                              {
+                                if (!this.isSandbox && !this.isTutorial)
+                                  this.serverState.turnTime += 2f;
+                                this.ongoing.RunCoroutine(this.castWait(110f));
+                              }
+                              if (creature.fusion > 0)
+                              {
+                                creature.fusion = 0;
+                                creature.UpdateHealthTxt();
+                              }
+                              if (this.isClient && !this.resyncing && (spellSlot.EndsTurn || (UnityEngine.Object) Player.Instance == (UnityEngine.Object) null || !Player.Instance.person.yourTurn))
+                                HUD.instance.CastSpell(spell, creature);
+                              if (this.isClient && !this.resyncing && HUD.instance.FollowSpells)
+                              {
+                                CameraMovement.FOLLOWTARGETS = true;
+                                CameraMovement.Instance.activeTarget = (IFollowTarget) null;
+                                CameraMovement.followTargets.Clear();
+                                if (spell.type == CastType.Placement || spell.type == CastType.Blit)
+                                  CameraMovement.followTargets.Enqueue((IFollowTarget) new FollowPosition(target.ToSinglePrecision()));
+                                else if (spell.type == CastType.Tower || spell.type == CastType.Flight)
+                                  CameraMovement.followTargets.Enqueue((IFollowTarget) new FollowPosition(creature.position.ToSinglePrecision()));
+                              }
+                              ++this.numExplosionsAndMovement;
+                              this.forceRysncPause = true;
+                              person8.curDamageDealtInOneAttack = 0;
+                              person8.awards.OnCasted(spell);
+                              this.lastSpellCast = spell.spellEnum;
+                              this.portalUsedThisSpellTurn = false;
+                              this.sinksThisTurn = 0;
+                              ++person8.spellsCastTHISTurn;
+                              if (!creature.isPawn)
+                                person8.IncreaseCastCount(spell.spellEnum);
+                              ZSpell.FireWhich(spell, creature, position, rot_z2, power, target, secTarget, (int) selectedZSpell, extended, spellSlot);
+                              if (this.isTutorial && Client._tutorial.onCast != null)
+                                Client._tutorial.onCast(new ContainerCreature(creature), new ContainerSpell(spellSlot));
+                              if (!spellSlot.isPresent)
+                                return;
+                              spellSlot.IncreaseUses();
+                              creature?.spells.RemoveAt((int) selectedZSpell);
                             }
                           }
                         }
@@ -3568,6 +3874,8 @@ label_46:
                 p.didLeave = false;
                 p.panelPlayer?.Rejoined();
                 break;
+              case 9:
+                break;
               case 10:
                 if (Global.GetPrefBool("prefsavereplay", true))
                   this.SaveReplay();
@@ -3577,27 +3885,27 @@ label_46:
               case 13:
                 this.serverState.busy = ServerState.Busy.Ended;
                 bool[] alive = new bool[this.players.Count];
-                for (int index = 0; index < this.players.Count; ++index)
-                  alive[index] = myBinaryReader.ReadBoolean();
+                for (int index2 = 0; index2 < this.players.Count; ++index2)
+                  alive[index2] = myBinaryReader.ReadBoolean();
                 string msg = myBinaryReader.ReadString();
                 foreach (ZPerson player in this.players)
                   player.gainedWands = myBinaryReader.ReadInt32();
                 bool aWinner = false;
                 UnityThreadHelper.Dispatcher.Dispatch2((Action) (() =>
                 {
-                  for (int index = 0; index < this.players.Count; ++index)
+                  for (int index3 = 0; index3 < this.players.Count; ++index3)
                   {
-                    if (alive[index])
+                    if (alive[index3])
                     {
-                      HUD.instance.uiPlayerCharacters[index].Won();
-                      HUD.instance.panelStartColor.color = this.players[index].clientColor;
+                      HUD.instance.uiPlayerCharacters[index3].Won();
+                      HUD.instance.panelStartColor.color = this.players[index3].clientColor;
                       aWinner = true;
                     }
                     else
-                      HUD.instance.uiPlayerCharacters[index].Dead();
-                    if (this.players[index].gainedWands > 0 && string.Equals(this.players[index].name, Client.Name))
-                      ChatBox.Instance?.NewChatMsg("You received <color=white>" + (object) this.players[index].gainedWands + "</color> wand" + (this.players[index].gainedWands > 1 ? (object) "s!" : (object) "!"), (Color) ColorScheme.GetColor(Global.ColorSystem));
-                    HUD.instance.uiPlayerCharacters[index].ShowScrolls(this.players[index].gainedWands);
+                      HUD.instance.uiPlayerCharacters[index3].Dead();
+                    if (this.players[index3].gainedWands > 0 && string.Equals(this.players[index3].name, Client.Name))
+                      ChatBox.Instance?.NewChatMsg("You received <color=white>" + (object) this.players[index3].gainedWands + "</color> wand" + (this.players[index3].gainedWands > 1 ? (object) "s!" : (object) "!"), (Color) ColorScheme.GetColor(Global.ColorSystem));
+                    HUD.instance.uiPlayerCharacters[index3].ShowScrolls(this.players[index3].gainedWands);
                   }
                   if (!aWinner)
                     HUD.instance.panelStartColor.color = new Color(0.245283f, 0.245283f, 0.245283f, 0.9019f);
@@ -3620,7 +3928,7 @@ label_46:
                 }));
                 break;
               case 15:
-                int index1 = (int) myBinaryReader.ReadByte();
+                int index4 = (int) myBinaryReader.ReadByte();
                 float num5 = myBinaryReader.ReadSingle();
                 float num6 = myBinaryReader.ReadSingle();
                 if (this.serverState.busy != ServerState.Busy.No && this.serverState.busy != ServerState.Busy.Moving)
@@ -3636,12 +3944,18 @@ label_46:
                 }
                 if ((double) Math.Abs(num5 - this.serverState.turnTime) > 0.5)
                   this.serverState.turnTime = num5;
-                if ((double) num6 >= (double) this.players[index1].countdown)
+                if ((double) num6 >= (double) this.players[index4].countdown)
                   break;
-                this.players[index1].countdown = num6;
+                this.players[index4].countdown = num6;
                 break;
               case 16:
                 this.HandleMap(myBinaryReader);
+                if (Client.connection == null || Client.connection.State != ConnectionState.Connected || Spectator.isConnected)
+                  break;
+                Client.connection.SendBytes(new byte[1]
+                {
+                  (byte) 9
+                });
                 break;
               case 17:
                 break;
@@ -3649,7 +3963,7 @@ label_46:
                 this.receivedInitialMsg = true;
                 this.timeline.Clear();
                 int num7 = myBinaryReader.ReadInt32();
-                for (int index2 = 0; index2 < num7; ++index2)
+                for (int index5 = 0; index5 < num7; ++index5)
                   this.timeline.Add(myBinaryReader.ReadBytes());
                 if (this.isSpectator)
                 {
@@ -3661,10 +3975,10 @@ label_46:
                 break;
               case 64:
                 this.receivedInitialMsg = true;
-                int index3 = myBinaryReader.ReadInt32();
+                int index6 = myBinaryReader.ReadInt32();
                 int num8 = myBinaryReader.ReadInt32();
-                this.timeline.RemoveRange(index3, this.timeline.Count - index3);
-                for (int index4 = 0; index4 < num8; ++index4)
+                this.timeline.RemoveRange(index6, this.timeline.Count - index6);
+                for (int index7 = 0; index7 < num8; ++index7)
                   this.timeline.Add(myBinaryReader.ReadBytes());
                 string str1 = myBinaryReader.ReadString();
                 if (!string.IsNullOrEmpty(str1))
@@ -3680,150 +3994,150 @@ label_46:
                       int num9 = myBinaryReader.ReadInt32();
                       if (num9 == this.players.Count)
                       {
-                        for (int index5 = 0; index5 < num9; ++index5)
+                        for (int index8 = 0; index8 < num9; ++index8)
                         {
-                          this.players[index5].yourTurn = myBinaryReader.ReadBoolean();
-                          List<ZCreature> controlled = this.players[index5].controlled;
+                          this.players[index8].yourTurn = myBinaryReader.ReadBoolean();
+                          List<ZCreature> controlled = this.players[index8].controlled;
                           int num10 = myBinaryReader.ReadInt32();
                           if (num10 == controlled.Count)
                           {
-                            for (int index6 = 0; index6 < num10; ++index6)
+                            for (int index9 = 0; index9 < num10; ++index9)
                             {
                               bool flag2 = myBinaryReader.ReadBoolean();
-                              if (flag2 == ((ZComponent) controlled[index6] != (object) null))
+                              if (flag2 == ((ZComponent) controlled[index9] != (object) null))
                               {
                                 if (flag2)
                                 {
-                                  controlled[index6].KillMovement();
+                                  controlled[index9].KillMovement();
                                   MyLocation pos = myBinaryReader.ReadMyLocation();
-                                  controlled[index6].position = pos;
-                                  controlled[index6].collider?.Move(pos);
-                                  controlled[index6].health = myBinaryReader.ReadInt32();
-                                  ZCreature rider = controlled[index6].rider;
-                                  controlled[index6].rider = (ZCreature) null;
-                                  controlled[index6].SetScale(myBinaryReader.ReadSingle());
-                                  controlled[index6].rider = rider;
-                                  controlled[index6].retribution = myBinaryReader.ReadInt32();
+                                  controlled[index9].position = pos;
+                                  controlled[index9].collider?.Move(pos);
+                                  controlled[index9].health = myBinaryReader.ReadInt32();
+                                  ZCreature rider = controlled[index9].rider;
+                                  controlled[index9].rider = (ZCreature) null;
+                                  controlled[index9].SetScale(myBinaryReader.ReadSingle());
+                                  controlled[index9].rider = rider;
+                                  controlled[index9].retribution = myBinaryReader.ReadInt32();
                                   int num11 = myBinaryReader.ReadInt32();
                                   if (num11 > 0)
-                                    controlled[index6].CreateProtectionShield();
-                                  controlled[index6].shield = num11;
+                                    controlled[index9].CreateProtectionShield();
+                                  controlled[index9].shield = num11;
                                   bool flag3 = myBinaryReader.ReadBoolean();
-                                  controlled[index6].stunned = flag3;
+                                  controlled[index9].stunned = flag3;
                                   if (flag3)
-                                    controlled[index6].OnStunned();
+                                    controlled[index9].OnStunned();
                                   if (myBinaryReader.ReadBoolean())
                                   {
-                                    int index7 = myBinaryReader.ReadInt32();
-                                    int index8 = myBinaryReader.ReadInt32();
-                                    controlled[index6].mount = this.players[index7].controlled[index8];
-                                    controlled[index6].mount.rider = controlled[index6];
+                                    int index10 = myBinaryReader.ReadInt32();
+                                    int index11 = myBinaryReader.ReadInt32();
+                                    controlled[index9].mount = this.players[index10].controlled[index11];
+                                    controlled[index9].mount.rider = controlled[index9];
                                   }
-                                  else if ((ZComponent) controlled[index6].mount != (object) null)
+                                  else if ((ZComponent) controlled[index9].mount != (object) null)
                                   {
-                                    controlled[index6].mount.rider = (ZCreature) null;
-                                    controlled[index6].mount = (ZCreature) null;
+                                    controlled[index9].mount.rider = (ZCreature) null;
+                                    controlled[index9].mount = (ZCreature) null;
                                   }
                                   if (myBinaryReader.ReadBoolean())
                                   {
-                                    controlled[index6].tower.SetPositionResync(myBinaryReader.ReadMyLocation());
-                                    controlled[index6].tower.Health = myBinaryReader.ReadInt32();
+                                    controlled[index9].tower.SetPositionResync(myBinaryReader.ReadMyLocation());
+                                    controlled[index9].tower.Health = myBinaryReader.ReadInt32();
                                   }
                                   int num12 = myBinaryReader.ReadInt32();
-                                  if (controlled[index6].effectors.Count == num12)
+                                  if (controlled[index9].effectors.Count == num12)
                                   {
-                                    for (int index9 = 0; index9 < num12; ++index9)
+                                    for (int index12 = 0; index12 < num12; ++index12)
                                     {
                                       bool flag4 = myBinaryReader.ReadBoolean();
-                                      if (flag4 == ((ZComponent) controlled[index6].effectors[index9] != (object) null))
+                                      if (flag4 == ((ZComponent) controlled[index9].effectors[index12] != (object) null))
                                       {
                                         if (flag4)
                                         {
-                                          controlled[index6].effectors[index9].position = myBinaryReader.ReadMyLocation();
-                                          controlled[index6].effectors[index9].active = myBinaryReader.ReadBoolean();
-                                          controlled[index6].effectors[index9].variable = myBinaryReader.ReadInt32();
-                                          controlled[index6].effectors[index9].VisualUpdate();
+                                          controlled[index9].effectors[index12].position = myBinaryReader.ReadMyLocation();
+                                          controlled[index9].effectors[index12].active = myBinaryReader.ReadBoolean();
+                                          controlled[index9].effectors[index12].variable = myBinaryReader.ReadInt32();
+                                          controlled[index9].effectors[index12].VisualUpdate();
                                         }
                                       }
                                       else
-                                        goto label_136;
+                                        goto label_159;
                                     }
                                     int num13 = myBinaryReader.ReadInt32();
-                                    if (controlled[index6].destroyableEffectors.Count == num13)
+                                    if (controlled[index9].destroyableEffectors.Count == num13)
                                     {
-                                      for (int index10 = 0; index10 < num13; ++index10)
+                                      for (int index13 = 0; index13 < num13; ++index13)
                                       {
                                         bool flag5 = myBinaryReader.ReadBoolean();
-                                        if (flag5 == ((ZComponent) controlled[index6].destroyableEffectors[index10] != (object) null))
+                                        if (flag5 == ((ZComponent) controlled[index9].destroyableEffectors[index13] != (object) null))
                                         {
                                           if (flag5)
                                           {
-                                            controlled[index6].destroyableEffectors[index10].position = myBinaryReader.ReadMyLocation();
-                                            controlled[index6].destroyableEffectors[index10].active = myBinaryReader.ReadBoolean();
-                                            controlled[index6].destroyableEffectors[index10].variable = myBinaryReader.ReadInt32();
-                                            controlled[index6].destroyableEffectors[index10].VisualUpdate();
+                                            controlled[index9].destroyableEffectors[index13].position = myBinaryReader.ReadMyLocation();
+                                            controlled[index9].destroyableEffectors[index13].active = myBinaryReader.ReadBoolean();
+                                            controlled[index9].destroyableEffectors[index13].variable = myBinaryReader.ReadInt32();
+                                            controlled[index9].destroyableEffectors[index13].VisualUpdate();
                                           }
                                         }
                                         else
-                                          goto label_136;
+                                          goto label_159;
                                       }
                                       int num14 = myBinaryReader.ReadInt32();
-                                      if (controlled[index6].followingColliders.Count == num14)
+                                      if (controlled[index9].followingColliders.Count == num14)
                                       {
-                                        for (int index11 = 0; index11 < num14; ++index11)
+                                        for (int index14 = 0; index14 < num14; ++index14)
                                         {
                                           bool flag6 = myBinaryReader.ReadBoolean();
-                                          if (flag6 == ((ZComponent) controlled[index6].followingColliders[index11] != (object) null))
+                                          if (flag6 == ((ZComponent) controlled[index9].followingColliders[index14] != (object) null))
                                           {
                                             if (flag6)
-                                              controlled[index6].followingColliders[index11].Move(myBinaryReader.ReadMyLocation());
-                                            if (flag6 && (ZComponent) controlled[index6].followingColliders[index11].effector != (object) null)
+                                              controlled[index9].followingColliders[index14].Move(myBinaryReader.ReadMyLocation());
+                                            if (flag6 && (ZComponent) controlled[index9].followingColliders[index14].effector != (object) null)
                                             {
-                                              controlled[index6].followingColliders[index11].effector.position = controlled[index6].followingColliders[index11].position;
-                                              controlled[index6].followingColliders[index11].effector.active = myBinaryReader.ReadBoolean();
-                                              controlled[index6].followingColliders[index11].effector.variable = myBinaryReader.ReadInt32();
-                                              controlled[index6].followingColliders[index11].effector.VisualUpdate();
+                                              controlled[index9].followingColliders[index14].effector.position = controlled[index9].followingColliders[index14].position;
+                                              controlled[index9].followingColliders[index14].effector.active = myBinaryReader.ReadBoolean();
+                                              controlled[index9].followingColliders[index14].effector.variable = myBinaryReader.ReadInt32();
+                                              controlled[index9].followingColliders[index14].effector.VisualUpdate();
                                             }
                                           }
                                           else
-                                            goto label_136;
+                                            goto label_159;
                                         }
-                                        controlled[index6].UpdateHealthTxt();
+                                        controlled[index9].UpdateHealthTxt();
                                       }
                                       else
-                                        goto label_136;
+                                        goto label_159;
                                     }
                                     else
-                                      goto label_136;
+                                      goto label_159;
                                   }
                                   else
-                                    goto label_136;
+                                    goto label_159;
                                 }
                               }
                               else
-                                goto label_136;
+                                goto label_159;
                             }
                           }
                           else
-                            goto label_136;
+                            goto label_159;
                         }
                         int num15 = myBinaryReader.ReadInt32();
                         if (this.globalEffectors.Count == num15)
                         {
-                          for (int index12 = 0; index12 < num15; ++index12)
+                          for (int index15 = 0; index15 < num15; ++index15)
                           {
                             bool flag7 = myBinaryReader.ReadBoolean();
-                            if (flag7 == ((ZComponent) this.globalEffectors[index12] != (object) null))
+                            if (flag7 == ((ZComponent) this.globalEffectors[index15] != (object) null))
                             {
                               if (flag7)
                               {
-                                this.globalEffectors[index12].active = myBinaryReader.ReadBoolean();
-                                this.globalEffectors[index12].variable = myBinaryReader.ReadInt32();
-                                this.globalEffectors[index12].VisualUpdate();
+                                this.globalEffectors[index15].active = myBinaryReader.ReadBoolean();
+                                this.globalEffectors[index15].variable = myBinaryReader.ReadInt32();
+                                this.globalEffectors[index15].VisualUpdate();
                               }
                             }
                             else
-                              goto label_136;
+                              goto label_159;
                           }
                           ChatBox.Instance?.NewChatMsg("", "Fast Resync Successful.", (Color) ColorScheme.GetColor(Global.ColorSystem), "", ChatOrigination.System);
                           break;
@@ -3836,7 +4150,7 @@ label_46:
                 {
                   Debug.LogError((object) ex);
                 }
-label_136:
+label_159:
                 if (this.isSpectator)
                 {
                   this.resyncing = true;
@@ -3863,7 +4177,7 @@ label_136:
                     other.Deserialize(myBinaryReader);
                     Client._accounts[other.name] = other;
                     if (string.Equals(other.name, Client.Name))
-                      Client.MyAccount.Copy(other);
+                      Client.MyAccount.CopyClient(other);
                     SettingsPlayer sp = new SettingsPlayer();
                     sp.DeserializeBasicOutfit(myBinaryReader);
                     Vector2 pos3 = myBinaryReader.ReadVector2();
@@ -3931,17 +4245,21 @@ label_136:
                 this.receivedInitialMsg = true;
                 GameFacts gf = new GameFacts();
                 gf.ManualDeserialize(myBinaryReader, true, true);
-                int index13 = myBinaryReader.ReadInt32();
+                int index16 = myBinaryReader.ReadInt32();
                 myBinaryReader.ReadInt32();
                 int num16 = myBinaryReader.ReadInt32();
-                if (index13 == 0)
+                if (index16 == 0)
                   this.timeline.Clear();
                 else
-                  this.timeline.RemoveRange(index13, this.timeline.Count - index13);
-                for (int index14 = 0; index14 < num16; ++index14)
+                  this.timeline.RemoveRange(index16, this.timeline.Count - index16);
+                for (int index17 = 0; index17 < num16; ++index17)
                   this.timeline.Add(myBinaryReader.ReadBytes());
                 byte[] data1 = myBinaryReader.ReadBytes();
                 this.init_Deserialize(gf, this.timeline, data1, true);
+                break;
+              case 103:
+                Client.badges.Deserialize(myBinaryReader);
+                Client.MyAccount.badges = Client.badges;
                 break;
               case 151:
                 string RightClickName1 = myBinaryReader.ReadString();
@@ -3966,13 +4284,13 @@ label_136:
                 ChatBox.Instance.NewChatMsg(str3, msg3, (Color) ColorScheme.GetColor(Global.ColorGameText), str3, ChatOrigination.Game);
                 break;
               case 154:
-                int index15 = myBinaryReader.ReadInt32();
+                int index18 = myBinaryReader.ReadInt32();
                 int type = myBinaryReader.ReadInt32();
                 Vector2 pos4 = myBinaryReader.ReadVector2();
-                string name = this.players[index15].name;
+                string name = this.players[index18].name;
                 if (this.resyncing || Client.IsIgnored(name))
                   break;
-                ClientResources.Instance.CreatePing(type, name, this.players[index15].clientColor, pos4);
+                ClientResources.Instance.CreatePing(type, name, this.players[index18].clientColor, pos4);
                 break;
               case 155:
                 Quickchat.Data data2 = Quickchat.Data.Deserialize(myBinaryReader);
@@ -3982,12 +4300,70 @@ label_136:
                 ChatBox.Instance.NewChatMsg(Quickchat.GetDestination(data2.destination) + "<sprite name=\"Emoji2_1352\"> " + data2.name, command, (Color) ((UnityEngine.Object) UnratedMenu.instance != (UnityEngine.Object) null ? ColorScheme.GetColor(Global.ColorGameText) : ColorScheme.GetColor(data2.destination)), data2.name, data2.destination);
                 break;
               case 157:
-                int index16 = myBinaryReader.ReadInt32();
-                int index17 = myBinaryReader.ReadInt32();
-                ZCreature zcreature1 = this.players[index16].first();
+                int index19 = myBinaryReader.ReadInt32();
+                int index20 = myBinaryReader.ReadInt32();
+                ZCreature zcreature1 = this.players[index19].first();
                 if (zcreature1 == null)
                   break;
-                zcreature1.clientObj?.OnEmoji(index17);
+                zcreature1.clientObj?.OnEmoji(index20);
+                break;
+              case 188:
+                int index = myBinaryReader.ReadInt32();
+                int count = myBinaryReader.ReadInt32();
+                bool sync = myBinaryReader.ReadBoolean();
+                List<SpellSlot> ss = new List<SpellSlot>();
+                for (int index21 = 0; index21 < count; ++index21)
+                  ss.Add(SpellSlot.Deserialize(p, myBinaryReader));
+                this.MoveQue.Enqueue((Action) (() =>
+                {
+                  ZCreature sum = p.controlled[index];
+                  sum.spells.Clear();
+                  for (int index22 = 0; index22 < count; ++index22)
+                    sum.spells.Add(ss[index22]);
+                  if (!sync)
+                    return;
+                  ZSpell.SyncSpellsWithParent(sum.parent.first(), sum);
+                }));
+                break;
+              case 189:
+                int index23 = myBinaryReader.ReadInt32();
+                int num17 = myBinaryReader.ReadInt32();
+                p.controlled[index23].health = num17;
+                p.controlled[index23].UpdateHealthTxt();
+                if (p.controlled[index23].health > 0)
+                  break;
+                if (this.isClient && Global.GetPrefBool("prefdeathmsg", true))
+                  ChatBox.Instance?.NewChatMsg("", Descriptions.GetDrownMessage(p.controlled[index23]), (Color) ColorScheme.GetColor(Global.ColorWhiteText), "", ChatOrigination.System);
+                p.controlled[index23].OnDeath(true);
+                break;
+              case 190:
+                bool fullArcane = p.FullArcane;
+                bool bombMaster = p.BombMaster;
+                bool minionMaster = p.MinionMaster;
+                p.MinionMaster = myBinaryReader.ReadBoolean();
+                p.BombMaster = myBinaryReader.ReadBoolean();
+                p.FullArcane = myBinaryReader.ReadBoolean();
+                int num18 = myBinaryReader.ReadInt32();
+                p.minionBookTitans.Clear();
+                for (int index24 = 0; index24 < num18; ++index24)
+                  p.minionBookTitans.Add(new ZGame.MinionBookTitan()
+                  {
+                    spell = (SpellEnum) myBinaryReader.ReadInt32(),
+                    used = myBinaryReader.ReadBoolean()
+                  });
+                int num19 = myBinaryReader.ReadInt32();
+                for (int index25 = 0; index25 < num19; ++index25)
+                {
+                  SpellEnum s = (SpellEnum) myBinaryReader.ReadInt32();
+                  HUD.instance.uiPlayerCharacters[(int) p.id].AddLevel3(Inert.GetSpell(s));
+                }
+                if (p.FullArcane && !fullArcane)
+                  HUD.TransformArcaneMonster(p, p.first(), this, (int) p.id);
+                if (p.BombMaster && !bombMaster)
+                  ZFamiliar.CreateBombMaster(p);
+                if (!p.MinionMaster || minionMaster)
+                  break;
+                ZFamiliar.CreateMinionMaster(p);
                 break;
               case 191:
                 bool flag8 = myBinaryReader.ReadBoolean();
@@ -4018,18 +4394,18 @@ label_136:
                   break;
                 }
               case 192:
-                for (int index18 = 0; index18 < this.players.Count; ++index18)
-                  this.players[index18].bid = myBinaryReader.ReadInt32();
-                int index19 = myBinaryReader.ReadInt32();
+                for (int index26 = 0; index26 < this.players.Count; ++index26)
+                  this.players[index26].bid = myBinaryReader.ReadInt32();
+                int index27 = myBinaryReader.ReadInt32();
                 if (!this.isTeam && this.players.Count > 2)
                 {
                   this.SortByBidFFA();
                   break;
                 }
-                if (index19 == -1 || !((ZComponent) this.players[index19].first() != (object) null) || this.players[index19].bid <= 0)
+                if (index27 == -1 || !((ZComponent) this.players[index27].first() != (object) null) || this.players[index27].bid <= 0)
                   break;
-                this.players[index19].first().health -= this.players[index19].bid;
-                this.players[index19].first().UpdateHealthTxt();
+                this.players[index27].first().health -= this.players[index27].bid;
+                this.players[index27].first().UpdateHealthTxt();
                 break;
               case 193:
               case 195:
@@ -4151,6 +4527,8 @@ label_136:
                   this.serverState.playersTurn = pt;
                   this.serverState.turnTime = 0.0f;
                   Player.Instance?.UpdateVisuals();
+                  if (this.isReplay)
+                    this.ReplayNextTurn();
                   this.NextTurn(p);
                   if ((UnityEngine.Object) Player.Instance != (UnityEngine.Object) null)
                   {
@@ -4187,6 +4565,9 @@ label_136:
           {
             switch (num1)
             {
+              case 9:
+                p.canStart = true;
+                break;
               case 10:
                 if (p.sendResync || !Server.DebugResyncs)
                   break;
@@ -4202,8 +4583,8 @@ label_136:
                 p.ready = true;
                 if (p.clientResyncing || p.connection == null || p.connection.player.gameNumber != this.gameFacts.id || p.connection == null || p.connection.State != ConnectionState.Connected)
                   break;
-                for (int index20 = 0; index20 < this.timeline.Count; ++index20)
-                  p.connection?.SendBytes(this.timeline[index20]);
+                for (int index28 = 0; index28 < this.timeline.Count; ++index28)
+                  p.connection?.SendBytes(this.timeline[index28]);
                 break;
               case 50:
                 myBinaryReader.ReadString();
@@ -4281,8 +4662,8 @@ label_136:
                 p.connection.OnChat("[Game #" + this.gameFacts.id.ToString() + "]" + str8);
                 break;
               case 154:
-                int num17 = myBinaryReader.ReadInt32();
-                if (!this.isTeam || p.connection.player.lastShareMsg + 100L >= p.connection.stopwatch.ElapsedMilliseconds || num17 != (int) p.id)
+                int num20 = myBinaryReader.ReadInt32();
+                if (!this.isTeam || p.connection.player.lastShareMsg + 100L >= p.connection.stopwatch.ElapsedMilliseconds || num20 != (int) p.id)
                   break;
                 p.connection.player.lastShareMsg = p.connection.stopwatch.ElapsedMilliseconds;
                 this.SendTeamMessage(b, p.team);
@@ -4291,9 +4672,9 @@ label_136:
                 Server.ValidateQuickChat(p.connection, myBinaryReader, b, false);
                 break;
               case 157:
-                int index21 = myBinaryReader.ReadInt32();
+                int index29 = myBinaryReader.ReadInt32();
                 myBinaryReader.ReadInt32();
-                if (index21 < 0 || index21 >= this.players.Count)
+                if (index29 < 0 || index29 >= this.players.Count)
                   break;
                 if (p.GetMultiConnection.player.account.discord == 0UL)
                 {
@@ -4305,7 +4686,7 @@ label_136:
                   Server.ReturnServerMsg(p.GetMultiConnection, "Looks like you're muted, try to behave yourself next time.");
                   break;
                 }
-                ZPerson player1 = this.players[index21];
+                ZPerson player1 = this.players[index29];
                 if ((int) player1.id != (int) p.id && (!this.isMulti || player1.team != p.team))
                   break;
                 this.SendAllMessage(b);
@@ -4313,10 +4694,10 @@ label_136:
               case 192:
                 if (p.bid >= 0)
                   break;
-                byte num18 = myBinaryReader.ReadByte();
-                if ((int) num18 > (int) this.gameFacts.startHealth - 1)
-                  num18 = (byte) ((uint) this.gameFacts.startHealth - 1U);
-                p.bid = (int) num18;
+                byte num21 = myBinaryReader.ReadByte();
+                if ((int) num21 > (int) this.gameFacts.startHealth - 1)
+                  num21 = (byte) ((uint) this.gameFacts.startHealth - 1U);
+                p.bid = (int) num21;
                 break;
               case 193:
               case 195:
@@ -4376,10 +4757,10 @@ label_136:
               case 194:
                 if (!p.CanOfferDraw() || this.serverState.busy == ServerState.Busy.Ended || this.ieKillWait != null)
                   break;
-                int num19 = p.offeringDraw ? 1 : 0;
+                int num22 = p.offeringDraw ? 1 : 0;
                 p.offeringDraw = myBinaryReader.ReadBoolean();
-                int num20 = p.offeringDraw ? 1 : 0;
-                if (num19 == num20)
+                int num23 = p.offeringDraw ? 1 : 0;
+                if (num22 == num23)
                   break;
                 if (this.isMulti)
                 {
@@ -4393,10 +4774,10 @@ label_136:
               case 196:
                 if (this.serverState.busy != ServerState.Busy.Ended)
                   break;
-                int num21 = p.offeringRematch ? 1 : 0;
+                int num24 = p.offeringRematch ? 1 : 0;
                 p.offeringRematch = myBinaryReader.ReadByte() != (byte) 0;
-                int num22 = p.offeringRematch ? 1 : 0;
-                if (num21 == num22)
+                int num25 = p.offeringRematch ? 1 : 0;
+                if (num24 == num25)
                   break;
                 if (this.isMulti)
                 {
@@ -4845,12 +5226,12 @@ label_136:
     game.replayPastTimeLine = 0;
     HUD.instance.replayTimeline.MaxSize = game.timelineList.Count;
     // ISSUE: reference to a compiler-generated method
-    HUD.instance.replayTimeline._bar.onValueChanged.AddListener(new UnityAction<float>(game.\u003CPushReplay\u003Eb__232_0));
+    HUD.instance.replayTimeline._bar.onValueChanged.AddListener(new UnityAction<float>(game.\u003CPushReplay\u003Eb__239_0));
     game.replayPaused = false;
     Time.timeScale = 1f;
-    ChatBox.Instance?.NewChatMsg("", "Hold F1 to take control right before the next attack", (Color) ColorScheme.GetColor(Global.ColorSystem), "", ChatOrigination.System);
     ChatBox.Instance?.NewChatMsg("", "Press F2 to take control right away", (Color) ColorScheme.GetColor(Global.ColorSystem), "", ChatOrigination.System);
     ChatBox.Instance?.NewChatMsg("", "Hold F3 to take control on the next turn", (Color) ColorScheme.GetColor(Global.ColorSystem), "", ChatOrigination.System);
+    ChatBox.Instance?.NewChatMsg("", "Hold F4 to take control right before the next attack", (Color) ColorScheme.GetColor(Global.ColorSystem), "", ChatOrigination.System);
     foreach (ZGame.TimelineData timeline in game.timelineList)
       HUD.instance.replayTimeline.Add(timeline.description);
     yield return 0.0f;
@@ -4869,9 +5250,8 @@ label_136:
         if (Input.GetKeyDown(KeyCode.Space))
           yield return 0.0f;
       }
-      else if (!game.resyncing && (Input.GetKey(KeyCode.F1) && game.timeline[game.curReplayIndex][0] == (byte) 220 || Input.GetKeyDown(KeyCode.F2) || Input.GetKey(KeyCode.F3) & nextTurn || Input.GetKey(KeyCode.F4)))
+      else if (!game.resyncing && (Input.GetKey(KeyCode.F4) && game.timeline[game.curReplayIndex][0] == (byte) 220 || Input.GetKeyDown(KeyCode.F2) || Input.GetKey(KeyCode.F3) & nextTurn))
       {
-        game.isReplay = false;
         game.isSpectator = false;
         game.isSandbox = true;
         game.isServer = true;
@@ -4894,16 +5274,12 @@ label_136:
           }
         }
         HUD.FindFullBooks(game);
+        game.isReplay = false;
         Client.NameOrReplay = game.CurrentPlayer().name;
         HUD.instance.buttonShowSpells.GetComponent<UIOnHover>().Interactable(true);
         HUD.instance.FindPlayer();
         game.serverUpdate = Timing.RunCoroutine(game.FixedUpdate(), Segment.Update);
         HUD.instance.buttonHideChat.gameObject.SetActive(false);
-        if ((UnityEngine.Object) ChatBox.Instance != (UnityEngine.Object) null && (UnityEngine.Object) ChatBox.Instance.textSpellCasted != (UnityEngine.Object) null)
-        {
-          HUD.instance.textSpellCasted.rectTransform.SetParent(HUD.instance.transform.GetChild(2));
-          ChatBox.Instance.textSpellCasted = (TMP_Text) null;
-        }
         Controller instance = Controller.Instance;
         if (instance == null)
         {
@@ -4942,6 +5318,8 @@ label_136:
             game.GameHandler(player, b, true, false);
             nextTurn = b[0] == (byte) 198;
           }
+          else
+            Debug.Log((object) b[0]);
         }
         game.tickTime += game.DeltaTime;
         if ((double) game.tickTime >= (double) game.frameTime)
@@ -4954,12 +5332,14 @@ label_136:
         if (game.MoveQue.Count > 0 && game.ongoing.NumberOfSlowUpdateCoroutines == 0)
           game.MoveQue.Dequeue()();
       }
+      else
+        yield return 0.0f;
       ++safeFreeze;
       if (game.curReplayIndex > ZGame.targetTimelineFrame || game.forceRysncPause || safeFreeze > 1000 || game.curReplayIndex % 100 == 0)
         yield return 0.0f;
       if (game.forceRysncPause)
         game.forceRysncPause = false;
-      if (safeFreeze > 100)
+      if (safeFreeze > 1000)
         safeFreeze = 0;
     }
     game.timeline.Clear();
@@ -5035,7 +5415,7 @@ label_136:
 
   public IEnumerator<float> Resync(int startIndex = 0, bool bypassWating = false)
   {
-    int replayIndex = startIndex;
+    this.replayIndex = startIndex;
     if (bypassWating)
     {
       yield return 0.0f;
@@ -5047,13 +5427,13 @@ label_136:
       }
     }
     int safeGuard = 0;
-    while (replayIndex < this.timeline.Count)
+    while (this.replayIndex < this.timeline.Count)
     {
       ++safeGuard;
       if (this.MoveQue.Count == 0 && this.ongoing.NumberOfSlowUpdateCoroutines == 0)
       {
-        byte[] b = this.timeline[replayIndex];
-        ++replayIndex;
+        byte[] b = this.timeline[this.replayIndex];
+        ++this.replayIndex;
         int index = (b.Length == 1 ? 1 : (!Global.HasPlayerID(b[0]) ? 1 : 0)) != 0 ? 0 : (int) b[1];
         if (index < this.players.Count)
         {
@@ -5072,7 +5452,7 @@ label_136:
         this.forceRysncPause = false;
         yield return 0.0f;
       }
-      else if (replayIndex % 100 == 0)
+      else if (this.replayIndex % 100 == 0)
         yield return 0.0f;
       else if (safeGuard > 1000)
       {
@@ -5089,87 +5469,99 @@ label_136:
   public void GameHandler(object sender, DataReceivedEventArgs args)
   {
     if (args.Bytes[0] == (byte) 34)
-      return;
-    if (args.Bytes[0] == (byte) 156)
-      Server.Test((Connection) sender);
-    UnityThreadHelper.Dispatcher.Dispatch2((Action) (() =>
     {
-      ZPerson player1 = ((Connection) sender).player.player;
-      if (player1 != null)
-      {
-        if (args.Bytes.Length == 1 || !Global.HasPlayerID(args.Bytes[0]) || (int) args.Bytes[1] == (int) player1.id)
-          this.GameHandler(player1, args.Bytes, false);
-        else if (this.isMulti && Global.HasPlayerID(args.Bytes[0]) && args.Bytes.Length > 1 && (int) args.Bytes[1] < this.players.Count)
-        {
-          ZPerson player2 = this.players[(int) args.Bytes[1]];
-          if (player2.team == player1.team)
-            this.GameHandler(player2, args.Bytes, false);
-        }
-      }
       args.Recycle();
-    }));
+    }
+    else
+    {
+      if (args.Bytes[0] == (byte) 156)
+        Server.Test((Connection) sender);
+      UnityThreadHelper.Dispatcher.Dispatch2((Action) (() =>
+      {
+        ZPerson player1 = ((Connection) sender).player.player;
+        if (player1 != null)
+        {
+          if (args.Bytes.Length == 1 || !Global.HasPlayerID(args.Bytes[0]) || (int) args.Bytes[1] == (int) player1.id)
+            this.GameHandler(player1, args.Bytes, false);
+          else if (this.isMulti && Global.HasPlayerID(args.Bytes[0]) && args.Bytes.Length > 1 && (int) args.Bytes[1] < this.players.Count)
+          {
+            ZPerson player2 = this.players[(int) args.Bytes[1]];
+            if (player2.team == player1.team)
+              this.GameHandler(player2, args.Bytes, false);
+          }
+        }
+        args.Recycle();
+      }));
+    }
   }
 
   public void ServerSpectatorHandler(object sender, DataReceivedEventArgs args)
   {
     if (args.Bytes[0] == (byte) 34 || args.Bytes.Length > 200)
-      return;
-    UnityThreadHelper.Dispatcher.Dispatch2((Action) (() =>
-    {
-      Connection c = (Connection) sender;
-      using (MemoryStream memoryStream = new MemoryStream(args.Bytes))
+      args.Recycle();
+    else
+      UnityThreadHelper.Dispatcher.Dispatch2((Action) (() =>
       {
-        using (myBinaryReader reader = new myBinaryReader((Stream) memoryStream))
+        Connection c = (Connection) sender;
+        using (MemoryStream memoryStream = new MemoryStream(args.Bytes))
         {
-          try
+          using (myBinaryReader reader = new myBinaryReader((Stream) memoryStream))
           {
-            if (reader.ReadByte() == (byte) 83)
-              this.SpectatorLogic(c, args.Bytes, reader);
-          }
-          catch (Exception ex)
-          {
+            try
+            {
+              if (reader.ReadByte() == (byte) 83)
+                this.SpectatorLogic(c, args.Bytes, reader);
+            }
+            catch (Exception ex)
+            {
+            }
           }
         }
-      }
-      args.Recycle();
-    }));
+        args.Recycle();
+      }));
   }
 
   public static void GameClientHandler(object sender, DataReceivedEventArgs args)
   {
     if (args.Bytes.Length == 1 && args.Bytes[0] == (byte) 34)
-      return;
-    UnityThreadHelper.Dispatcher.Dispatch2((Action) (() =>
-    {
-      if (Client.game == null)
-        return;
-      if (args.Bytes.Length > 1 && args.Bytes[0] != (byte) 15 && args.Bytes[0] != (byte) 35 && !Global.IsChatMsg(args.Bytes[0]) && args.Bytes[0] != (byte) 85 && args.Bytes[0] != (byte) 84 && args.Bytes[0] != (byte) 42 && args.Bytes[0] != (byte) 64 && args.Bytes[0] != (byte) 98 && args.Bytes[0] != (byte) 100 && args.Bytes[0] != (byte) 96)
-        Client.game.timeline.Add(ZGame.CopyByteArray(args.Bytes));
-      if (!Client.game.resyncing || args.Bytes[0] == (byte) 35 || args.Bytes[0] == (byte) 100)
+      args.Recycle();
+    else
+      UnityThreadHelper.Dispatcher.Dispatch2((Action) (() =>
       {
-        bool flag = args.Bytes.Length == 1 || !Global.HasPlayerID(args.Bytes[0]);
-        if (!flag && (int) args.Bytes[1] >= Client.game.players.Count)
+        if (Client.game == null)
         {
-          Debug.LogWarning((object) args.Bytes.ToStringX("Bigger then Players"));
+          args.Recycle();
         }
         else
         {
-          if (Client.game.players.Count == 0)
+          if (args.Bytes.Length > 1 && args.Bytes[0] != (byte) 15 && args.Bytes[0] != (byte) 35 && !Global.IsChatMsg(args.Bytes[0]) && args.Bytes[0] != (byte) 85 && args.Bytes[0] != (byte) 84 && args.Bytes[0] != (byte) 42 && args.Bytes[0] != (byte) 64 && args.Bytes[0] != (byte) 98 && args.Bytes[0] != (byte) 100 && args.Bytes[0] != (byte) 96)
+            Client.game.timeline.Add(ZGame.CopyByteArray(args.Bytes));
+          if (!Client.game.resyncing || args.Bytes[0] == (byte) 35 || args.Bytes[0] == (byte) 100)
           {
-            if (args.Bytes.Length != 0)
-              Debug.Log((object) args.Bytes[0]);
-            Client.game.GameHandler((ZPerson) null, args.Bytes, true);
-            args.Recycle();
-            return;
+            bool flag = args.Bytes.Length == 1 || !Global.HasPlayerID(args.Bytes[0]);
+            if (!flag && (int) args.Bytes[1] >= Client.game.players.Count)
+            {
+              Debug.LogWarning((object) args.Bytes.ToStringX("Bigger then Players"));
+            }
+            else
+            {
+              if (Client.game.players.Count == 0)
+              {
+                if (args.Bytes.Length != 0)
+                  Debug.Log((object) args.Bytes[0]);
+                Client.game.GameHandler((ZPerson) null, args.Bytes, true);
+                args.Recycle();
+                return;
+              }
+              ZPerson player = Client.game.players[flag ? 0 : (int) args.Bytes[1]];
+              Client.game.GameHandler(player, args.Bytes, true);
+            }
           }
-          ZPerson player = Client.game.players[flag ? 0 : (int) args.Bytes[1]];
-          Client.game.GameHandler(player, args.Bytes, true);
+          else if (args.Bytes.Length > 1 && Global.IsChatMsg(args.Bytes[0]))
+            Client.game.GameHandler((ZPerson) null, args.Bytes, true);
+          args.Recycle();
         }
-      }
-      else if (args.Bytes.Length > 1 && Global.IsChatMsg(args.Bytes[0]))
-        Client.game.GameHandler((ZPerson) null, args.Bytes, true);
-      args.Recycle();
-    }));
+      }));
   }
 
   public static IEnumerator<float> StartGame(byte[] g, int startingTimeLineCount)
@@ -5213,7 +5605,7 @@ label_136:
           writer.Write(this.timeline.Count - offset);
           for (int index = offset; index < this.timeline.Count; ++index)
             writer.Write(this.timeline[index]);
-          writer.Write(this.Serialize(sp));
+          writer.Write(this.Serialize(sp, c));
         }
         return memoryStream.ToArray();
       }
@@ -5238,17 +5630,17 @@ label_136:
     }
   }
 
-  public byte[] Serialize(SpellOverrides sp)
+  public byte[] Serialize(SpellOverrides sp, Connection c)
   {
     using (MemoryStream memoryStream = new MemoryStream())
     {
       using (myBinaryWriter writer = new myBinaryWriter((Stream) memoryStream))
-        this._Serialize(writer, sp);
+        this._Serialize(writer, sp, c);
       return memoryStream.ToArray();
     }
   }
 
-  public void _Serialize(myBinaryWriter writer, SpellOverrides sp)
+  public void _Serialize(myBinaryWriter writer, SpellOverrides sp, Connection c)
   {
     this.xSpell = new HashSet<ZSpell>();
     this.xSlot = new HashSet<SpellSlot>();
@@ -5284,6 +5676,7 @@ label_136:
     writer.Write(this.AllowDKH);
     writer.Write(this.firstOceanFury);
     writer.Write(this.hasArcaneMonster);
+    writer.Write(this.numExplosionsAndMovement);
     writer.Write(this.AllowMovement);
     writer.Write(this.AllowTerrainDestruction);
     writer.Write(this.AllowInput);
@@ -5307,7 +5700,7 @@ label_136:
     }
     writer.Write(this.players.Count);
     foreach (ZPerson player in this.players)
-      GameSerializer.SerializePerson(this, player, writer);
+      GameSerializer.SerializePerson(this, player, writer, string.Equals(c.name, player.name));
     foreach (ZPerson player in this.players)
       this.PostSerialize(player, writer);
     writer.Write(this.globalEffectors.Count);
@@ -5448,6 +5841,7 @@ label_136:
     this.AllowDKH = reader.ReadBoolean();
     this.firstOceanFury = reader.ReadBoolean();
     this.hasArcaneMonster = reader.ReadBoolean();
+    this.numExplosionsAndMovement = reader.ReadInt32();
     this.AllowMovement = reader.ReadBoolean();
     this.AllowTerrainDestruction = reader.ReadBoolean();
     this.AllowInput = reader.ReadBoolean();
@@ -5681,7 +6075,7 @@ label_136:
     }
     foreach (KeyValuePair<int, ZMyCollider> keyValuePair in this.helper.colliderID)
       keyValuePair.Value.Initialize(keyValuePair.Value.position, this.world);
-    UnityEngine.Resources.UnloadUnusedAssets();
+    Resources.UnloadUnusedAssets();
     HUD.instance.FindPlayer();
     HUD.instance.SetupStartPanel();
     int index1 = 0;
@@ -5689,8 +6083,8 @@ label_136:
     {
       if (player != null && (ZComponent) player.first() != (object) null)
         HUD.instance.uiPlayerCharacters[index1].AddLevel3FromSerialization(player, player.first());
-      if ((UnityEngine.Object) player.panelPlayer != (UnityEngine.Object) null && player.yourTurn)
-        player.panelPlayer.rect.anchoredPosition = new Vector2(50f, player.panelPlayer.rect.anchoredPosition.y);
+      if ((UnityEngine.Object) player.panelPlayer != (UnityEngine.Object) null && player.yourTurn && player.game.players.Count > 1)
+        player.panelPlayer.MyTurn(true);
       ++index1;
     }
     Client.game.init_Client(this.serverState.busy);

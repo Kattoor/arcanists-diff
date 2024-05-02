@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: Inert
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using Educative;
 using mattmc3.dotmore.Collections.Generic;
@@ -18,8 +18,9 @@ using UnityEngine.UI;
 #nullable disable
 public class Inert : MonoBehaviour
 {
-  public static string Version = "v6.6";
-  public static int _Version = 61;
+  public static string Version = "v6.9";
+  public static int _Version = 62;
+  public KnownServersList servers;
   public Spell[] _spells;
   public Spell[] holidaySpells;
   public Spell[] MinionSpells;
@@ -120,6 +121,31 @@ public class Inert : MonoBehaviour
   public static int mask_spell_movement = 8448;
   public static int mask_movement_NoEffector = 8448;
   public static int mask_all = Inert.mask_movement_NoEffector | 1024 | 2048 | 512 | 65536 | Inert.mask_Jar;
+
+  [ContextMenu("Export Clans")]
+  public void ExportClans()
+  {
+    for (int index = 0; index < this._spells.Length; ++index)
+    {
+      if (this._spells[index].name.Contains("Curse"))
+        Debug.Log((object) (this._spells[index].name + " " + (object) index));
+    }
+  }
+
+  [ContextMenu("Testzsa")]
+  private void testzsa()
+  {
+    using (FileStream fileStream = new FileStream("C:\\Users\\after\\Downloads\\Arc_stats.json", FileMode.Open))
+    {
+      using (myBinaryReader r = new myBinaryReader((Stream) fileStream))
+      {
+        int num1 = (int) r.ReadByte();
+        int num2 = (int) r.ReadByte();
+        AllRankingsContainer rankingsContainer = AllRankingsContainer.Deserialize(r);
+        Debug.Log((object) (rankingsContainer.low[0].name + " " + (object) rankingsContainer.low[0].gameLowTime.rating));
+      }
+    }
+  }
 
   [ContextMenu("Apply Curves")]
   private void curves()
@@ -225,6 +251,7 @@ public class Inert : MonoBehaviour
       x.Creatures.Add(creature.name, creature);
       foreach (SpellSlot spell in creature.stats.spells)
       {
+        spell.serializedSpellEnum = spell.spell.spellEnum;
         if (!x.spells.ContainsKey(spell.spell.name))
           x.spells.Add(spell.spell.name, spell.spell);
         if (!x.spellsEnums.ContainsKey(spell.spell.spellEnum))
@@ -284,7 +311,13 @@ public class Inert : MonoBehaviour
       {
         string json = JsonUtility.ToJson((object) x.stats);
         creature.runTimeStats = JsonUtility.FromJson<CreatureStats>(json);
-        creature.runTimeStats.spells = new List<SpellSlot>();
+        for (int index = 0; index < creature.runTimeStats.spells.Count; ++index)
+        {
+          Spell spell = Inert.GetSpell(creature.runTimeStats.spells[index].serializedSpellEnum);
+          creature.runTimeStats.spells[index].spell = spell;
+          if ((UnityEngine.Object) spell == (UnityEngine.Object) null)
+            Debug.LogError((object) ("Spell not found: " + (object) creature.runTimeStats.spells[index].serializedSpellEnum));
+        }
       }
     }
   }
@@ -812,5 +845,42 @@ public class Inert : MonoBehaviour
       }
     }
     Global.OpenURL("CachedPolygons.txt");
+  }
+
+  [ContextMenu("Gen Specific Polygon")]
+  private void genpolygons2()
+  {
+    SpellEnum spellEnum = SpellEnum.Tree_House;
+    Spell spell1 = (Spell) null;
+    foreach (Spell spell2 in ((IEnumerable<Spell>) this._spells).Concat<Spell>((IEnumerable<Spell>) this._Additionalspells).Concat<Spell>((IEnumerable<Spell>) this._otherspells))
+    {
+      if (spell2.spellEnum == spellEnum)
+      {
+        spell1 = spell2;
+        break;
+      }
+    }
+    Texture2D texture2D = spell1.type == CastType.Tower ? spell1.toSummon.transform.GetChild(0).GetComponent<SpriteRenderer>().sprite.texture : spell1.toSummon.GetComponent<SpriteRenderer>().sprite.texture;
+    Color32[] pixels32 = texture2D.GetPixels32();
+    bool[,] flagArray = new bool[texture2D.width, texture2D.height];
+    int index1 = 0;
+    StringBuilder stringBuilder = new StringBuilder();
+    int y = spell1.type == CastType.Tower ? (int) spell1.toSummon.transform.GetChild(0).localPosition.y : 0;
+    stringBuilder.Append("new CachedPolygon(){ offset = ").Append(y).Append(", grid = new bool[,] {//").Append(spell1.name.Replace(' ', '_')).Append(" - ").Append(texture2D.width).Append(" x " + (object) texture2D.height);
+    stringBuilder.Append("\n");
+    for (int index2 = 0; index2 < texture2D.height; ++index2)
+    {
+      stringBuilder.Append("{");
+      for (int index3 = 0; index3 < texture2D.width; ++index3)
+      {
+        flagArray[index3, index2] = pixels32[index1].a > (byte) 0;
+        stringBuilder.Append(flagArray[index3, index2].ToString().ToLower()).Append(", ");
+        ++index1;
+      }
+      stringBuilder.Append("},\n");
+    }
+    stringBuilder.Append("}},");
+    GUIUtility.systemCopyBuffer = stringBuilder.ToString();
+    Debug.Log((object) ("Cached Polygon copied to clipboard - " + spell1.name));
   }
 }

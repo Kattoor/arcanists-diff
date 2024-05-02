@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: ZSpellSand
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System.Collections.Generic;
 using UnityEngine;
@@ -14,7 +14,7 @@ public class ZSpellSand : ZSpell
 
   public void Blit()
   {
-    if (this.map.CheckPositionOnlyEntities((int) this.position.x, (int) this.position.y, (ZCreature) null, 256))
+    if (!this.map.CheckPositionOnlyEntities((int) this.position.x, (int) this.position.y, (ZCreature) null, 256))
       return;
     this.map.BitBlt(this.color, (int) this.position.x, (int) this.position.y);
   }
@@ -168,12 +168,14 @@ label_31:
       {
         zspellSand.addVelocity = false;
         zspellSand.velocity = zspellSand.velocity + zspellSand.addedVelocity;
+        zspellSand.velocity.x = Mathd.Clamp(zspellSand.velocity.x, (FixedInt) -50, (FixedInt) 50);
+        zspellSand.velocity.y = Mathd.Clamp(zspellSand.velocity.y, (FixedInt) -50, (FixedInt) 50);
         zspellSand.addedVelocity.x = (FixedInt) 0;
         zspellSand.addedVelocity.y = (FixedInt) 0;
       }
       else if (zspellSand.affectedByGravity && zspellSand.velocity.y > -ZMap.MaxSpeed)
         zspellSand.velocity.y += zspellSand.map.Gravity;
-      else if (!zspellSand.affectedByGravity && zspellSand.velocity.y > -1 && zspellSand.maxDuration > 150 && zspellSand.curDuration > 10)
+      else if (!zspellSand.affectedByGravity && zspellSand.velocity.y > -10 && zspellSand.maxDuration > 150 && zspellSand.curDuration > 10)
         zspellSand.affectedByGravity = true;
       zspellSand.Wind();
       ++zspellSand.curDuration;
@@ -192,7 +194,7 @@ label_31:
 
   public static void Blit(ZMap map, MyLocation position, Color32 color)
   {
-    if (map.CheckPositionOnlyEntities((int) position.x, (int) position.y, (ZCreature) null, 256))
+    if (!map.CheckPositionOnlyEntities((int) position.x, (int) position.y, (ZCreature) null, 256))
       return;
     map.BitBltDelay(color, (int) position.x, (int) position.y);
   }

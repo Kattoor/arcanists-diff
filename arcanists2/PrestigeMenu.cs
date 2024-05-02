@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: PrestigeMenu
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System;
 using System.Collections.Generic;
@@ -45,7 +45,7 @@ public class PrestigeMenu : MonoBehaviour
     "It's Christmas time in the grassy hills where young arcanists train! Keep an eye out for presents falling from the sky. These presents may only hurt a little, but grants the victim 2 additional random spells!",
     "Ever wondered where those drowned arcanists end up at? The Ocean Floor is where their sunken corpses are laid rest at.  Beware of any occasional brine storms and falling clams approaching the seabed!",
     "Random...",
-    "The demons have opened their hellish gateways to allow Arcanists to engage in battle atop of their towering fortress. But watch out as corrupt totems carry a dangerous plague, so keep your distance!",
+    "The demons have opened their hellish gateways to allow Arcanists to engage in battle atop of their towering fortress which is slowly enveloped by lava.",
     "A polluted island created by a band of Cog Arcanists, which is the home of their tinkering around. The sheer pollution of the place is so unhealthy for the environment that the clouds in the sky occasionally rain acid!",
     "Ancient ruins teeming with arcane energy. Once a home to the mightiest mages. Stay long enough and you might witness a small portion of their arcane prowess.",
     "Foliage and overgrowth covers these ancient and consecrated grounds. They say the wood they use from the trees of the Kharazi Jungle is full of magic, but the bark is not what you need to watch out for, for there is a greater threat that lies within.",

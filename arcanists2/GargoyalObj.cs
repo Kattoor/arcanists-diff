@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: GargoyalObj
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System.Collections;
 using System.Collections.Generic;
@@ -12,6 +12,8 @@ using UnityEngine;
 public class GargoyalObj : MonoBehaviour
 {
   public List<SpriteRenderer> sprites;
+  public float wingStartRot;
+  public float wingStartRotEnd;
   public Transform leftWing;
   public Transform rightWing;
   private bool flying = true;
@@ -83,8 +85,8 @@ public class GargoyalObj : MonoBehaviour
           this.up = true;
         }
       }
-      this.rightWing.localEulerAngles = new Vector3(0.0f, Mathf.SmoothStep(0.0f, -45f, this.f), Mathf.SmoothStep(0.0f, -10f, this.f));
-      this.leftWing.localEulerAngles = new Vector3(0.0f, Mathf.SmoothStep(0.0f, -45f, this.f), Mathf.SmoothStep(0.0f, 10f, this.f));
+      this.rightWing.localEulerAngles = new Vector3(0.0f, Mathf.SmoothStep(0.0f, -45f, this.f), Mathf.SmoothStep(this.wingStartRot, this.wingStartRotEnd, this.f) + Mathf.SmoothStep(0.0f, -10f, this.f));
+      this.leftWing.localEulerAngles = new Vector3(0.0f, Mathf.SmoothStep(0.0f, -45f, this.f), Mathf.SmoothStep(this.wingStartRot, this.wingStartRotEnd, this.f) + Mathf.SmoothStep(0.0f, 10f, this.f));
       yield return (object) new WaitForEndOfFrame();
     }
   }
@@ -96,11 +98,11 @@ public class GargoyalObj : MonoBehaviour
       this.f -= Time.deltaTime;
       if ((double) this.f < 0.0)
         this.f = 0.0f;
-      this.rightWing.localEulerAngles = new Vector3(0.0f, Mathf.Lerp(0.0f, -30f, this.f), Mathf.Lerp(0.0f, -10f, this.f));
-      this.leftWing.localEulerAngles = new Vector3(0.0f, Mathf.Lerp(0.0f, -30f, this.f), Mathf.Lerp(0.0f, 10f, this.f));
+      this.rightWing.localEulerAngles = new Vector3(0.0f, Mathf.Lerp(0.0f, -30f, this.f), Mathf.SmoothStep(this.wingStartRot, this.wingStartRotEnd, this.f) + Mathf.Lerp(0.0f, -10f, this.f));
+      this.leftWing.localEulerAngles = new Vector3(0.0f, Mathf.Lerp(0.0f, -30f, this.f), Mathf.SmoothStep(this.wingStartRot, this.wingStartRotEnd, this.f) + Mathf.Lerp(0.0f, 10f, this.f));
       yield return (object) new WaitForEndOfFrame();
     }
-    this.rightWing.localEulerAngles = new Vector3(0.0f, 0.0f, 0.0f);
-    this.leftWing.localEulerAngles = new Vector3(0.0f, 0.0f, 0.0f);
+    this.rightWing.localEulerAngles = new Vector3(0.0f, 0.0f, this.wingStartRot);
+    this.leftWing.localEulerAngles = new Vector3(0.0f, 0.0f, this.wingStartRot);
   }
 }

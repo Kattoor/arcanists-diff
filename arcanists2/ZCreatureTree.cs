@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: ZCreatureTree
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System.Collections.Generic;
 using UnityEngine;
@@ -562,6 +562,8 @@ public class ZCreatureTree : ZCreature
     new Coords(70, 28)
   };
 
+  public ExplosionCutout cutoutTexture => this.baseTree.cutoutTexture;
+
   private Texture2D texture => this.baseTree.texture;
 
   public override int ApplyDamage(
@@ -594,7 +596,7 @@ public class ZCreatureTree : ZCreature
           zmyCollider.creature.collider.gameObjectLayer = 8;
           if ((ZComponent) enemy != (object) null && zmyCollider.creature.team != enemy.team && enemy.parent.controlled.Count > 0)
           {
-            zmyCollider.creature.SwitchTeams(enemy.parent);
+            zmyCollider.creature.SwitchTeams(enemy.parent, true);
             zmyCollider.creature.CreatureMoveSurroundings();
           }
         }
@@ -618,11 +620,13 @@ public class ZCreatureTree : ZCreature
         enemy.health = Mathf.Max(enemy.maxHealth, 250);
       enemy.UpdateHealthTxt();
     }
+    if (this.health > 900)
+      return 0;
     this.health -= damage;
     if (this.health <= 0)
     {
       if ((Object) this.texture != (Object) null)
-        this.map.ServerBitBlt(48, (int) this.position.x, (int) this.position.y, false);
+        this.map.ServerBitBlt((int) this.cutoutTexture, (int) this.position.x, (int) this.position.y, false);
       this.game.forceRysncPause = true;
       this.collider?.Disable();
       this.isDead = true;
@@ -669,7 +673,7 @@ public class ZCreatureTree : ZCreature
 
   public override void StartMoving(bool fromInput = false)
   {
-    if (this.moving != null || this.isDead || this.baseTree.isButterflyJar)
+    if (this.moving != null || this.isDead || this.baseTree.isButterflyJar || !this.baseCreature.canMove)
       return;
     if (this.map.CheckTexutureOnlyMap((int) this.position.x, (int) this.position.y, this.texture))
     {

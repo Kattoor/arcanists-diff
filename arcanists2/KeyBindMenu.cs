@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: KeyBindMenu
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using UnityEngine;
 using UnityEngine.Events;
@@ -17,6 +17,7 @@ public class KeyBindMenu : MonoBehaviour
   public UIOnHover toggleControls;
   public UIOnHover toggleSkipWarning;
   public UIOnHover toggleDetower;
+  public GameObject panelHotkeys;
 
   public static KeyBindMenu Instance { get; private set; }
 
@@ -55,6 +56,8 @@ public class KeyBindMenu : MonoBehaviour
     }));
     this.toggleDetower.AlwaysOn = Global.GetPrefBool("prefjumpdetower", false);
   }
+
+  public void ToggleHotkeys() => this.panelHotkeys.SetActive(!this.panelHotkeys.activeSelf);
 
   public void ToggleControls()
   {

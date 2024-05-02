@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: ReplayMenu
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using Crosstales.Common.Util;
 using Crosstales.FB;
@@ -84,6 +84,13 @@ public class ReplayMenu : Catalogue
       ReplayMenu.Instance.ViewGame(str);
     });
     myContextMenu.AddInput(a);
+  }
+
+  public static string GetName(string n)
+  {
+    if (string.Equals("Strelizia", n))
+      return "Mind Flayer";
+    return string.Equals("Cyclops", n) ? "Sakuna" : n;
   }
 
   public void ViewGame(string s)
@@ -292,6 +299,13 @@ public class ReplayMenu : Catalogue
   }
 
   public void OpenFileLocation() => Global.OpenFileLocation("SavedReplays");
+
+  public class OldTeams
+  {
+    public int low;
+    public int high;
+    public int party;
+  }
 
   public class CleanReplayName
   {

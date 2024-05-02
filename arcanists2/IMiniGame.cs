@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: IMiniGame
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using ChessConsole;
 using Hazel;
@@ -15,6 +15,7 @@ using UnityEngine;
 #nullable disable
 public abstract class IMiniGame
 {
+  public IMiniGameUI gameObject;
   public const byte MsgTime = 1;
   public const byte MsgJoinLobby = 2;
   public const byte MsgMove = 3;
@@ -27,6 +28,11 @@ public abstract class IMiniGame
   public const byte MsgLeaveLobby = 11;
   public const byte MsgGameSettings = 12;
   public const byte MsgCheat = 13;
+  public const byte MsgChess = 1;
+  public const byte MsgCheckers = 2;
+  public const byte MsgJoin31 = 3;
+  public const byte MsgRPSTBG = 4;
+  public const byte MsgRPS = 5;
   public int status;
   public const int status_not_started = 0;
   public const int status_ongoing = 1;
@@ -37,11 +43,14 @@ public abstract class IMiniGame
   public bool isClient;
   public bool isReplay;
   public bool isSpectator;
-  public IMiniGame.GameType gameType;
   public GameObject uiObject;
   protected IEnumerator<float> updateLoop;
   public List<IMiniGame.Player> players = new List<IMiniGame.Player>();
   public List<Connection> spectators = new List<Connection>();
+
+  public abstract string GetGameType();
+
+  public virtual IMiniGame.GameType gameType => IMiniGame.GameType.Chess;
 
   public virtual void ServerHandler(Connection c, myBinaryReader r, byte[] bytes)
   {
@@ -86,6 +95,19 @@ public abstract class IMiniGame
       return;
     Timing.KillCoroutines(this.updateLoop);
     this.updateLoop = (IEnumerator<float>) null;
+  }
+
+  internal bool IsFirst => this.GetPlayerIndex(Client.Name) == 0;
+
+  public int GetPlayerIndex(string n)
+  {
+    for (int index = 0; index < this.players.Count; ++index)
+    {
+      if (string.Equals(n, this.players[index].name))
+        return index;
+    }
+    Debug.LogError((object) ("Chess player not found: " + n));
+    return -1;
   }
 
   public void AskStartGame(byte gameType, int whoFirst)
@@ -175,12 +197,12 @@ public abstract class IMiniGame
   {
     foreach (IMiniGame.Player player in this.players)
     {
-      if (player != null && player.connection.State == ConnectionState.Connected && player.connection.miniGame == this)
+      if (player != null && player.connection.State == ConnectionState.Connected && player.connection?.miniGame == this)
         player.connection.SendBytes(b);
     }
     for (int index = this.spectators.Count - 1; index >= 0; --index)
     {
-      if (this.spectators[index] != null && this.spectators[index].State == ConnectionState.Connected && this.spectators[index].miniGame == this)
+      if (this.spectators[index] != null && this.spectators[index].State == ConnectionState.Connected && this.spectators[index]?.miniGame == this)
       {
         this.spectators[index].SendBytes(b);
       }
@@ -213,25 +235,22 @@ public abstract class IMiniGame
 
   public void OnJoinServer(Connection c, bool forceSpectator)
   {
-    if (this.gameType == IMiniGame.GameType.Chess)
+    if (c.miniGame != null)
+      c.miniGame.LogicPlayerLeft(c);
+    c.miniGame = this;
+    if (this.players.Count < 2 && this.spectators.Count == 0 && !forceSpectator)
     {
-      if (c.miniGame != null)
-        c.miniGame.LogicPlayerLeft(c);
-      c.miniGame = this;
-      if (this.players.Count < 2 && this.spectators.Count == 0 && !forceSpectator)
+      this.players.Add(new IMiniGame.Player()
       {
-        this.players.Add(new IMiniGame.Player()
-        {
-          connection = c,
-          name = c.name
-        });
-        this.SendAll((byte) 87, (byte) 2, c.name, 1);
-      }
-      else
-      {
-        this.spectators.Add(c);
-        this.SendAll((byte) 87, (byte) 2, c.name, -1);
-      }
+        connection = c,
+        name = c.name
+      });
+      this.SendAll((byte) 87, (byte) 2, c.name, 1);
+    }
+    else
+    {
+      this.spectators.Add(c);
+      this.SendAll((byte) 87, (byte) 2, c.name, -1);
     }
     this.Server_SendCreateGame(c);
     MyLog.MainLog("[Joined Minigame Chat " + (object) c.miniGame.id + "] [" + c.name + "]");
@@ -348,6 +367,10 @@ public abstract class IMiniGame
   public enum GameType
   {
     Chess,
+    Checkers,
+    Join31,
+    RPSTBG,
+    RPS,
   }
 
   public class Player

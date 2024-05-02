@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: Restrictions
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System;
 using System.Collections.Generic;
@@ -39,7 +39,7 @@ public class Restrictions
       if (spells[index] < byte.MaxValue && !this.availableSpells[(int) spells[index]])
         return true;
     }
-    return false;
+    return this.elementals != -1;
   }
 
   public bool CheckRestricted(int i) => i < 0 || i >= 256 || !this.availableSpells[i];
@@ -66,7 +66,7 @@ public class Restrictions
     this.elementals = r.elementals;
   }
 
-  public void Serialzie(myBinaryWriter w)
+  public void Serialize(myBinaryWriter w)
   {
     this.availableSpells.Serialize(w);
     w.Write(this.elementals);

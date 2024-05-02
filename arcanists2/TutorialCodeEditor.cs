@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: TutorialCodeEditor
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using Educative;
 using InGameCodeEditor;
@@ -180,6 +180,31 @@ public class TutorialCodeEditor : MonoBehaviour
       this.OnOpen(text);
       this.edited = false;
     }));
+  }
+
+  private void Update()
+  {
+    if (!Input.GetKeyDown(KeyCode.F1))
+      return;
+    this.CopyToClipBoard();
+  }
+
+  public void CopyToClipBoard()
+  {
+    Global.systemCopyBuffer = this.codeEditor.Text;
+    Debug.Log((object) "Copied Code");
+  }
+
+  public void CreateDefaultTutorial()
+  {
+    byte[] bytes = Tutorial.FromCodeOnly(this.codeEditor.Text).ToBytes();
+    StringBuilder stringBuilder = new StringBuilder("new Data(){ name = \"" + Path.GetFileNameWithoutExtension(this.editing) + "\" , bytes = new byte[] { ");
+    for (int index = 0; index < bytes.Length - 1; ++index)
+      stringBuilder.Append(bytes[index].ToString()).Append(",");
+    stringBuilder.Append(bytes[bytes.Length - 1]);
+    stringBuilder.Append("} },\n");
+    Global.systemCopyBuffer = stringBuilder.ToString();
+    Debug.Log((object) "Copied Json as bytes (DefaultTutorials.cs) to clipboard");
   }
 
   private void OnOpen(string s)

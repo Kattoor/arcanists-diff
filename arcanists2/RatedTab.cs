@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: RatedTab
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using Hazel;
 using Hazel.Tcp;
@@ -610,6 +610,14 @@ public class RatedTab : MonoBehaviour
       foreach (RatedFacts ratedFacts in Client._ratedFacts.list)
       {
         ++num;
+        int gameType = ratedFacts.gameType;
+        if (ratedFacts.gameType == 2 && (ratedFacts.extraOptions & 10) == 0)
+        {
+          if (!((UnityEngine.Object) ChatBox.Instance != (UnityEngine.Object) null))
+            return;
+          ChatBox.Instance.NewChatMsg("", "You must search for Random Spells and/or Elementals in the Party Mode queue.", (Color) ColorScheme.GetColor(Global.ColorSystem), "", ChatOrigination.System);
+          return;
+        }
         if ((ratedFacts.extraOptions & 16) != 0 && (ratedFacts.spellOverrides != null ? Server.OriginalSpellsOnly(GameStyle.Original_Spells_Only, ratedFacts.spellOverrides) : Server.OriginalSpellsOnly(GameStyle.Original_Spells_Only, Client.settingsPlayer)))
         {
           ChatBox.Instance.NewChatMsg("You have original spells enabled, but have non-original spells in your settings profile { " + (object) num + " } !!!!", (Color) ColorScheme.GetColor(Global.ColorSystem));

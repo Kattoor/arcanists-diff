@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: ZSpellLeaf
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System.Collections.Generic;
 using UnityEngine;
@@ -50,7 +50,7 @@ public class ZSpellLeaf : ZSpell
     }
     else
     {
-      if (this.map.CheckPositionOnlyEntities((int) this.position.x, (int) this.position.y, (ZCreature) null, 256))
+      if (!this.map.CheckPositionOnlyEntities((int) this.position.x, (int) this.position.y, (ZCreature) null, 256))
         return;
       this.map.ServerBitBltHue(left ? 56 : 57, (int) this.position.x, (int) this.position.y - 8, (float) this.Bounces / (float) byte.MaxValue, false);
       ZSpell.RemoveItemsOnBitBlt(this.game, (int) this.position.x, (int) this.position.y, Inert.Instance.leafTexture.width / 2 - 1);
@@ -234,10 +234,11 @@ public class ZSpellLeaf : ZSpell
     zspellLeaf.zb = MapGenerator.getOutlineArray(zspellLeaf.radius);
     if (gotoStatic)
     {
-      zspellLeaf.transform.localScale = new Vector3(zspellLeaf.left ? 1f : -1f, 1f, 1f);
+      if ((Object) zspellLeaf.transform != (Object) null)
+        zspellLeaf.transform.localScale = new Vector3(zspellLeaf.left ? 1f : -1f, 1f, 1f);
       yield return 0.0f;
     }
-label_2:
+label_4:
     int collisionFrame = 0;
     if (!gotoStatic)
       zspellLeaf.goToTarget = zspellLeaf.game.RandomInt(0, 2) == 0;
@@ -246,9 +247,10 @@ label_2:
     if (!gotoStatic && zspellLeaf.Bounces == 0 && zspellLeaf.curDuration > 0)
     {
       yield return 0.0f;
-      if (zspellLeaf.maxTargetFrames != zspellLeaf.game.timeline.Count)
+      int explosionsAndMovement = zspellLeaf.game.numExplosionsAndMovement;
+      if (zspellLeaf.maxTargetFrames != explosionsAndMovement)
       {
-        zspellLeaf.maxTargetFrames = zspellLeaf.game.timeline.Count;
+        zspellLeaf.maxTargetFrames = explosionsAndMovement;
         zspellLeaf.MoveOtherLeaves();
         yield return 0.0f;
       }
@@ -281,7 +283,7 @@ label_2:
         {
           zspellLeaf.position = new MyLocation(zspellLeaf.validX, zspellLeaf.validY);
           yield return 0.0f;
-          goto label_2;
+          goto label_4;
         }
         else
         {
@@ -301,7 +303,7 @@ label_2:
                 if (zspellLeaf.velocity.y > 0)
                 {
                   zspellLeaf.velocity.y = (FixedInt) -5;
-                  goto label_51;
+                  goto label_53;
                 }
                 else
                 {
@@ -357,7 +359,7 @@ label_2:
                 else if (zspellLeaf.velocity.y > 0)
                 {
                   zspellLeaf.velocity.y = (FixedInt) -5;
-                  goto label_51;
+                  goto label_53;
                 }
                 else
                 {
@@ -392,7 +394,7 @@ label_2:
         }
       }
       zspellLeaf.position = zspellLeaf.position + zspellLeaf.velocity;
-label_51:
+label_53:
       if (zspellLeaf.position.y < zspellLeaf.radius)
       {
         zspellLeaf.moving = (IEnumerator<float>) null;
@@ -411,6 +413,8 @@ label_51:
       {
         zspellLeaf.addVelocity = false;
         zspellLeaf.velocity = zspellLeaf.velocity + zspellLeaf.addedVelocity;
+        zspellLeaf.velocity.x = Mathd.Clamp(zspellLeaf.velocity.x, (FixedInt) -50, (FixedInt) 50);
+        zspellLeaf.velocity.y = Mathd.Clamp(zspellLeaf.velocity.y, (FixedInt) -50, (FixedInt) 50);
         zspellLeaf.addedVelocity.x = (FixedInt) 0;
         zspellLeaf.addedVelocity.y = (FixedInt) 0;
       }
@@ -468,7 +472,8 @@ label_51:
           else
           {
             zspellLeaf.left = false;
-            zspellLeaf.transform.localScale = new Vector3(-1f, 1f, 1f);
+            if ((Object) zspellLeaf.transform != (Object) null)
+              zspellLeaf.transform.localScale = new Vector3(-1f, 1f, 1f);
           }
         }
         else if (zspellLeaf.velocity.x < 0)
@@ -484,7 +489,8 @@ label_51:
         else
         {
           zspellLeaf.left = true;
-          zspellLeaf.transform.localScale = new Vector3(1f, 1f, 1f);
+          if ((Object) zspellLeaf.transform != (Object) null)
+            zspellLeaf.transform.localScale = new Vector3(1f, 1f, 1f);
         }
       }
       zspellLeaf.Wind();

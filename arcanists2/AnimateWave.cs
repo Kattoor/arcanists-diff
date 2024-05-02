@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: AnimateWave
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using UnityEngine;
 
@@ -27,11 +27,11 @@ public class AnimateWave : MonoBehaviour
   private bool stop;
   private float curStop;
   public SpriteRenderer[] rend;
-  public Transform _cam;
 
   private void Start()
   {
-    this._cam = Camera.main.transform;
+    this.minY -= 8f;
+    this.maxY -= 8f;
     this.timeBetweenFrames = this.timeToFinish / (float) this.sprites.Length;
   }
 
@@ -75,15 +75,12 @@ public class AnimateWave : MonoBehaviour
         this.stop = true;
       }
     }
-    float num = this.lastCamX - this._cam.position.x;
     this.curOffsetX += Time.deltaTime * this.scrollSpeed;
-    this.curOffsetX -= num;
     while ((double) this.curOffsetX > 64.0)
       this.curOffsetX -= 64f;
     while ((double) this.curOffsetX < -64.0)
       this.curOffsetX += 64f;
     for (int index = 0; index < this.rend.Length; ++index)
-      this.rend[index].transform.position = new Vector3(-this.curOffsetX + (float) (index * 32) + this._cam.position.x, (float) (index * 8) + this.curOffsetY + this.offsetY, 0.0f);
-    this.lastCamX = this._cam.position.x;
+      this.rend[index].transform.position = new Vector3(-this.curOffsetX + (float) (index * 32) + (float) ((Client.game?.map?.Width ?? 0) / 2), (float) (index * 8) + this.curOffsetY + this.offsetY, 0.0f);
   }
 }

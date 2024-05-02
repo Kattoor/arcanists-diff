@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: ZPebbleSpell
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System.Collections.Generic;
 using UnityEngine;
@@ -152,12 +152,14 @@ label_53:
       {
         zpebbleSpell.addVelocity = false;
         zpebbleSpell.velocity = zpebbleSpell.velocity + zpebbleSpell.addedVelocity;
+        zpebbleSpell.velocity.x = Mathd.Clamp(zpebbleSpell.velocity.x, (FixedInt) -50, (FixedInt) 50);
+        zpebbleSpell.velocity.y = Mathd.Clamp(zpebbleSpell.velocity.y, (FixedInt) -50, (FixedInt) 50);
         zpebbleSpell.addedVelocity.x = (FixedInt) 0;
         zpebbleSpell.addedVelocity.y = (FixedInt) 0;
       }
       else if (zpebbleSpell.affectedByGravity && zpebbleSpell.velocity.y > -ZMap.MaxSpeed)
         zpebbleSpell.velocity.y += zpebbleSpell.map.Gravity;
-      else if (!zpebbleSpell.affectedByGravity && zpebbleSpell.velocity.y > -1 && zpebbleSpell.maxDuration > 150)
+      else if (!zpebbleSpell.affectedByGravity && zpebbleSpell.velocity.y > -10 && zpebbleSpell.maxDuration > 150)
         zpebbleSpell.affectedByGravity = true;
       zpebbleSpell.Wind();
 label_50:

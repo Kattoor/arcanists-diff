@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: SpellSlot
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using Newtonsoft.Json;
 using System;
@@ -14,6 +14,7 @@ public class SpellSlot
 {
   [JsonIgnore]
   public Spell spell;
+  public SpellEnum serializedSpellEnum;
   public bool syncWithParent;
   public bool isPresent;
   public bool isLevel5;
@@ -23,6 +24,7 @@ public class SpellSlot
   public int TurnsTillFirstUse;
   [NonSerialized]
   public int disabledturn = -1;
+  public int bonusDmg;
   private int _lastturnfired = -1;
   private int _useduses;
 
@@ -64,6 +66,8 @@ public class SpellSlot
     this.isPresent = other.isPresent;
     this.EndsTurn = other.EndsTurn;
     this.syncWithParent = other.syncWithParent;
+    this.bonusDmg = other.bonusDmg;
+    this.serializedSpellEnum = other.spell.spellEnum;
     if (!((UnityEngine.Object) this.spell != (UnityEngine.Object) null) || this.spell.spellEnum != SpellEnum.Duplication)
       return;
     this._useduses = this.MaxUses;
@@ -82,6 +86,7 @@ public class SpellSlot
   public void SetSpell(Spell p)
   {
     this.spell = p;
+    this.serializedSpellEnum = this.spell.spellEnum;
     this.MaxUses = this.spell.MaxUses;
     this.RechargeTime = p.RechargeTime;
     this.EndsTurn = p.EndsTurn;
@@ -93,6 +98,7 @@ public class SpellSlot
   public SpellSlot(SpellSlot s)
   {
     this.spell = s.spell;
+    this.serializedSpellEnum = this.spell.spellEnum;
     this.MaxUses = s.MaxUses;
     this.RechargeTime = s.RechargeTime;
     this.EndsTurn = s.EndsTurn;
@@ -101,16 +107,20 @@ public class SpellSlot
     this._useduses = s._useduses;
     this.isPresent = s.isPresent;
     this.syncWithParent = s.syncWithParent;
+    this.bonusDmg = s.bonusDmg;
   }
 
-  public void Serialize(ZGame game, myBinaryWriter writer)
+  public void Serialize(ZGame game, myBinaryWriter writer, bool ignoreAlready = false)
   {
     writer.Write(this.spell.name);
-    bool flag = game.xSlot.Contains(this);
+    bool flag = !ignoreAlready && game.xSlot.Contains(this);
     writer.Write(flag);
-    if (flag)
-      return;
-    game.xSlot.Add(this);
+    if (!ignoreAlready)
+    {
+      if (flag)
+        return;
+      game.xSlot.Add(this);
+    }
     writer.Write(this.MaxUses);
     writer.Write(this.RechargeTime);
     writer.Write(this.EndsTurn);
@@ -119,6 +129,7 @@ public class SpellSlot
     writer.Write(this._useduses);
     writer.Write(this.isPresent);
     writer.Write(this.syncWithParent);
+    writer.Write(this.bonusDmg);
   }
 
   public static SpellSlot Deserialize(ZPerson parent, myBinaryReader reader)
@@ -130,18 +141,21 @@ public class SpellSlot
       Spell spell = Inert.GetSpell(s);
       return (ZComponent) zcreature != (object) null && (UnityEngine.Object) spell != (UnityEngine.Object) null ? zcreature.GetSpellSlot(spell.spellEnum) ?? new SpellSlot(spell) : new SpellSlot(Inert.GetSpell(SpellEnum.Arcane_Arrow));
     }
-    return new SpellSlot()
+    SpellSlot spellSlot = new SpellSlot()
     {
-      spell = Inert.GetSpell(s),
-      MaxUses = reader.ReadInt32(),
-      RechargeTime = reader.ReadInt32(),
-      EndsTurn = reader.ReadBoolean(),
-      TurnsTillFirstUse = reader.ReadInt32(),
-      _lastturnfired = reader.ReadInt32(),
-      _useduses = reader.ReadInt32(),
-      isPresent = reader.ReadBoolean(),
-      syncWithParent = reader.ReadBoolean()
+      spell = Inert.GetSpell(s)
     };
+    spellSlot.serializedSpellEnum = spellSlot.spell.spellEnum;
+    spellSlot.MaxUses = reader.ReadInt32();
+    spellSlot.RechargeTime = reader.ReadInt32();
+    spellSlot.EndsTurn = reader.ReadBoolean();
+    spellSlot.TurnsTillFirstUse = reader.ReadInt32();
+    spellSlot._lastturnfired = reader.ReadInt32();
+    spellSlot._useduses = reader.ReadInt32();
+    spellSlot.isPresent = reader.ReadBoolean();
+    spellSlot.syncWithParent = reader.ReadBoolean();
+    spellSlot.bonusDmg = reader.ReadInt32();
+    return spellSlot;
   }
 
   public int SetTurnFired

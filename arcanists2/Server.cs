@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: Server
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using Hazel;
 using Hazel.Tcp;
@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Runtime;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using UnityEngine;
@@ -21,6 +22,8 @@ using UnityThreading;
 #nullable disable
 public class Server : MonoBehaviour
 {
+  public static int ID = 0;
+  internal static KnownServersList serverList = new KnownServersList();
   private static RNGCryptoServiceProvider rngCsp = new RNGCryptoServiceProvider();
   public static bool CompressMap = true;
   public static string discordLink = "https://discord.gg/PNnYxsc";
@@ -40,6 +43,7 @@ public class Server : MonoBehaviour
   public DiscordCommunicator communicator;
   public static OrderedDictionary<Hazel.Connection, Hazel.Connection> _connections = new OrderedDictionary<Hazel.Connection, Hazel.Connection>();
   public static Dictionary<string, Hazel.Connection> _names = new Dictionary<string, Hazel.Connection>((IEqualityComparer<string>) Server._caseInsensitiveComparer);
+  public static Dictionary<string, SmallAccount> _smallAccounts = new Dictionary<string, SmallAccount>((IEqualityComparer<string>) Server._caseInsensitiveComparer);
   public static OrderedDictionary<Hazel.Connection, Hazel.Connection> _MainMenu = new OrderedDictionary<Hazel.Connection, Hazel.Connection>();
   public static OrderedDictionary<Hazel.Connection, Hazel.Connection> _lobby = new OrderedDictionary<Hazel.Connection, Hazel.Connection>();
   public static OrderedDictionary<Hazel.Connection, Hazel.Connection> _unrated = new OrderedDictionary<Hazel.Connection, Hazel.Connection>();
@@ -56,6 +60,8 @@ public class Server : MonoBehaviour
   public static byte[] compressedClanOutfits = (byte[]) null;
   public static byte[] compressedRatedRestrictions = (byte[]) null;
   public static Restrictions _restrictions;
+  public static Restrictions _randomSpellRestrictions;
+  public static Restrictions _casinoRestrictions;
   public static RatedFacts _defaultRatedFacts;
   public bool isReady;
   public static bool allowUnverifiedUsersToTalk = false;
@@ -84,6 +90,7 @@ public class Server : MonoBehaviour
   private static int Next_Game_ID = 0;
   private static byte errorMsg = 0;
   public static System.Random randomNumberGenerator = new System.Random();
+  public static int cur = 0;
   private static GameFacts tempFacts = (GameFacts) null;
   private static float nextKeepAlive = 60f;
   private static float nextRatedCheck = 0.0f;
@@ -230,7 +237,7 @@ public class Server : MonoBehaviour
     }
   }
 
-  public static void BroadCast()
+  public static async void BroadCast()
   {
     if (!Application.isBatchMode)
     {
@@ -243,12 +250,11 @@ public class Server : MonoBehaviour
     }
     try
     {
+      Server.ID = PlayerPrefs.GetInt("serverid", 14);
       Server.Instance.listener = (ConnectionListener) new TcpConnectionListener(new NetworkEndPoint(IPAddress.Any, Client.port));
       Server.Instance.listener.NewConnection += new EventHandler<NewConnectionEventArgs>(Server.NewConnectionHandler);
       Server.Instance.webListenerInsecure = new WebListener();
       Server.Instance.webListenerInsecure.NewConnection += new EventHandler<NewConnectionEventArgs>(Server.NewConnectionHandler);
-      Server.Instance.listener.Start();
-      Server.Instance.webListenerInsecure.Listen(Client.webPortInsecure);
       Server.Instance.communicator = new DiscordCommunicator();
       Application.logMessageReceived += new Application.LogCallback(Server.HandleException);
     }
@@ -290,7 +296,7 @@ public class Server : MonoBehaviour
     c?.SendBytes(new byte[1]{ b });
   }
 
-  public static void SendInfo(byte[] v)
+  public static void SendInfo(byte[] v, bool sendToMesh = true)
   {
     foreach (KeyValuePair<Hazel.Connection, Hazel.Connection> connection in Server._connections)
     {
@@ -405,19 +411,7 @@ public class Server : MonoBehaviour
           {
             keyValuePair = Server._connections.GetItem(index);
             if (keyValuePair.Key.player.gameNumber == -1)
-            {
-              Dictionary<string, Hazel.Connection> names1 = Server._names;
-              keyValuePair = Server._connections.GetItem(index);
-              string name1 = keyValuePair.Key.player.account.name;
-              if (names1.ContainsKey(name1))
-              {
-                Dictionary<string, Hazel.Connection> names2 = Server._names;
-                keyValuePair = Server._connections.GetItem(index);
-                string name2 = keyValuePair.Key.player.account.name;
-                names2.Remove(name2);
-              }
               Server._connections.RemoveAt(index);
-            }
           }
         }
         myBinaryWriter.Write(Server._connections.Count);
@@ -428,10 +422,10 @@ public class Server : MonoBehaviour
           KeyValuePair<Hazel.Connection, Hazel.Connection> keyValuePair = Server._lobby.GetItem(index);
           if (keyValuePair.Key.State != ConnectionState.Connected)
           {
-            string name3 = c.player.account.name;
+            string name1 = c.player.account.name;
             keyValuePair = Server._lobby.GetItem(index);
-            string name4 = keyValuePair.Key.player.account.name;
-            if (!string.Equals(name3, name4, StringComparison.OrdinalIgnoreCase))
+            string name2 = keyValuePair.Key.player.account.name;
+            if (!string.Equals(name1, name2, StringComparison.OrdinalIgnoreCase))
             {
               keyValuePair = Server._lobby.GetItem(index);
               Server.RemoveFromLobby(keyValuePair.Key);
@@ -743,6 +737,7 @@ public class Server : MonoBehaviour
             {
               c.player.account.Serialize(w);
               c.player.account.cosmetics.Serialize(w);
+              c.player.account.badges.Serialize(w);
               w.Write(c.player.account.bonusExperience);
               w.Write((byte) c.player.account.lobbyChat);
               w.Write((byte) c.player.account.gameChat);
@@ -807,38 +802,43 @@ public class Server : MonoBehaviour
   private static void MainMenuHandler(object sender, DataReceivedEventArgs args)
   {
     if (args.Bytes.Length == 1 && args.Bytes[0] == (byte) 34)
-      return;
-    Hazel.Connection c = (Hazel.Connection) sender;
-    UnityThreadHelper.Dispatcher.Dispatch2((Action) (() =>
     {
-      if (c.player.location == Location.MainMenu)
+      args.Recycle();
+    }
+    else
+    {
+      Hazel.Connection c = (Hazel.Connection) sender;
+      UnityThreadHelper.Dispatcher.Dispatch2((Action) (() =>
       {
-        using (MemoryStream memoryStream = new MemoryStream(args.Bytes))
+        if (c.player.location == Location.MainMenu)
         {
-          using (myBinaryReader reader = new myBinaryReader((Stream) memoryStream))
+          using (MemoryStream memoryStream = new MemoryStream(args.Bytes))
           {
-            try
+            using (myBinaryReader reader = new myBinaryReader((Stream) memoryStream))
             {
-              switch (reader.ReadByte())
+              try
               {
-                case 93:
-                  Server.HandleRejoinGame(c, reader);
-                  break;
-                case 193:
-                  Server.MovePlayer(c, Location.Lobby);
-                  Server.SyncLobby(c, sendmsg: true);
-                  break;
+                switch (reader.ReadByte())
+                {
+                  case 93:
+                    Server.HandleRejoinGame(c, reader);
+                    break;
+                  case 193:
+                    Server.MovePlayer(c, Location.Lobby);
+                    Server.SyncLobby(c, sendmsg: true);
+                    break;
+                }
               }
-            }
-            catch (Exception ex)
-            {
-              Debug.LogError((object) ex.ToString());
+              catch (Exception ex)
+              {
+                Debug.LogError((object) ex.ToString());
+              }
             }
           }
         }
-      }
-      args.Recycle();
-    }));
+        args.Recycle();
+      }));
+    }
   }
 
   public static void HandleClanMsg(Hazel.Connection connection, myBinaryReader reader)
@@ -860,7 +860,7 @@ public class Server : MonoBehaviour
     else
     {
       Hazel.Connection connection;
-      if (string.Equals(n, c.player.account.name, StringComparison.OrdinalIgnoreCase) && Server._names.TryGetValue(key, out connection) && connection.State == ConnectionState.Connected)
+      if (string.Equals(n, c.player.account.name, StringComparison.OrdinalIgnoreCase) && Server._names.TryGetValue(key, out connection) && (connection.State == ConnectionState.Connected || connection.player.account.OnAnotherServer))
       {
         if (c.player.account.accountType.IsMuted() && !Server.allowUnverifiedUsersToTalk && !connection.player.account.accountType.IsModPlus() || c.player.account.accountType.has(AccountType.Perm_Muted))
         {
@@ -1131,6 +1131,7 @@ public class Server : MonoBehaviour
 
   public static void SendGameCreated(GameFacts gf)
   {
+    gf.CalculateGameType();
     using (MemoryStream memoryStream = new MemoryStream())
     {
       using (myBinaryWriter writer = new myBinaryWriter((Stream) memoryStream))
@@ -1168,7 +1169,7 @@ public class Server : MonoBehaviour
         c.player.player.connection = c;
         gg.connections[index] = c;
         gg.game._oldData.Remove(c);
-        Server.SendStartGame(c, gg);
+        Server.SendStartGame(c, gg, index * (gg.GetMultiTeamMode() ? gg.GetNumberPlayersPerTeam() : 1));
         gg.game?.SendRejoined(p);
         break;
       }
@@ -1178,142 +1179,69 @@ public class Server : MonoBehaviour
   private static void LobbyHandler(object sender, DataReceivedEventArgs args)
   {
     if (args.Bytes.Length == 1 && args.Bytes[0] == (byte) 34)
-      return;
-    Hazel.Connection c = (Hazel.Connection) sender;
-    UnityThreadHelper.Dispatcher.Dispatch2((Action) (() =>
     {
-      if (c.player.location == Location.Lobby)
+      args.Recycle();
+    }
+    else
+    {
+      Hazel.Connection c = (Hazel.Connection) sender;
+      UnityThreadHelper.Dispatcher.Dispatch2((Action) (() =>
       {
-        using (MemoryStream memoryStream1 = new MemoryStream(args.Bytes))
+        if (c.player.location == Location.Lobby)
         {
-          using (myBinaryReader myBinaryReader = new myBinaryReader((Stream) memoryStream1))
+          using (MemoryStream memoryStream1 = new MemoryStream(args.Bytes))
           {
-            try
+            using (myBinaryReader myBinaryReader = new myBinaryReader((Stream) memoryStream1))
             {
-              byte num1 = myBinaryReader.ReadByte();
-              Server.errorMsg = num1;
-              switch (num1)
+              try
               {
-                case 26:
-                  int key1 = myBinaryReader.ReadInt32();
-                  GameFacts gameFacts = (GameFacts) null;
-                  if (Server._games.TryGetValue(key1, out gameFacts))
-                  {
-                    if (gameFacts.GetRatedMode() && (c.player.account.discord == 0UL || c.player.account[0].rating < (short) 1000))
+                byte num1 = myBinaryReader.ReadByte();
+                Server.errorMsg = num1;
+                switch (num1)
+                {
+                  case 26:
+                    int key1 = myBinaryReader.ReadInt32();
+                    GameFacts gameFacts = (GameFacts) null;
+                    if (Server._games.TryGetValue(key1, out gameFacts))
                     {
-                      if (c.player.account.discord == 0UL)
+                      if (gameFacts.GetRatedMode() && (c.player.account.discord == 0UL || c.player.account[0].rating < (short) 1000))
                       {
-                        Server.ReturnServerMsg(c, "Verify your discord ID to play rated games.");
-                        break;
-                      }
-                      Server.ReturnServerMsg(c, "Looks like you're banned from rateds :(");
-                      break;
-                    }
-                    if (gameFacts.status == (byte) 0 && gameFacts.connections.Count < (int) gameFacts.customPlayerCount && c.player.location == Location.Lobby && (!gameFacts.GetRatedMode() || c.player.account.discord != 0UL) && (!gameFacts.connections[0].player.account.ignored.Contains(c.player.account.name) || gameFacts.invitedPlayers.Contains(c.player.account.name)) && (gameFacts.GetInviteMode() == InviteEnum.Open || gameFacts.invitedPlayers.Contains(c.player.account.name) || gameFacts.GetInviteMode() == InviteEnum.Clan && gameFacts.connections.Count > 0 && string.Equals(gameFacts.connections[0].player.account.clan, c.player.account.clan) || gameFacts.GetInviteMode() == InviteEnum.Friends && (gameFacts.connections.Count == 0 || gameFacts.connections[0].player.account.friends.Contains(c.player.account.name)) || gameFacts.GetInviteMode() == InviteEnum.Similar_Rating && gameFacts.connections.Count > 0 && Mathf.Abs((int) gameFacts.connections[0].player.account.similarRating - (int) c.player.account.similarRating) <= 500))
-                    {
-                      c.player.gameNumber = key1;
-                      gameFacts.connections.Add(c);
-                      Server.MovePlayer(c, Location.LobbyUnrated);
-                      if (gameFacts.GetInviteMode() != InviteEnum.BookClub)
-                        gameFacts.invitedPlayers.Remove(c.player.account.name);
-                      if (!gameFacts.GetRatedMode())
-                      {
-                        if (!gameFacts.GetMultiTeamMode())
+                        if (c.player.account.discord == 0UL)
+                        {
+                          Server.ReturnServerMsg(c, "Verify your discord ID to play rated games.");
                           break;
-                      }
-                      gameFacts.KillStart();
-                      for (int index = 0; index < gameFacts.connections.Count; ++index)
-                        gameFacts.connections[index].player.ready = false;
-                      break;
-                    }
-                    if (gameFacts.connections.Count > 0)
-                    {
-                      using (MemoryStream memoryStream2 = new MemoryStream())
-                      {
-                        using (myBinaryWriter myBinaryWriter = new myBinaryWriter((Stream) memoryStream2))
-                        {
-                          myBinaryWriter.Write((byte) 59);
-                          myBinaryWriter.Write(c.player.account.name);
                         }
-                        gameFacts.connections[0].SendBytes(memoryStream2.ToArray());
-                        Server.ReturnServerMsg(c, "Asking to join " + gameFacts.connections[0].name + "'s game...");
+                        Server.ReturnServerMsg(c, "Looks like you're banned from rateds :(");
                         break;
                       }
-                    }
-                    else
-                      break;
-                  }
-                  else
-                    break;
-                case 28:
-                  Server.MovePlayer(c, Location.MainMenu);
-                  break;
-                case 29:
-                case 39:
-                  GameFacts gf1 = new GameFacts();
-                  gf1.settings.Deserialize(myBinaryReader);
-                  gf1.settings.Clamp();
-                  if (c.player.account.accountType.IsMuted() && !string.IsNullOrEmpty(gf1.settings.description))
-                    gf1.settings.description = "";
-                  if (!string.IsNullOrEmpty(gf1.settings.description))
-                    MyLog.MainLog("[Game Description] [" + c.name + "] " + gf1.settings.description);
-                  gf1.id = Server.NextGameID();
-                  Server._games.Add(gf1.id, gf1);
-                  gf1.connections.Add(c);
-                  c.player.gameNumber = gf1.id;
-                  Server.MovePlayer(c, Location.LobbyCreateGame);
-                  if (num1 == (byte) 39 && c.player.account[0].rating >= (short) 1000 && c.player.account.discord != 0UL)
-                  {
-                    gf1.SetRatedMode(true);
-                    gf1.SetTeamMode(TeamEnum.Yes);
-                    gf1.SetPlayersPerTeam(PlayersPerTeam.Half);
-                    gf1.SetSpectatorMode(true);
-                    gf1.ReSetStyle(GameStyle.Arcane_Monster);
-                    gf1.ReSetStyle(GameStyle.Sandbox);
-                  }
-                  else
-                    gf1.SetRatedMode(false);
-                  Server.SendGameCreated(gf1);
-                  break;
-                case 36:
-                  int key2 = myBinaryReader.ReadInt32();
-                  GameFacts gf2 = (GameFacts) null;
-                  if (Server._games.TryGetValue(key2, out gf2))
-                  {
-                    if (gf2.status != (byte) 2)
-                    {
-                      if (gf2.status != (byte) 1)
-                        break;
-                    }
-                    if (!gf2.GetSpectatorMode())
-                    {
-                      if (!c.player.account.accountType.isDev())
-                        break;
-                    }
-                    if (gf2.game != null)
-                    {
-                      if (!c.player.spectator)
+                      if (gameFacts.status == (byte) 0 && gameFacts.connections.Count < (int) gameFacts.customPlayerCount && c.player.location == Location.Lobby && (!gameFacts.GetRatedMode() || c.player.account.discord != 0UL) && (!gameFacts.connections[0].player.account.ignored.Contains(c.player.account.name) || gameFacts.invitedPlayers.Contains(c.player.account.name)) && (gameFacts.GetInviteMode() == InviteEnum.Open || gameFacts.invitedPlayers.Contains(c.player.account.name) || gameFacts.GetInviteMode() == InviteEnum.Clan && gameFacts.connections.Count > 0 && string.Equals(gameFacts.connections[0].player.account.clan, c.player.account.clan) || gameFacts.GetInviteMode() == InviteEnum.Friends && (gameFacts.connections.Count == 0 || gameFacts.connections[0].player.account.friends.Contains(c.player.account.name)) || gameFacts.GetInviteMode() == InviteEnum.Similar_Rating && gameFacts.connections.Count > 0 && Mathf.Abs((int) gameFacts.connections[0].player.account.similarRating - (int) c.player.account.similarRating) <= 500))
                       {
-                        byte[] numArray = new byte[25];
-                        Server.rngCsp.GetBytes(numArray);
-                        c.player.spectator = true;
-                        Server.validSpectator[c.player.account.name] = new ValidSpectator()
+                        c.player.gameNumber = key1;
+                        gameFacts.connections.Add(c);
+                        Server.MovePlayer(c, Location.LobbyUnrated);
+                        if (gameFacts.GetInviteMode() != InviteEnum.BookClub)
+                          gameFacts.invitedPlayers.Remove(c.player.account.name);
+                        if (!gameFacts.GetRatedMode())
                         {
-                          gameID = gf2.id,
-                          name = c.player.account.name,
-                          cryp = numArray,
-                          isp = c.EndPoint.ToString().Split(':')[0]
-                        };
-                        using (MemoryStream memoryStream3 = new MemoryStream())
+                          if (!gameFacts.GetMultiTeamMode())
+                            break;
+                        }
+                        gameFacts.KillStart();
+                        for (int index = 0; index < gameFacts.connections.Count; ++index)
+                          gameFacts.connections[index].player.ready = false;
+                        break;
+                      }
+                      if (gameFacts.connections.Count > 0)
+                      {
+                        using (MemoryStream memoryStream2 = new MemoryStream())
                         {
-                          using (myBinaryWriter writer = new myBinaryWriter((Stream) memoryStream3))
+                          using (myBinaryWriter myBinaryWriter = new myBinaryWriter((Stream) memoryStream2))
                           {
-                            writer.Write((byte) 36);
-                            writer.Write(gf2.id);
-                            writer.Write(numArray);
-                            gf2.ManualSerialize(writer, true);
+                            myBinaryWriter.Write((byte) 59);
+                            myBinaryWriter.Write(c.player.account.name);
                           }
-                          c.SendBytes(memoryStream3.ToArray());
+                          gameFacts.connections[0].SendBytes(memoryStream2.ToArray());
+                          Server.ReturnServerMsg(c, "Asking to join " + gameFacts.connections[0].name + "'s game...");
                           break;
                         }
                       }
@@ -1322,152 +1250,246 @@ public class Server : MonoBehaviour
                     }
                     else
                       break;
-                  }
-                  else
+                  case 28:
+                    Server.MovePlayer(c, Location.MainMenu);
                     break;
-                case 44:
-                  if (Server._ratedQueue.ContainsKey(c))
-                  {
-                    Server.ReturnServerMsg(c, "Cannot change spells while finding opponents");
-                    return;
-                  }
-                  SettingsPlayer b1 = new SettingsPlayer();
-                  b1.Deserialize(myBinaryReader);
-                  c.player.settingsPlayer.CopySpells(b1);
-                  c.player.settingsPlayer.VerifySpells();
-                  c.player.settingsPlayer.ReseralizeSpells(c);
-                  break;
-                case 45:
-                  SettingsPlayer b2 = new SettingsPlayer();
-                  b2.Deserialize(myBinaryReader);
-                  c.player.settingsPlayer.CopyOutfit(b2);
-                  c.player.settingsPlayer.VerifyOutfit(c.player.account.cosmetics, c.player.account);
-                  c.SendBytes(args.Bytes);
-                  break;
-                case 50:
-                  myBinaryReader.ReadString();
-                  Server.ChangeFriendsList(c.player.account, myBinaryReader, args.Bytes);
-                  break;
-                case 52:
-                  c.player.spectator = false;
-                  break;
-                case 55:
-                  Server.ReceiveReport(c, c.player.account.name, myBinaryReader);
-                  break;
-                case 57:
-                  myBinaryReader.ReadString();
-                  Server.ChangeChatSettings(c.player.account, myBinaryReader);
-                  break;
-                case 60:
-                  if (Server._ratedQueue.ContainsKey(c))
-                  {
-                    Server.ReturnServerMsg(c, "Cannot change elementals while finding opponents");
-                    return;
-                  }
-                  c.player.settingsPlayer.fullBook = myBinaryReader.ReadByte();
-                  c.SendBytes(args.Bytes);
-                  break;
-                case 75:
-                  if (c.player.account.accountType.IsMuted())
-                    return;
-                  byte num2 = myBinaryReader.ReadByte();
-                  switch (num2)
-                  {
-                    case 253:
-                    case 254:
-                      c.player.account.displayClanPrefix = num2 == (byte) 253 ? (byte) 1 : (byte) 0;
+                  case 29:
+                  case 39:
+                    GameFacts gf1 = new GameFacts();
+                    gf1.settings.Deserialize(myBinaryReader);
+                    gf1.settings.Clamp();
+                    if (c.player.account.accountType.IsMuted() && !string.IsNullOrEmpty(gf1.settings.description))
+                      gf1.settings.description = "";
+                    if (!string.IsNullOrEmpty(gf1.settings.description))
+                      MyLog.MainLog("[Game Description] [" + c.name + "] " + gf1.settings.description);
+                    gf1.id = Server.NextGameID();
+                    Server._games.Add(gf1.id, gf1);
+                    gf1.connections.Add(c);
+                    c.player.gameNumber = gf1.id;
+                    Server.MovePlayer(c, Location.LobbyCreateGame);
+                    if (num1 == (byte) 39 && c.player.account[0].rating >= (short) 1000 && c.player.account.discord != 0UL)
+                    {
+                      gf1.SetRatedMode(true);
+                      gf1.SetTeamMode(TeamEnum.Yes);
+                      gf1.SetPlayersPerTeam(PlayersPerTeam.Half);
+                      gf1.SetSpectatorMode(true);
+                      gf1.ReSetStyle(GameStyle.Arcane_Monster);
+                      gf1.ReSetStyle(GameStyle.Sandbox);
+                    }
+                    else
+                      gf1.SetRatedMode(false);
+                    Server.SendGameCreated(gf1);
+                    break;
+                  case 36:
+                    if (Server._ratedQueue.ContainsKey(c))
+                    {
+                      Server.ReturnMsg(c, "Spectaing while finding opponents is not currently supported :(");
                       break;
-                    default:
-                      c.player.account.displayedIcon = (int) num2;
+                    }
+                    int key2 = myBinaryReader.ReadInt32();
+                    GameFacts gf2 = (GameFacts) null;
+                    if (Server._games.TryGetValue(key2, out gf2))
+                    {
+                      if (gf2.status != (byte) 2)
+                      {
+                        if (gf2.status != (byte) 1)
+                          break;
+                      }
+                      if (!gf2.GetSpectatorMode())
+                      {
+                        if (!c.player.account.accountType.isDev())
+                          break;
+                      }
+                      if (gf2.game != null)
+                      {
+                        if (!c.player.spectator)
+                        {
+                          byte[] numArray = new byte[25];
+                          Server.rngCsp.GetBytes(numArray);
+                          c.player.spectator = true;
+                          Server.validSpectator[c.player.account.name] = new ValidSpectator()
+                          {
+                            gameID = gf2.id,
+                            name = c.player.account.name,
+                            cryp = numArray,
+                            isp = c.EndPoint.ToString().Split(':')[0]
+                          };
+                          using (MemoryStream memoryStream3 = new MemoryStream())
+                          {
+                            using (myBinaryWriter writer = new myBinaryWriter((Stream) memoryStream3))
+                            {
+                              writer.Write((byte) 36);
+                              writer.Write(gf2.id);
+                              writer.Write(numArray);
+                              gf2.ManualSerialize(writer, true);
+                            }
+                            c.SendBytes(memoryStream3.ToArray());
+                            break;
+                          }
+                        }
+                        else
+                          break;
+                      }
+                      else
+                        break;
+                    }
+                    else
                       break;
-                  }
-                  Server.UpdateAccountInfo(c.player.account);
-                  break;
-                case 77:
-                  Server.ValidateShare(c, myBinaryReader, args.Bytes, true);
-                  break;
-                case 84:
-                  Server.HandleClanMsg(c, myBinaryReader);
-                  break;
-                case 93:
-                  Server.HandleRejoinGame(c, myBinaryReader);
-                  break;
-                case 150:
-                  Server.ValidateClanChat(c, myBinaryReader, args.Bytes);
-                  break;
-                case 151:
-                  Server.ValidatePrivateChatMessage(myBinaryReader.ReadString(), c, myBinaryReader, args.Bytes);
-                  break;
-                case 153:
-                  Server.ValidateChatMessage(c, myBinaryReader, args.Bytes, true);
-                  break;
-                case 155:
-                  Server.ValidateQuickChat(c, myBinaryReader, args.Bytes, true);
-                  break;
+                  case 44:
+                    if (Server._ratedQueue.ContainsKey(c))
+                    {
+                      Server.ReturnServerMsg(c, "Cannot change spells while finding opponents");
+                      return;
+                    }
+                    SettingsPlayer b1 = new SettingsPlayer();
+                    b1.Deserialize(myBinaryReader);
+                    c.player.settingsPlayer.CopySpells(b1);
+                    c.player.settingsPlayer.VerifySpells();
+                    c.player.settingsPlayer.ReseralizeSpells(c);
+                    break;
+                  case 45:
+                    SettingsPlayer b2 = new SettingsPlayer();
+                    b2.Deserialize(myBinaryReader);
+                    c.player.settingsPlayer.CopyOutfit(b2);
+                    c.player.settingsPlayer.VerifyOutfit(c.player.account.cosmetics, c.player.account);
+                    c.SendBytes(args.Bytes);
+                    break;
+                  case 50:
+                    myBinaryReader.ReadString();
+                    Server.ChangeFriendsList(c.player.account, myBinaryReader, args.Bytes);
+                    break;
+                  case 52:
+                    c.player.spectator = false;
+                    break;
+                  case 55:
+                    Server.ReceiveReport(c, c.player.account.name, myBinaryReader);
+                    break;
+                  case 57:
+                    myBinaryReader.ReadString();
+                    Server.ChangeChatSettings(c.player.account, myBinaryReader);
+                    break;
+                  case 60:
+                    if (Server._ratedQueue.ContainsKey(c))
+                    {
+                      Server.ReturnServerMsg(c, "Cannot change elementals while finding opponents");
+                      return;
+                    }
+                    c.player.settingsPlayer.fullBook = myBinaryReader.ReadByte();
+                    c.SendBytes(args.Bytes);
+                    break;
+                  case 75:
+                    if (c.player.account.accountType.IsMuted())
+                      return;
+                    int num2 = myBinaryReader.ReadInt32();
+                    switch (num2)
+                    {
+                      case 253:
+                      case 254:
+                        c.player.account.displayClanPrefix = num2 == 253 ? (byte) 1 : (byte) 0;
+                        break;
+                      default:
+                        if (num2 > 256 && !c.player.account.badges[num2 - 256])
+                        {
+                          num2 = 0;
+                          break;
+                        }
+                        break;
+                    }
+                    c.player.account.displayedIcon = num2;
+                    Server.UpdateAccountInfo(c.player.account);
+                    break;
+                  case 77:
+                    Server.ValidateShare(c, myBinaryReader, args.Bytes, true);
+                    break;
+                  case 84:
+                    Server.HandleClanMsg(c, myBinaryReader);
+                    break;
+                  case 93:
+                    Server.HandleRejoinGame(c, myBinaryReader);
+                    break;
+                  case 150:
+                    Server.ValidateClanChat(c, myBinaryReader, args.Bytes);
+                    break;
+                  case 151:
+                    Server.ValidatePrivateChatMessage(myBinaryReader.ReadString(), c, myBinaryReader, args.Bytes);
+                    break;
+                  case 153:
+                    Server.ValidateChatMessage(c, myBinaryReader, args.Bytes, true);
+                    break;
+                  case 155:
+                    Server.ValidateQuickChat(c, myBinaryReader, args.Bytes, true);
+                    break;
+                }
               }
-            }
-            catch (Exception ex)
-            {
-              Debug.LogError((object) (ex.ToString() + " MSG: " + (object) Server.errorMsg));
+              catch (Exception ex)
+              {
+                Debug.LogError((object) (ex.ToString() + " MSG: " + (object) Server.errorMsg));
+              }
             }
           }
         }
-      }
-      args.Recycle();
-    }));
+        args.Recycle();
+      }));
+    }
   }
 
   private static void UnratedHandler(object sender, DataReceivedEventArgs args)
   {
     if (args.Bytes.Length == 1 && args.Bytes[0] == (byte) 34)
-      return;
-    Hazel.Connection c = (Hazel.Connection) sender;
-    UnityThreadHelper.Dispatcher.Dispatch2((Action) (() =>
     {
-      if (c.player.location == Location.LobbyUnrated)
+      args.Recycle();
+    }
+    else
+    {
+      Hazel.Connection c = (Hazel.Connection) sender;
+      UnityThreadHelper.Dispatcher.Dispatch2((Action) (() =>
       {
-        using (MemoryStream memoryStream1 = new MemoryStream(args.Bytes))
+        if (c.player.location == Location.LobbyUnrated)
         {
-          using (myBinaryReader myBinaryReader = new myBinaryReader((Stream) memoryStream1))
+          using (MemoryStream memoryStream1 = new MemoryStream(args.Bytes))
           {
-            try
+            using (myBinaryReader myBinaryReader = new myBinaryReader((Stream) memoryStream1))
             {
-              byte tag = myBinaryReader.ReadByte();
-              switch (tag)
+              try
               {
-                case 12:
-                  GameFacts gg1 = (GameFacts) null;
-                  if (Server._games.TryGetValue(c.player.gameNumber, out gg1))
-                  {
-                    if (gg1.GetInviteMode() != InviteEnum.BookClub)
+                byte tag = myBinaryReader.ReadByte();
+                switch (tag)
+                {
+                  case 12:
+                    GameFacts gg1 = (GameFacts) null;
+                    if (Server._games.TryGetValue(c.player.gameNumber, out gg1))
                     {
-                      if (gg1.lastChange + 5.0 >= (double) Time.realtimeSinceStartup)
+                      if (gg1.GetInviteMode() != InviteEnum.BookClub)
                       {
-                        if (gg1.lastChange > 0.0)
+                        if (gg1.lastChange + 5.0 >= (double) Time.realtimeSinceStartup)
                         {
-                          if ((double) Time.realtimeSinceStartup >= 0.0)
+                          if (gg1.lastChange > 0.0)
+                          {
+                            if ((double) Time.realtimeSinceStartup >= 0.0)
+                              break;
+                          }
+                          else
                             break;
                         }
-                        else
-                          break;
-                      }
-                      if (gg1.status == (byte) 0)
-                      {
-                        if (gg1.connections.Count > 0)
+                        if (gg1.status == (byte) 0)
                         {
-                          if (gg1.connections[0] == c)
+                          if (gg1.connections.Count > 0)
                           {
-                            if (gg1.GetTeamMode() && (!gg1.GetMultiTeamMode() || gg1.GetRatedMode() && gg1.connections.Count != 2))
+                            if (gg1.connections[0] == c)
                             {
-                              if (gg1.connections.Count > gg1.GetNumberPlayersPerTeam())
+                              if (gg1.GetTeamMode() && (!gg1.GetMultiTeamMode() || gg1.GetRatedMode() && gg1.connections.Count != 2))
                               {
-                                if (gg1.connections.Count % gg1.GetNumberPlayersPerTeam() != 0)
+                                if (gg1.connections.Count > gg1.GetNumberPlayersPerTeam())
+                                {
+                                  if (gg1.connections.Count % gg1.GetNumberPlayersPerTeam() != 0)
+                                    break;
+                                }
+                                else
                                   break;
                               }
-                              else
-                                break;
+                              Server.StartGame(gg1);
+                              break;
                             }
-                            Server.StartGame(gg1);
                             break;
                           }
                           break;
@@ -1477,300 +1499,301 @@ public class Server : MonoBehaviour
                       break;
                     }
                     break;
-                  }
-                  break;
-                case 14:
-                  GameFacts gg2 = (GameFacts) null;
-                  if (Server._games.TryGetValue(c.player.gameNumber, out gg2))
-                  {
-                    if (gg2.connections.Count == 0 || gg2.connections[0] != c || gg2.GetInviteMode() == InviteEnum.BookClub)
-                      return;
-                    GameFacts.Message message = (GameFacts.Message) myBinaryReader.ReadByte();
-                    int num1 = myBinaryReader.ReadInt32();
-                    if (num1 == -1 && message != GameFacts.Message.Remove_Custom_Armageddon || gg2.GetTournamentMode() && message != GameFacts.Message.Tournament && !c.player.account.accountType.IsModPlusTOParticipate())
-                      return;
-                    switch (message)
+                  case 14:
+                    GameFacts gg2 = (GameFacts) null;
+                    if (Server._games.TryGetValue(c.player.gameNumber, out gg2))
                     {
-                      case GameFacts.Message.Invite_Mode:
-                        if (!System.Enum.IsDefined(typeof (InviteEnum), (object) num1) || num1 == 32768)
-                          return;
-                        gg2.SetInviteMode((InviteEnum) num1);
-                        break;
-                      case (GameFacts.Message) 2:
+                      if (gg2.connections.Count == 0 || gg2.connections[0] != c || gg2.GetInviteMode() == InviteEnum.BookClub)
                         return;
-                      case GameFacts.Message.Spectators:
-                        if (!System.Enum.IsDefined(typeof (SpectatorsEnum), (object) num1) || gg2.GetRatedMode())
-                          return;
-                        gg2.SetSpectatorMode(!gg2.GetSpectatorMode());
-                        break;
-                      case (GameFacts.Message) 4:
+                      GameFacts.Message message = (GameFacts.Message) myBinaryReader.ReadByte();
+                      int num1 = myBinaryReader.ReadInt32();
+                      if (num1 == -1 && message != GameFacts.Message.Remove_Custom_Armageddon || gg2.GetTournamentMode() && message != GameFacts.Message.Tournament && !c.player.account.accountType.IsModPlusTOParticipate())
                         return;
-                      case GameFacts.Message.Time:
-                        if (!System.Enum.IsDefined(typeof (TimeEnum), (object) num1))
-                          return;
-                        gg2.SetTimeMode((TimeEnum) num1);
-                        gg2.customTime = (ushort) gg2.GetTimeInSeconds();
-                        break;
-                      case GameFacts.Message.Map:
-                        if (!System.Enum.IsDefined(typeof (MapEnum), (object) num1))
-                          return;
-                        if (num1 == 16777216)
-                        {
-                          gg2.ActivateAllMaps();
+                      switch (message)
+                      {
+                        case GameFacts.Message.Invite_Mode:
+                          if (!System.Enum.IsDefined(typeof (InviteEnum), (object) num1) || num1 == 32768)
+                            return;
+                          gg2.SetInviteMode((InviteEnum) num1);
                           break;
-                        }
-                        gg2.SetMapMode((MapEnum) num1);
-                        break;
-                      case GameFacts.Message.Team:
-                        if (!System.Enum.IsDefined(typeof (TeamEnum), (object) num1) || gg2.GetRatedMode())
+                        case (GameFacts.Message) 2:
                           return;
-                        if (num1 == 524288)
-                          num1 |= 16777216;
-                        gg2.SetTeamMode((TeamEnum) num1);
-                        break;
-                      case GameFacts.Message.Players:
-                        if (!System.Enum.IsDefined(typeof (PlayerEnum), (object) num1))
-                          return;
-                        gg2.SetPlayerMode((PlayerEnum) num1);
-                        gg2.customPlayerCount = (byte) gg2.GetMaxPlayers();
-                        break;
-                      case GameFacts.Message.PerTeam:
-                        if (!System.Enum.IsDefined(typeof (PlayersPerTeam), (object) num1) || gg2.GetRatedMode())
-                          return;
-                        gg2.SetPlayersPerTeam((PlayersPerTeam) num1);
-                        break;
-                      case (GameFacts.Message) 10:
-                        return;
-                      case GameFacts.Message.GameStyle:
-                        if (!System.Enum.IsDefined(typeof (GameStyle), (object) num1))
-                          return;
-                        gg2.ToggleStyle((GameStyle) num1);
-                        if (gg2.GetRatedMode())
-                        {
-                          gg2.ReSetStyle(GameStyle.Arcane_Monster);
-                          gg2.ReSetStyle(GameStyle.Sandbox);
+                        case GameFacts.Message.Spectators:
+                          if (!System.Enum.IsDefined(typeof (SpectatorsEnum), (object) num1) || gg2.GetRatedMode())
+                            return;
+                          gg2.SetSpectatorMode(!gg2.GetSpectatorMode());
                           break;
-                        }
-                        break;
-                      case GameFacts.Message.AddMap:
-                        if (!System.Enum.IsDefined(typeof (MapEnum), (object) num1))
+                        case (GameFacts.Message) 4:
                           return;
-                        if (num1 == 16777216)
-                        {
-                          gg2.ActivateAllMaps();
+                        case GameFacts.Message.Time:
+                          if (!System.Enum.IsDefined(typeof (TimeEnum), (object) num1))
+                            return;
+                          gg2.SetTimeMode((TimeEnum) num1);
+                          gg2.customTime = (ushort) gg2.GetTimeInSeconds();
                           break;
-                        }
-                        MapEnum mapMode = gg2.GetMapMode();
-                        gg2.gameModes4 ^= num1;
-                        int num2 = (int) gg2.GetMapMode();
-                        if (num2 == 0)
-                        {
-                          gg2.SetMapMode(mapMode);
-                          num2 = (int) mapMode;
-                        }
-                        if ((mapMode & MapEnum.Random) == ~MapEnum.Dont_Mind)
-                        {
-                          if (!System.Enum.IsDefined(typeof (MapEnum), (object) num2))
+                        case GameFacts.Message.Map:
+                          if (!System.Enum.IsDefined(typeof (MapEnum), (object) num1))
+                            return;
+                          if (num1 == 16777216)
                           {
-                            gg2.gameModes4 |= 16777216;
+                            gg2.ActivateAllMaps();
+                            break;
+                          }
+                          gg2.SetMapMode((MapEnum) num1);
+                          break;
+                        case GameFacts.Message.Team:
+                          if (!System.Enum.IsDefined(typeof (TeamEnum), (object) num1) || gg2.GetRatedMode())
+                            return;
+                          if (num1 == 524288)
+                            num1 |= 16777216;
+                          gg2.SetTeamMode((TeamEnum) num1);
+                          break;
+                        case GameFacts.Message.Players:
+                          if (!System.Enum.IsDefined(typeof (PlayerEnum), (object) num1))
+                            return;
+                          gg2.SetPlayerMode((PlayerEnum) num1);
+                          gg2.customPlayerCount = (byte) gg2.GetMaxPlayers();
+                          break;
+                        case GameFacts.Message.PerTeam:
+                          if (!System.Enum.IsDefined(typeof (PlayersPerTeam), (object) num1) || gg2.GetRatedMode())
+                            return;
+                          gg2.SetPlayersPerTeam((PlayersPerTeam) num1);
+                          break;
+                        case (GameFacts.Message) 10:
+                          return;
+                        case GameFacts.Message.GameStyle:
+                          if (!System.Enum.IsDefined(typeof (GameStyle), (object) num1))
+                            return;
+                          gg2.ToggleStyle((GameStyle) num1);
+                          if (gg2.GetRatedMode())
+                          {
+                            gg2.ReSetStyle(GameStyle.Arcane_Monster);
+                            gg2.ReSetStyle(GameStyle.Sandbox);
                             break;
                           }
                           break;
-                        }
-                        if (System.Enum.IsDefined(typeof (MapEnum), (object) (num2 ^ 16777216)))
-                        {
-                          gg2.gameModes4 ^= 16777216;
-                          break;
-                        }
-                        break;
-                      case GameFacts.Message.Armageddon:
-                        if (num1 != 0 && !System.Enum.IsDefined(typeof (MapEnum), (object) num1))
-                          return;
-                        if (num1 == 16777216)
-                        {
-                          gg2.ActivateAlArmageddons();
-                          break;
-                        }
-                        gg2.SetArmageddon((MapEnum) num1);
-                        gg2.settings.customArmageddon = (List<SpellEnum>) null;
-                        break;
-                      case GameFacts.Message.AddArmageddon:
-                        if (num1 != 0 && !System.Enum.IsDefined(typeof (MapEnum), (object) num1))
-                          return;
-                        if (num1 == 16777216)
-                        {
-                          gg2.ActivateAlArmageddons();
-                          break;
-                        }
-                        MapEnum armageddon = gg2.GetArmageddon();
-                        gg2.gameModes3 ^= num1;
-                        if ((armageddon & MapEnum.Random) == ~MapEnum.Dont_Mind)
-                        {
-                          if (armageddon != ~MapEnum.Dont_Mind && !System.Enum.IsDefined(typeof (MapEnum), (object) (MapEnum) gg2.gameModes3))
-                            gg2.gameModes3 |= 16777216;
-                        }
-                        else if (System.Enum.IsDefined(typeof (MapEnum), (object) (MapEnum) (gg2.gameModes3 ^ 16777216)))
-                          gg2.gameModes3 ^= 16777216;
-                        gg2.settings.customArmageddon = (List<SpellEnum>) null;
-                        break;
-                      case GameFacts.Message.ElementalLevel:
-                        if (num1 < 0)
-                        {
-                          gg2.ReSetStyle(GameStyle.Elementals);
-                          break;
-                        }
-                        int num3 = Mathf.Clamp(num1, 0, 5);
-                        if ((int) gg2.elementalLevel == num3 && gg2.GetStyle().HasStyle(GameStyle.Elementals))
-                          return;
-                        gg2.elementalLevel = (byte) num3;
-                        gg2.SetStyle(GameStyle.Elementals);
-                        break;
-                      case GameFacts.Message.StartHealth:
-                        int num4 = Mathf.Clamp(num1, 1, 500);
-                        if ((int) gg2.startHealth == num4)
-                          return;
-                        gg2.startHealth = (ushort) num4;
-                        break;
-                      case GameFacts.Message.ArmageddonTurn:
-                        int num5 = Mathf.Clamp(num1, 0, 60);
-                        if ((int) gg2.armageddonTurn == num5)
-                          return;
-                        gg2.armageddonTurn = (byte) num5;
-                        break;
-                      case (GameFacts.Message) 18:
-                        return;
-                      case GameFacts.Message.MaxTime:
-                        int num6 = Mathf.Clamp(num1, -3600, 3600);
-                        if ((int) gg2.countdownTime == num6)
-                          return;
-                        gg2.countdownTime = (short) num6;
-                        break;
-                      case GameFacts.Message.CustomTime:
-                        int num7 = Mathf.Clamp(num1, 5, 120);
-                        if ((int) gg2.customTime == num7)
-                          return;
-                        gg2.customTime = (ushort) num7;
-                        gg2.SetTimeMode(gg2.GetClosestTimeToCustom());
-                        break;
-                      case GameFacts.Message.Delay:
-                        int num8 = Mathf.Clamp(num1, 0, 30);
-                        if ((int) gg2.countdownDelay == num8)
-                          return;
-                        gg2.countdownDelay = (byte) num8;
-                        break;
-                      case GameFacts.Message.CustomPlayerCount:
-                        int num9 = Mathf.Clamp(num1, 1, 24);
-                        if ((int) gg2.customPlayerCount == num9)
-                          return;
-                        gg2.customPlayerCount = (byte) num9;
-                        break;
-                      case GameFacts.Message.Tournament:
-                        if ((gg2.GetRatedMode() || !c.player.account.accountType.IsModPlusTOParticipate()) && !gg2.GetTournamentMode())
-                          return;
-                        gg2.SetTournamentMode(!gg2.GetTournamentMode());
-                        gg2.tournamentWasSetByTO = gg2.GetTournamentMode() && c.player.account.accountType.IsModPlusTO();
-                        break;
-                      case GameFacts.Message.Map_Size:
-                        int num10 = Mathf.Clamp((int) CombineBytes.Low(num1), 50, 150);
-                        int num11 = Mathf.Clamp((int) CombineBytes.High(num1), 50, 150);
-                        gg2.settings.mapWidth = (byte) num10;
-                        gg2.settings.mapHeight = (byte) num11;
-                        break;
-                      case GameFacts.Message.Map_Seed:
-                        gg2.settings.mapSeed = num1;
-                        gg2.settings.fixedMapSeed = true;
-                        break;
-                      case GameFacts.Message.Disable_Map_Seed:
-                        gg2.settings.mapSeed = 0;
-                        gg2.settings.fixedMapSeed = false;
-                        break;
-                      case GameFacts.Message.GameType:
-                        return;
-                      case GameFacts.Message.Custom_Armageddon:
-                        if (!System.Enum.IsDefined(typeof (SpellEnum), (object) num1))
-                          return;
-                        Spell spell = Inert.GetSpell((SpellEnum) num1);
-                        if ((UnityEngine.Object) spell == (UnityEngine.Object) null || spell.level > 3)
-                          return;
-                        if (gg2.settings.customArmageddon == null)
-                          gg2.settings.customArmageddon = new List<SpellEnum>();
-                        if (gg2.settings.customArmageddon.Count >= 5)
-                          return;
-                        gg2.settings.customArmageddon.Add((SpellEnum) num1);
-                        break;
-                      case GameFacts.Message.Remove_Custom_Armageddon:
-                        if (gg2.settings.customArmageddon == null)
-                          return;
-                        if (num1 == -1)
-                        {
-                          gg2.settings.customArmageddon = (List<SpellEnum>) null;
-                          break;
-                        }
-                        if (!gg2.settings.customArmageddon.Remove((SpellEnum) num1))
-                          return;
-                        if (gg2.settings.customArmageddon.Count == 0)
-                        {
-                          gg2.settings.customArmageddon = (List<SpellEnum>) null;
-                          break;
-                        }
-                        break;
-                      default:
-                        return;
-                    }
-                    if (gg2.GetRatedMode() || gg2.GetMultiTeamMode())
-                    {
-                      foreach (Hazel.Connection connection in gg2.connections)
-                        connection.player.ready = false;
-                      gg2.KillStart();
-                    }
-                    Server.SendGameModeUpdate(gg2);
-                    break;
-                  }
-                  break;
-                case 17:
-                  GameFacts gameFacts1 = (GameFacts) null;
-                  if (Server._games.TryGetValue(c.player.gameNumber, out gameFacts1))
-                  {
-                    c.player.ready = !c.player.ready;
-                    gameFacts1.SendReadyState();
-                    break;
-                  }
-                  break;
-                case 41:
-                  GameFacts gameFacts2 = (GameFacts) null;
-                  if (Server._games.TryGetValue(c.player.gameNumber, out gameFacts2))
-                  {
-                    if (gameFacts2.status == (byte) 0)
-                    {
-                      if (gameFacts2.connections.Count > 0)
-                      {
-                        if (gameFacts2.connections[0] == c)
-                        {
-                          string key = myBinaryReader.ReadString();
-                          bool flag1 = myBinaryReader.ReadBoolean();
-                          bool flag2 = false;
-                          if (flag1)
+                        case GameFacts.Message.AddMap:
+                          if (!System.Enum.IsDefined(typeof (MapEnum), (object) num1))
+                            return;
+                          if (num1 == 16777216)
                           {
-                            Hazel.Connection connection = (Hazel.Connection) null;
-                            if (Server._names.TryGetValue(key, out connection) && connection != null && connection.State == ConnectionState.Connected && connection.player.location == Location.Lobby && gameFacts2.invitedPlayers.Add(key))
-                              flag2 = true;
+                            gg2.ActivateAllMaps();
+                            break;
                           }
-                          else if (gameFacts2.invitedPlayers.Remove(key))
-                            flag2 = true;
-                          if (flag2)
+                          MapEnum mapMode = gg2.GetMapMode();
+                          gg2.gameModes4 ^= num1;
+                          int num2 = (int) gg2.GetMapMode();
+                          if (num2 == 0)
                           {
-                            using (MemoryStream memoryStream2 = new MemoryStream())
+                            gg2.SetMapMode(mapMode);
+                            num2 = (int) mapMode;
+                          }
+                          if ((mapMode & MapEnum.Random) == ~MapEnum.Dont_Mind)
+                          {
+                            if (!System.Enum.IsDefined(typeof (MapEnum), (object) num2))
                             {
-                              using (myBinaryWriter myBinaryWriter = new myBinaryWriter((Stream) memoryStream2))
-                              {
-                                myBinaryWriter.Write((byte) 41);
-                                myBinaryWriter.Write(gameFacts2.id);
-                                myBinaryWriter.Write(key);
-                                myBinaryWriter.Write(flag1);
-                              }
-                              Server.SendLobbyUnrated(memoryStream2.ToArray());
+                              gg2.gameModes4 |= 16777216;
                               break;
                             }
+                            break;
+                          }
+                          if (System.Enum.IsDefined(typeof (MapEnum), (object) (num2 ^ 16777216)))
+                          {
+                            gg2.gameModes4 ^= 16777216;
+                            break;
+                          }
+                          break;
+                        case GameFacts.Message.Armageddon:
+                          if (num1 != 0 && !System.Enum.IsDefined(typeof (MapEnum), (object) num1))
+                            return;
+                          if (num1 == 16777216)
+                          {
+                            gg2.ActivateAlArmageddons();
+                            break;
+                          }
+                          gg2.SetArmageddon((MapEnum) num1);
+                          gg2.settings.customArmageddon = (List<SpellEnum>) null;
+                          break;
+                        case GameFacts.Message.AddArmageddon:
+                          if (num1 != 0 && !System.Enum.IsDefined(typeof (MapEnum), (object) num1))
+                            return;
+                          if (num1 == 16777216)
+                          {
+                            gg2.ActivateAlArmageddons();
+                            break;
+                          }
+                          MapEnum armageddon = gg2.GetArmageddon();
+                          gg2.gameModes3 ^= num1;
+                          if ((armageddon & MapEnum.Random) == ~MapEnum.Dont_Mind)
+                          {
+                            if (armageddon != ~MapEnum.Dont_Mind && !System.Enum.IsDefined(typeof (MapEnum), (object) (MapEnum) gg2.gameModes3))
+                              gg2.gameModes3 |= 16777216;
+                          }
+                          else if (System.Enum.IsDefined(typeof (MapEnum), (object) (MapEnum) (gg2.gameModes3 ^ 16777216)))
+                            gg2.gameModes3 ^= 16777216;
+                          gg2.settings.customArmageddon = (List<SpellEnum>) null;
+                          break;
+                        case GameFacts.Message.ElementalLevel:
+                          if (num1 < 0)
+                          {
+                            gg2.ReSetStyle(GameStyle.Elementals);
+                            break;
+                          }
+                          int num3 = Mathf.Clamp(num1, 0, 5);
+                          if ((int) gg2.elementalLevel == num3 && gg2.GetStyle().HasStyle(GameStyle.Elementals))
+                            return;
+                          gg2.elementalLevel = (byte) num3;
+                          gg2.SetStyle(GameStyle.Elementals);
+                          break;
+                        case GameFacts.Message.StartHealth:
+                          int num4 = Mathf.Clamp(num1, 1, 500);
+                          if ((int) gg2.startHealth == num4)
+                            return;
+                          gg2.startHealth = (ushort) num4;
+                          break;
+                        case GameFacts.Message.ArmageddonTurn:
+                          int num5 = Mathf.Clamp(num1, 0, 60);
+                          if ((int) gg2.armageddonTurn == num5)
+                            return;
+                          gg2.armageddonTurn = (byte) num5;
+                          break;
+                        case (GameFacts.Message) 18:
+                          return;
+                        case GameFacts.Message.MaxTime:
+                          int num6 = Mathf.Clamp(num1, -3600, 3600);
+                          if ((int) gg2.countdownTime == num6)
+                            return;
+                          gg2.countdownTime = (short) num6;
+                          break;
+                        case GameFacts.Message.CustomTime:
+                          int num7 = Mathf.Clamp(num1, 5, 120);
+                          if ((int) gg2.customTime == num7)
+                            return;
+                          gg2.customTime = (ushort) num7;
+                          gg2.SetTimeMode(gg2.GetClosestTimeToCustom());
+                          break;
+                        case GameFacts.Message.Delay:
+                          int num8 = Mathf.Clamp(num1, 0, 30);
+                          if ((int) gg2.countdownDelay == num8)
+                            return;
+                          gg2.countdownDelay = (byte) num8;
+                          break;
+                        case GameFacts.Message.CustomPlayerCount:
+                          int num9 = Mathf.Clamp(num1, 1, 24);
+                          if ((int) gg2.customPlayerCount == num9)
+                            return;
+                          gg2.customPlayerCount = (byte) num9;
+                          break;
+                        case GameFacts.Message.Tournament:
+                          if ((gg2.GetRatedMode() || !c.player.account.accountType.IsModPlusTOParticipate()) && !gg2.GetTournamentMode())
+                            return;
+                          gg2.SetTournamentMode(!gg2.GetTournamentMode());
+                          gg2.tournamentWasSetByTO = gg2.GetTournamentMode() && c.player.account.accountType.IsModPlusTO();
+                          break;
+                        case GameFacts.Message.Map_Size:
+                          int num10 = Mathf.Clamp((int) CombineBytes.Low(num1), 50, 150);
+                          int num11 = Mathf.Clamp((int) CombineBytes.High(num1), 50, 150);
+                          gg2.settings.mapWidth = (byte) num10;
+                          gg2.settings.mapHeight = (byte) num11;
+                          break;
+                        case GameFacts.Message.Map_Seed:
+                          gg2.settings.mapSeed = num1;
+                          gg2.settings.fixedMapSeed = true;
+                          break;
+                        case GameFacts.Message.Disable_Map_Seed:
+                          gg2.settings.mapSeed = 0;
+                          gg2.settings.fixedMapSeed = false;
+                          break;
+                        case GameFacts.Message.GameType:
+                          return;
+                        case GameFacts.Message.Custom_Armageddon:
+                          if (!System.Enum.IsDefined(typeof (SpellEnum), (object) num1))
+                            return;
+                          Spell spell = Inert.GetSpell((SpellEnum) num1);
+                          if ((UnityEngine.Object) spell == (UnityEngine.Object) null || spell.level > 3 && !GameFacts.AllowCustomArmageddon(spell.spellEnum))
+                            return;
+                          if (gg2.settings.customArmageddon == null)
+                            gg2.settings.customArmageddon = new List<SpellEnum>();
+                          if (gg2.settings.customArmageddon.Count >= 5)
+                            return;
+                          gg2.settings.customArmageddon.Add((SpellEnum) num1);
+                          break;
+                        case GameFacts.Message.Remove_Custom_Armageddon:
+                          if (gg2.settings.customArmageddon == null)
+                            return;
+                          if (num1 == -1)
+                          {
+                            gg2.settings.customArmageddon = (List<SpellEnum>) null;
+                            break;
+                          }
+                          if (!gg2.settings.customArmageddon.Remove((SpellEnum) num1))
+                            return;
+                          if (gg2.settings.customArmageddon.Count == 0)
+                          {
+                            gg2.settings.customArmageddon = (List<SpellEnum>) null;
+                            break;
+                          }
+                          break;
+                        default:
+                          return;
+                      }
+                      if (gg2.GetRatedMode() || gg2.GetMultiTeamMode())
+                      {
+                        foreach (Hazel.Connection connection in gg2.connections)
+                          connection.player.ready = false;
+                        gg2.KillStart();
+                      }
+                      Server.SendGameModeUpdate(gg2);
+                      break;
+                    }
+                    break;
+                  case 17:
+                    GameFacts gameFacts1 = (GameFacts) null;
+                    if (Server._games.TryGetValue(c.player.gameNumber, out gameFacts1))
+                    {
+                      c.player.ready = !c.player.ready;
+                      gameFacts1.SendReadyState();
+                      break;
+                    }
+                    break;
+                  case 41:
+                    GameFacts gameFacts2 = (GameFacts) null;
+                    if (Server._games.TryGetValue(c.player.gameNumber, out gameFacts2))
+                    {
+                      if (gameFacts2.status == (byte) 0)
+                      {
+                        if (gameFacts2.connections.Count > 0)
+                        {
+                          if (gameFacts2.connections[0] == c)
+                          {
+                            string key = myBinaryReader.ReadString();
+                            bool flag1 = myBinaryReader.ReadBoolean();
+                            bool flag2 = false;
+                            if (flag1)
+                            {
+                              Hazel.Connection connection = (Hazel.Connection) null;
+                              if (Server._names.TryGetValue(key, out connection) && connection != null && connection.State == ConnectionState.Connected && connection.player.location == Location.Lobby && gameFacts2.invitedPlayers.Add(key))
+                                flag2 = true;
+                            }
+                            else if (gameFacts2.invitedPlayers.Remove(key))
+                              flag2 = true;
+                            if (flag2)
+                            {
+                              using (MemoryStream memoryStream2 = new MemoryStream())
+                              {
+                                using (myBinaryWriter myBinaryWriter = new myBinaryWriter((Stream) memoryStream2))
+                                {
+                                  myBinaryWriter.Write((byte) 41);
+                                  myBinaryWriter.Write(gameFacts2.id);
+                                  myBinaryWriter.Write(key);
+                                  myBinaryWriter.Write(flag1);
+                                }
+                                Server.SendLobbyUnrated(memoryStream2.ToArray());
+                                break;
+                              }
+                            }
+                            else
+                              break;
                           }
                           else
                             break;
@@ -1783,28 +1806,27 @@ public class Server : MonoBehaviour
                     }
                     else
                       break;
-                  }
-                  else
-                    break;
-                case 43:
-                  GameFacts gameFacts3 = (GameFacts) null;
-                  if (Server._games.TryGetValue(c.player.gameNumber, out gameFacts3))
-                  {
-                    if (gameFacts3.status == (byte) 0)
+                  case 43:
+                    GameFacts gameFacts3 = (GameFacts) null;
+                    if (Server._games.TryGetValue(c.player.gameNumber, out gameFacts3))
                     {
-                      if (gameFacts3.connections.Count > 0)
+                      if (gameFacts3.status == (byte) 0)
                       {
-                        if (gameFacts3.connections[0] == c)
+                        if (gameFacts3.connections.Count > 0)
                         {
-                          string key = myBinaryReader.ReadString();
-                          Hazel.Connection c1 = (Hazel.Connection) null;
-                          if (Server._names.TryGetValue(key, out c1))
+                          if (gameFacts3.connections[0] == c)
                           {
-                            if (c1.player.gameNumber == gameFacts3.id)
+                            string key = myBinaryReader.ReadString();
+                            Hazel.Connection c1 = (Hazel.Connection) null;
+                            if (Server._names.TryGetValue(key, out c1))
                             {
-                              if (c1.player.location == Location.LobbyUnrated)
+                              if (c1.player.gameNumber == gameFacts3.id)
                               {
-                                Server.MovePlayer(c1, Location.Lobby);
+                                if (c1.player.location == Location.LobbyUnrated)
+                                {
+                                  Server.MovePlayer(c1, Location.Lobby);
+                                  break;
+                                }
                                 break;
                               }
                               break;
@@ -1818,160 +1840,169 @@ public class Server : MonoBehaviour
                       break;
                     }
                     break;
-                  }
-                  break;
-                case 44:
-                  SettingsPlayer b1 = new SettingsPlayer();
-                  b1.Deserialize(myBinaryReader);
-                  c.player.settingsPlayer.CopySpells(b1);
-                  c.player.settingsPlayer.VerifySpells();
-                  c.player.settingsPlayer.ReseralizeSpells(c);
-                  break;
-                case 45:
-                  SettingsPlayer b2 = new SettingsPlayer();
-                  b2.Deserialize(myBinaryReader);
-                  c.player.settingsPlayer.CopyOutfit(b2);
-                  c.player.settingsPlayer.VerifyOutfit(c.player.account.cosmetics, c.player.account);
-                  c.SendBytes(args.Bytes);
-                  break;
-                case 50:
-                  myBinaryReader.ReadString();
-                  Server.ChangeFriendsList(c.player.account, myBinaryReader, args.Bytes);
-                  break;
-                case 55:
-                  Server.ReceiveReport(c, c.player.account.name, myBinaryReader);
-                  break;
-                case 57:
-                  myBinaryReader.ReadString();
-                  Server.ChangeChatSettings(c.player.account, myBinaryReader);
-                  break;
-                case 60:
-                  c.player.settingsPlayer.fullBook = myBinaryReader.ReadByte();
-                  c.SendBytes(args.Bytes);
-                  break;
-                case 75:
-                  if (c.player.account.accountType.IsMuted())
-                    return;
-                  byte num12 = myBinaryReader.ReadByte();
-                  switch (num12)
-                  {
-                    case 253:
-                    case 254:
-                      c.player.account.displayClanPrefix = num12 == (byte) 253 ? (byte) 1 : (byte) 0;
-                      break;
-                    default:
-                      c.player.account.displayedIcon = (int) num12;
-                      break;
-                  }
-                  c.player.account.displayedIcon = (int) num12;
-                  Server.UpdateAccountInfo(c.player.account);
-                  break;
-                case 77:
-                  Server.ValidateShare(c, myBinaryReader, args.Bytes, false);
-                  break;
-                case 78:
-                  new GameFacts().ManualDeserialize(myBinaryReader, true);
-                  break;
-                case 79:
-                  GameFacts gg3 = (GameFacts) null;
-                  if (Server._games.TryGetValue(c.player.gameNumber, out gg3))
-                  {
-                    if (gg3.connections.Count == 0 || gg3.connections[0] != c || gg3.GetInviteMode() == InviteEnum.BookClub || gg3.GetTournamentMode())
-                      return;
-                    Restrictions restrictions = Restrictions.Deserialize(myBinaryReader, (byte) 1);
-                    gg3.restrictions = restrictions.AnyRestricted() ? restrictions : (Restrictions) null;
-                    Server.SendGameModeUpdate(gg3);
+                  case 44:
+                    SettingsPlayer b1 = new SettingsPlayer();
+                    b1.Deserialize(myBinaryReader);
+                    c.player.settingsPlayer.CopySpells(b1);
+                    c.player.settingsPlayer.VerifySpells();
+                    c.player.settingsPlayer.ReseralizeSpells(c);
                     break;
-                  }
-                  break;
-                case 80:
-                  GameFacts gg4 = (GameFacts) null;
-                  if (Server._games.TryGetValue(c.player.gameNumber, out gg4))
-                  {
-                    if (gg4.connections.Count == 0 || gg4.connections[0] != c || gg4.GetInviteMode() == InviteEnum.BookClub)
+                  case 45:
+                    SettingsPlayer b2 = new SettingsPlayer();
+                    b2.Deserialize(myBinaryReader);
+                    c.player.settingsPlayer.CopyOutfit(b2);
+                    c.player.settingsPlayer.VerifyOutfit(c.player.account.cosmetics, c.player.account);
+                    c.SendBytes(args.Bytes);
+                    break;
+                  case 50:
+                    myBinaryReader.ReadString();
+                    Server.ChangeFriendsList(c.player.account, myBinaryReader, args.Bytes);
+                    break;
+                  case 55:
+                    Server.ReceiveReport(c, c.player.account.name, myBinaryReader);
+                    break;
+                  case 57:
+                    myBinaryReader.ReadString();
+                    Server.ChangeChatSettings(c.player.account, myBinaryReader);
+                    break;
+                  case 60:
+                    c.player.settingsPlayer.fullBook = myBinaryReader.ReadByte();
+                    c.SendBytes(args.Bytes);
+                    break;
+                  case 75:
+                    if (c.player.account.accountType.IsMuted())
                       return;
-                    int num13 = gg4.GetRatedMode() ? 1 : 0;
-                    GameSettings gameSettings = new GameSettings();
-                    gameSettings.Deserialize(myBinaryReader);
-                    gameSettings.Clamp();
-                    gg4.settings = gameSettings;
-                    if (c.player.account.accountType.IsMuted() && !string.IsNullOrEmpty(gg4.settings.description))
-                      gg4.settings.description = "";
-                    if (!string.IsNullOrEmpty(gg4.settings.description))
-                      MyLog.MainLog("[Game Description] [" + c.name + "] " + gg4.settings.description);
-                    if (num13 != 0)
+                    int num12 = myBinaryReader.ReadInt32();
+                    switch (num12)
                     {
-                      gg4.SetRatedMode(true);
-                      gg4.SetTeamMode(TeamEnum.Yes);
-                      gg4.SetPlayersPerTeam(PlayersPerTeam.Half);
-                      gg4.SetSpectatorMode(true);
-                      gg4.ReSetStyle(GameStyle.Arcane_Monster);
-                      gg4.ReSetStyle(GameStyle.Sandbox);
+                      case 253:
+                      case 254:
+                        c.player.account.displayClanPrefix = num12 == 253 ? (byte) 1 : (byte) 0;
+                        break;
+                      default:
+                        if (num12 > 256 && !c.player.account.badges[num12 - 256])
+                        {
+                          num12 = 0;
+                          break;
+                        }
+                        break;
                     }
-                    else
-                      gg4.SetRatedMode(false);
-                    if (gg4.GetRatedMode() || !c.player.account.accountType.IsModPlusTOParticipate())
-                      gg4.SetTournamentMode(false);
-                    else if (gg4.GetTournamentMode())
-                      gg4.tournamentWasSetByTO = c.player.account.accountType.IsModPlusTO();
-                    Server.SendGameModeUpdate(gg4);
+                    c.player.account.displayedIcon = num12;
+                    Server.UpdateAccountInfo(c.player.account);
                     break;
-                  }
-                  break;
-                case 82:
-                  GameFacts gg5 = (GameFacts) null;
-                  if (Server._games.TryGetValue(c.player.gameNumber, out gg5))
-                  {
-                    if (gg5.connections.Count == 0 || gg5.connections[0] != c || gg5.GetInviteMode() == InviteEnum.BookClub || gg5.GetTournamentMode())
-                      return;
-                    string str = myBinaryReader.ReadString();
-                    if (str.Length > 40)
-                      return;
-                    gg5.settings.description = str;
-                    if (c.player.account.accountType.IsMuted() && !string.IsNullOrEmpty(str))
-                      gg5.settings.description = "";
-                    if (!string.IsNullOrEmpty(str))
-                      MyLog.MainLog("[Game Description] [" + c.name + "] " + str);
-                    Server.SendGameModeUpdate(gg5);
+                  case 77:
+                    Server.ValidateShare(c, myBinaryReader, args.Bytes, false);
                     break;
-                  }
-                  break;
-                case 84:
-                  Server.HandleClanMsg(c, myBinaryReader);
-                  break;
-                case 150:
-                  Server.ValidateClanChat(c, myBinaryReader, args.Bytes);
-                  break;
-                case 151:
-                  Server.ValidatePrivateChatMessage(myBinaryReader.ReadString(), c, myBinaryReader, args.Bytes);
-                  break;
-                case 153:
-                  Server.ValidateChatMessage(c, myBinaryReader, args.Bytes, false);
-                  break;
-                case 155:
-                  Server.ValidateQuickChat(c, myBinaryReader, args.Bytes, false);
-                  break;
-                case 193:
-                  Server.MovePlayer(c, Location.Lobby);
-                  break;
-                default:
-                  Server.GlobalHandler(c, myBinaryReader, args.Bytes, tag);
-                  break;
+                  case 78:
+                    new GameFacts().ManualDeserialize(myBinaryReader, true);
+                    break;
+                  case 79:
+                    GameFacts gg3 = (GameFacts) null;
+                    if (Server._games.TryGetValue(c.player.gameNumber, out gg3))
+                    {
+                      if (gg3.connections.Count == 0 || gg3.connections[0] != c || gg3.GetInviteMode() == InviteEnum.BookClub)
+                        return;
+                      Restrictions restrictions = Restrictions.Deserialize(myBinaryReader, (byte) 1);
+                      gg3.restrictions = restrictions.AnyRestricted() ? restrictions : (Restrictions) null;
+                      Server.SendGameModeUpdate(gg3);
+                      break;
+                    }
+                    break;
+                  case 80:
+                    GameFacts gg4 = (GameFacts) null;
+                    if (Server._games.TryGetValue(c.player.gameNumber, out gg4))
+                    {
+                      if (gg4.connections.Count == 0 || gg4.connections[0] != c || gg4.GetInviteMode() == InviteEnum.BookClub)
+                        return;
+                      int num13 = gg4.GetRatedMode() ? 1 : 0;
+                      GameSettings gameSettings = new GameSettings();
+                      gameSettings.Deserialize(myBinaryReader);
+                      gameSettings.Clamp();
+                      gg4.settings = gameSettings;
+                      if (c.player.account.accountType.IsMuted() && !string.IsNullOrEmpty(gg4.settings.description))
+                        gg4.settings.description = "";
+                      if (!string.IsNullOrEmpty(gg4.settings.description))
+                        MyLog.MainLog("[Game Description] [" + c.name + "] " + gg4.settings.description);
+                      if (num13 != 0)
+                      {
+                        gg4.SetRatedMode(true);
+                        gg4.SetTeamMode(TeamEnum.Yes);
+                        gg4.SetPlayersPerTeam(PlayersPerTeam.Half);
+                        gg4.SetSpectatorMode(true);
+                        gg4.ReSetStyle(GameStyle.Arcane_Monster);
+                        gg4.ReSetStyle(GameStyle.Sandbox);
+                      }
+                      else
+                        gg4.SetRatedMode(false);
+                      if (gg4.GetRatedMode() || !c.player.account.accountType.IsModPlusTOParticipate())
+                        gg4.SetTournamentMode(false);
+                      else if (gg4.GetTournamentMode())
+                      {
+                        if (!c.player.account.accountType.IsModPlusTOParticipate())
+                          gg4.SetTournamentMode(false);
+                        else
+                          gg4.tournamentWasSetByTO = c.player.account.accountType.IsModPlusTO();
+                      }
+                      Server.SendGameModeUpdate(gg4);
+                      break;
+                    }
+                    break;
+                  case 82:
+                    GameFacts gg5 = (GameFacts) null;
+                    if (Server._games.TryGetValue(c.player.gameNumber, out gg5))
+                    {
+                      if (gg5.connections.Count == 0 || gg5.connections[0] != c || gg5.GetInviteMode() == InviteEnum.BookClub)
+                        return;
+                      string str = myBinaryReader.ReadString();
+                      if (str.Length > 40)
+                        return;
+                      gg5.settings.description = str;
+                      if (c.player.account.accountType.IsMuted() && !string.IsNullOrEmpty(str))
+                        gg5.settings.description = "";
+                      if (!string.IsNullOrEmpty(str))
+                        MyLog.MainLog("[Game Description] [" + c.name + "] " + str);
+                      Server.SendGameModeUpdate(gg5);
+                      break;
+                    }
+                    break;
+                  case 84:
+                    Server.HandleClanMsg(c, myBinaryReader);
+                    break;
+                  case 150:
+                    Server.ValidateClanChat(c, myBinaryReader, args.Bytes);
+                    break;
+                  case 151:
+                    Server.ValidatePrivateChatMessage(myBinaryReader.ReadString(), c, myBinaryReader, args.Bytes);
+                    break;
+                  case 153:
+                    Server.ValidateChatMessage(c, myBinaryReader, args.Bytes, false);
+                    break;
+                  case 155:
+                    Server.ValidateQuickChat(c, myBinaryReader, args.Bytes, false);
+                    break;
+                  case 193:
+                    Server.MovePlayer(c, Location.Lobby);
+                    break;
+                  default:
+                    Server.GlobalHandler(c, myBinaryReader, args.Bytes, tag);
+                    break;
+                }
               }
-            }
-            catch (Exception ex)
-            {
-              Debug.LogError((object) ex.ToString());
+              catch (Exception ex)
+              {
+                Debug.LogError((object) ex.ToString());
+              }
             }
           }
         }
-      }
-      args.Recycle();
-    }));
+        args.Recycle();
+      }));
+    }
   }
 
   private static void SendGameModeUpdate(GameFacts gg)
   {
+    gg.CalculateGameType();
     using (MemoryStream memoryStream = new MemoryStream())
     {
       using (myBinaryWriter w = new myBinaryWriter((Stream) memoryStream))
@@ -2013,199 +2044,204 @@ public class Server : MonoBehaviour
   private static void RatedHandler(object sender, DataReceivedEventArgs args)
   {
     if (args.Bytes.Length == 1 && args.Bytes[0] == (byte) 34)
-      return;
-    UnityThreadHelper.Dispatcher.Dispatch2((Action) (() =>
-    {
-      Hazel.Connection connection = (Hazel.Connection) sender;
-      if (connection.player.location == Location.LobbyRated)
+      args.Recycle();
+    else
+      UnityThreadHelper.Dispatcher.Dispatch2((Action) (() =>
       {
-        using (MemoryStream memoryStream = new MemoryStream(args.Bytes))
+        Hazel.Connection connection = (Hazel.Connection) sender;
+        if (connection.player.location == Location.LobbyRated)
         {
-          using (myBinaryReader myBinaryReader = new myBinaryReader((Stream) memoryStream))
+          using (MemoryStream memoryStream = new MemoryStream(args.Bytes))
           {
-            try
+            using (myBinaryReader myBinaryReader = new myBinaryReader((Stream) memoryStream))
             {
-              byte tag = myBinaryReader.ReadByte();
-              switch (tag)
+              try
               {
-                case 44:
-                  if (Server._ratedQueue.ContainsKey(connection))
-                  {
-                    Server.ReturnServerMsg(connection, "Cannot change spells while finding opponents");
-                    return;
-                  }
-                  SettingsPlayer b1 = new SettingsPlayer();
-                  b1.Deserialize(myBinaryReader);
-                  connection.player.settingsPlayer.CopySpells(b1);
-                  Prestige.VerifySpells(connection.player.account, connection.player.settingsPlayer.spells, ref connection.player.settingsPlayer._spells.fullBook);
-                  connection.player.settingsPlayer.VerifySpells();
-                  connection.player.settingsPlayer.ReseralizeSpells(connection);
-                  break;
-                case 45:
-                  SettingsPlayer b2 = new SettingsPlayer();
-                  b2.Deserialize(myBinaryReader);
-                  connection.player.settingsPlayer.CopyOutfit(b2);
-                  connection.player.settingsPlayer.VerifyOutfit(connection.player.account.cosmetics, connection.player.account);
-                  connection.SendBytes(args.Bytes);
-                  break;
-                case 50:
-                  myBinaryReader.ReadString();
-                  Server.ChangeFriendsList(connection.player.account, myBinaryReader, args.Bytes);
-                  break;
-                case 55:
-                  Server.ReceiveReport(connection, connection.player.account.name, myBinaryReader);
-                  break;
-                case 57:
-                  myBinaryReader.ReadString();
-                  Server.ChangeChatSettings(connection.player.account, myBinaryReader);
-                  break;
-                case 60:
-                  if (Server._ratedQueue.ContainsKey(connection))
-                  {
-                    Server.ReturnServerMsg(connection, "Cannot change elementals while finding opponents");
-                    return;
-                  }
-                  byte num1 = myBinaryReader.ReadByte();
-                  connection.player.settingsPlayer.fullBook = num1;
-                  connection.SendBytes(args.Bytes);
-                  break;
-                case 67:
-                  if (myBinaryReader.ReadBoolean())
-                  {
-                    if (connection.player.account.discord == 0UL)
+                byte tag = myBinaryReader.ReadByte();
+                switch (tag)
+                {
+                  case 44:
+                    if (Server._ratedQueue.ContainsKey(connection))
                     {
-                      Server.ReturnServerMsg(connection, "Verify your discord ID to play rated games.");
+                      Server.ReturnServerMsg(connection, "Cannot change spells while finding opponents");
                       return;
                     }
-                    if (connection.player.account.Rating < (short) 1000)
-                    {
-                      Server.ReturnServerMsg(connection, "Looks like you're banned from rated games for the time being.");
-                      return;
-                    }
-                    if (!Server._ratedQueue.ContainsKey(connection))
-                    {
-                      myBinaryReader.ReadBoolean();
-                      RatedContainer ratedContainer = RatedContainer.Deserialize(myBinaryReader);
-                      int num2 = 0;
-                      bool flag1 = false;
-                      foreach (RatedFacts ratedFacts in ratedContainer.list)
-                      {
-                        ratedFacts.VerifyGameType(true);
-                        ratedFacts.rating = connection.player.account[ratedFacts.gameType].rating;
-                        ++num2;
-                        bool flag2 = (ratedFacts.extraOptions & 16) != 0;
-                        bool flag3;
-                        if (ratedFacts.spellOverrides == null)
-                        {
-                          flag3 = flag2 && Server.OriginalSpellsOnly(GameStyle.Original_Spells_Only, connection.player.settingsPlayer);
-                          if (!flag1)
-                          {
-                            flag1 = true;
-                            if (Server._restrictions != null && Server._restrictions.HasRestricted(connection.player.settingsPlayer.spells))
-                            {
-                              Server.ReturnServerMsg(connection, "Your spell book contains a restricted spell!!!!");
-                              return;
-                            }
-                            if (Server._restrictions != null && Server._restrictions.CheckElemental((int) connection.player.settingsPlayer.Elemental))
-                            {
-                              Server.ReturnServerMsg(connection, "You're using a restricted elemental!!!!");
-                              return;
-                            }
-                          }
-                        }
-                        else
-                        {
-                          ratedFacts.spellOverrides.VerifySpells();
-                          if (!Prestige.VerifySpells(connection.player.account, ratedFacts.spellOverrides.spells, ref ratedFacts.spellOverrides.fullBook))
-                          {
-                            Server.ReturnServerMsg(connection, "Your settings profile {" + (object) num2 + "} contains a locked spell!!!!");
-                            return;
-                          }
-                          flag3 = flag2 && Server.OriginalSpellsOnly(GameStyle.Original_Spells_Only, ratedFacts.spellOverrides);
-                          if (Server._restrictions != null && Server._restrictions.HasRestricted(ratedFacts.spellOverrides.spells))
-                          {
-                            Server.ReturnServerMsg(connection, "Your settings profile {" + (object) num2 + "} contains a restricted spell!!!!");
-                            return;
-                          }
-                          if (Server._restrictions != null && Server._restrictions.CheckElemental((int) ratedFacts.spellOverrides.Elemental))
-                          {
-                            Server.ReturnServerMsg(connection, "Your settings profile {" + (object) num2 + "} is using a restricted elemental!!!!");
-                            return;
-                          }
-                        }
-                        if (flag3)
-                        {
-                          Server.ReturnServerMsg(connection, "You have original spells enabled, but have non-original spells in your settings profile {" + (object) num2 + "} !!!!");
-                          return;
-                        }
-                      }
-                      ratedContainer.diff = 400;
-                      Server._ratedQueue.Add(connection, ratedContainer);
-                      connection.SendBytes(args.Bytes);
-                      break;
-                    }
+                    SettingsPlayer b1 = new SettingsPlayer();
+                    b1.Deserialize(myBinaryReader);
+                    connection.player.settingsPlayer.CopySpells(b1);
+                    Prestige.VerifySpells(connection.player.account, connection.player.settingsPlayer.spells, ref connection.player.settingsPlayer._spells.fullBook);
+                    connection.player.settingsPlayer.VerifySpells();
+                    connection.player.settingsPlayer.ReseralizeSpells(connection);
                     break;
-                  }
-                  if (Server._ratedQueue.ContainsKey(connection))
-                  {
-                    Server._ratedQueue.Remove(connection);
+                  case 45:
+                    SettingsPlayer b2 = new SettingsPlayer();
+                    b2.Deserialize(myBinaryReader);
+                    connection.player.settingsPlayer.CopyOutfit(b2);
+                    connection.player.settingsPlayer.VerifyOutfit(connection.player.account.cosmetics, connection.player.account);
                     connection.SendBytes(args.Bytes);
-                    Server.OnStoppedSearching(connection);
                     break;
-                  }
-                  break;
-                case 75:
-                  if (connection.player.account.accountType.IsMuted())
-                    return;
-                  byte num3 = myBinaryReader.ReadByte();
-                  switch (num3)
-                  {
-                    case 253:
-                    case 254:
-                      connection.player.account.displayClanPrefix = num3 == (byte) 253 ? (byte) 1 : (byte) 0;
+                  case 50:
+                    myBinaryReader.ReadString();
+                    Server.ChangeFriendsList(connection.player.account, myBinaryReader, args.Bytes);
+                    break;
+                  case 55:
+                    Server.ReceiveReport(connection, connection.player.account.name, myBinaryReader);
+                    break;
+                  case 57:
+                    myBinaryReader.ReadString();
+                    Server.ChangeChatSettings(connection.player.account, myBinaryReader);
+                    break;
+                  case 60:
+                    if (Server._ratedQueue.ContainsKey(connection))
+                    {
+                      Server.ReturnServerMsg(connection, "Cannot change elementals while finding opponents");
+                      return;
+                    }
+                    byte num1 = myBinaryReader.ReadByte();
+                    connection.player.settingsPlayer.fullBook = num1;
+                    connection.SendBytes(args.Bytes);
+                    break;
+                  case 67:
+                    if (myBinaryReader.ReadBoolean())
+                    {
+                      if (connection.player.account.discord == 0UL)
+                      {
+                        Server.ReturnServerMsg(connection, "Verify your discord ID to play rated games.");
+                        return;
+                      }
+                      if (connection.player.account.Rating < (short) 1000)
+                      {
+                        Server.ReturnServerMsg(connection, "Looks like you're banned from rated games for the time being.");
+                        return;
+                      }
+                      if (!Server._ratedQueue.ContainsKey(connection))
+                      {
+                        myBinaryReader.ReadBoolean();
+                        RatedContainer ratedContainer = RatedContainer.Deserialize(myBinaryReader);
+                        int num2 = 0;
+                        bool flag1 = false;
+                        foreach (RatedFacts ratedFacts in ratedContainer.list)
+                        {
+                          ratedFacts.VerifyGameType(true);
+                          ratedFacts.rating = connection.player.account[ratedFacts.gameType].rating;
+                          ++num2;
+                          bool flag2 = (ratedFacts.extraOptions & 16) != 0;
+                          bool flag3;
+                          if (ratedFacts.spellOverrides == null)
+                          {
+                            flag3 = flag2 && Server.OriginalSpellsOnly(GameStyle.Original_Spells_Only, connection.player.settingsPlayer);
+                            if (!flag1)
+                            {
+                              flag1 = true;
+                              if (Server._restrictions != null && Server._restrictions.HasRestricted(connection.player.settingsPlayer.spells))
+                              {
+                                Server.ReturnServerMsg(connection, "Your spell book contains a restricted spell!!!!");
+                                return;
+                              }
+                              if (Server._restrictions != null && Server._restrictions.CheckElemental((int) connection.player.settingsPlayer.Elemental))
+                              {
+                                Server.ReturnServerMsg(connection, "You're using a restricted elemental!!!!");
+                                return;
+                              }
+                            }
+                          }
+                          else
+                          {
+                            ratedFacts.spellOverrides.VerifySpells();
+                            if (!Prestige.VerifySpells(connection.player.account, ratedFacts.spellOverrides.spells, ref ratedFacts.spellOverrides.fullBook))
+                            {
+                              Server.ReturnServerMsg(connection, "Your settings profile {" + (object) num2 + "} contains a locked spell!!!!");
+                              return;
+                            }
+                            flag3 = flag2 && Server.OriginalSpellsOnly(GameStyle.Original_Spells_Only, ratedFacts.spellOverrides);
+                            if (Server._restrictions != null && Server._restrictions.HasRestricted(ratedFacts.spellOverrides.spells))
+                            {
+                              Server.ReturnServerMsg(connection, "Your settings profile {" + (object) num2 + "} contains a restricted spell!!!!");
+                              return;
+                            }
+                            if (Server._restrictions != null && Server._restrictions.CheckElemental((int) ratedFacts.spellOverrides.Elemental))
+                            {
+                              Server.ReturnServerMsg(connection, "Your settings profile {" + (object) num2 + "} is using a restricted elemental!!!!");
+                              return;
+                            }
+                          }
+                          if (flag3)
+                          {
+                            Server.ReturnServerMsg(connection, "You have original spells enabled, but have non-original spells in your settings profile {" + (object) num2 + "} !!!!");
+                            return;
+                          }
+                        }
+                        ratedContainer.diff = 400;
+                        Server._ratedQueue.Add(connection, ratedContainer);
+                        connection.SendBytes(args.Bytes);
+                        break;
+                      }
                       break;
-                    default:
-                      connection.player.account.displayedIcon = (int) num3;
+                    }
+                    if (Server._ratedQueue.ContainsKey(connection))
+                    {
+                      Server._ratedQueue.Remove(connection);
+                      connection.SendBytes(args.Bytes);
+                      Server.OnStoppedSearching(connection);
                       break;
-                  }
-                  connection.player.account.displayedIcon = (int) num3;
-                  Server.UpdateAccountInfo(connection.player.account);
-                  break;
-                case 76:
-                  if (Server._ratedQueue.ContainsKey(connection))
-                  {
-                    Server._ratedQueue.Remove(connection);
-                    Server.OnStoppedSearching(connection);
-                  }
-                  Server.MovePlayer(connection, Location.Lobby);
-                  Server.SyncLobby(connection);
-                  break;
-                case 77:
-                  Server.ValidateShare(connection, myBinaryReader, args.Bytes, false, true);
-                  break;
-                case 84:
-                  Server.HandleClanMsg(connection, myBinaryReader);
-                  break;
-                case 150:
-                  Server.ValidateClanChat(connection, myBinaryReader, args.Bytes);
-                  break;
-                case 151:
-                  Server.ValidatePrivateChatMessage(myBinaryReader.ReadString(), connection, myBinaryReader, args.Bytes);
-                  break;
-                default:
-                  Server.GlobalHandler(connection, myBinaryReader, args.Bytes, tag);
-                  break;
+                    }
+                    break;
+                  case 75:
+                    if (connection.player.account.accountType.IsMuted())
+                      return;
+                    int num3 = myBinaryReader.ReadInt32();
+                    switch (num3)
+                    {
+                      case 253:
+                      case 254:
+                        connection.player.account.displayClanPrefix = num3 == 253 ? (byte) 1 : (byte) 0;
+                        break;
+                      default:
+                        if (num3 > 256 && !connection.player.account.badges[num3 - 256])
+                        {
+                          num3 = 0;
+                          break;
+                        }
+                        break;
+                    }
+                    connection.player.account.displayedIcon = num3;
+                    Server.UpdateAccountInfo(connection.player.account);
+                    break;
+                  case 76:
+                    if (Server._ratedQueue.ContainsKey(connection))
+                    {
+                      Server._ratedQueue.Remove(connection);
+                      Server.OnStoppedSearching(connection);
+                    }
+                    Server.MovePlayer(connection, Location.Lobby);
+                    Server.SyncLobby(connection);
+                    break;
+                  case 77:
+                    Server.ValidateShare(connection, myBinaryReader, args.Bytes, false, true);
+                    break;
+                  case 84:
+                    Server.HandleClanMsg(connection, myBinaryReader);
+                    break;
+                  case 150:
+                    Server.ValidateClanChat(connection, myBinaryReader, args.Bytes);
+                    break;
+                  case 151:
+                    Server.ValidatePrivateChatMessage(myBinaryReader.ReadString(), connection, myBinaryReader, args.Bytes);
+                    break;
+                  default:
+                    Server.GlobalHandler(connection, myBinaryReader, args.Bytes, tag);
+                    break;
+                }
               }
-            }
-            catch (Exception ex)
-            {
-              Debug.LogError((object) ex.ToString());
+              catch (Exception ex)
+              {
+                Debug.LogError((object) ex.ToString());
+              }
             }
           }
         }
-      }
-      args.Recycle();
-    }));
+        args.Recycle();
+      }));
   }
 
   public static bool OriginalSpellsOnly(GameStyle styles, SpellsOnly s)
@@ -2294,6 +2330,12 @@ public class Server : MonoBehaviour
 
   internal static void StartGame(GameFacts gg, bool realRated = false)
   {
+    if (++Server.cur > 10)
+    {
+      Server.cur = 0;
+      GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
+      GC.Collect();
+    }
     gg.CalculateGameType();
     GameStyle style = gg.GetStyle();
     if (style.HasStyle(GameStyle.Wind))
@@ -2422,7 +2464,15 @@ public class Server : MonoBehaviour
     if (style.HasStyle(GameStyle.Random_Spells))
     {
       if (gg.restrictions != null)
+        Server.RandomRestrictedSpells(gg);
+      else if (!gg.GetTeamMode() && Server._randomSpellRestrictions != null)
       {
+        gg.restrictions = Server._randomSpellRestrictions;
+        Server.RandomRestrictedSpells(gg);
+      }
+      else if (gg.GetTeamMode() && Server._casinoRestrictions != null)
+      {
+        gg.restrictions = Server._casinoRestrictions;
         Server.RandomRestrictedSpells(gg);
       }
       else
@@ -2452,9 +2502,12 @@ public class Server : MonoBehaviour
     for (int index5 = 0; index5 < gg.connections.Count; ++index5)
     {
       SettingsPlayer settingsPlayer1 = new SettingsPlayer();
-      settingsPlayer1.CopySpells(gg.connections[index5].player.settingsPlayer);
+      SpellsOnly spellsOnly1 = new SpellsOnly();
+      spellsOnly1.Copy(gg.connections[index5].player.settingsPlayer);
+      settingsPlayer1.FakeCopySpells(gg.connections[index5].player.settingsPlayer);
       settingsPlayer1.CopyOutfit(gg.connections[index5].player.settingsPlayer);
       gg.settingsPlayer.Add(settingsPlayer1);
+      gg.realSpells.Add(spellsOnly1);
       gg.accounts.Add(gg.connections[index5].player.account);
       gg.players.Add(gg.connections[index5].player.account.name);
       if (gg.GetMultiTeamMode())
@@ -2463,17 +2516,21 @@ public class Server : MonoBehaviour
         for (int index6 = 0; index6 < numberPlayersPerTeam - 1; ++index6)
         {
           SettingsPlayer settingsPlayer2 = new SettingsPlayer();
+          SpellsOnly spellsOnly2 = new SpellsOnly();
           if (index6 < gg.connections[index5].player.multiSettingsPlayer.Count)
           {
-            settingsPlayer2.CopySpells(gg.connections[index5].player.multiSettingsPlayer[index6]);
+            spellsOnly2.Copy(gg.connections[index5].player.multiSettingsPlayer[index6]);
+            settingsPlayer2.FakeCopySpells(gg.connections[index5].player.multiSettingsPlayer[index6]);
             settingsPlayer2.CopyOutfit(gg.connections[index5].player.multiSettingsPlayer[index6]);
           }
           else
           {
-            settingsPlayer2.CopySpells(gg.connections[index5].player.settingsPlayer);
+            spellsOnly2.Copy(gg.connections[index5].player.settingsPlayer);
+            settingsPlayer2.FakeCopySpells(gg.connections[index5].player.settingsPlayer);
             settingsPlayer2.CopyOutfit(gg.connections[index5].player.settingsPlayer);
           }
           gg.settingsPlayer.Add(settingsPlayer2);
+          gg.realSpells.Add(spellsOnly2);
           gg.accounts.Add(gg.connections[index5].player.account);
           gg.players.Add(gg.connections[index5].player.account.name);
         }
@@ -2488,6 +2545,9 @@ public class Server : MonoBehaviour
               SettingsPlayer settingsPlayer3 = gg.settingsPlayer[index7];
               gg.settingsPlayer[index7] = gg.settingsPlayer[index8];
               gg.settingsPlayer[index8] = settingsPlayer3;
+              SpellsOnly realSpell = gg.realSpells[index7];
+              gg.realSpells[index7] = gg.realSpells[index8];
+              gg.realSpells[index8] = realSpell;
             }
           }
         }
@@ -2504,7 +2564,7 @@ public class Server : MonoBehaviour
         Server._lobby.Remove(gg.connections[index]);
         Server.RemoveFromLobby(gg.connections[index]);
       }
-      Server.SendStartGame(gg.connections[index], gg);
+      Server.SendStartGame(gg.connections[index], gg, index * (gg.GetMultiTeamMode() ? gg.GetNumberPlayersPerTeam() : 1));
     }
     gg.SetMapMode(mapMode);
     using (MemoryStream memoryStream = new MemoryStream())
@@ -2518,16 +2578,37 @@ public class Server : MonoBehaviour
     }
   }
 
-  public static void SendStartGame(Hazel.Connection c, GameFacts gg)
+  public static void SendStartGame(Hazel.Connection c, GameFacts gg, int index)
   {
     using (MemoryStream memoryStream = new MemoryStream())
     {
-      using (myBinaryWriter writer = new myBinaryWriter((Stream) memoryStream))
+      using (myBinaryWriter myBinaryWriter = new myBinaryWriter((Stream) memoryStream))
       {
-        writer.Write((byte) 70);
-        writer.Write(gg.id);
-        gg.ManualSerialize(writer, true);
-        writer.Write(Server.DebugResyncs);
+        myBinaryWriter.Write((byte) 70);
+        myBinaryWriter.Write(gg.id);
+        gg.ManualSerialize(myBinaryWriter, true);
+        if (gg.GetMultiTeamMode())
+        {
+          gg.realSpells[index].Serialize(myBinaryWriter);
+          int numberPlayersPerTeam = gg.GetNumberPlayersPerTeam();
+          for (int index1 = 1; index1 < numberPlayersPerTeam; ++index1)
+            gg.realSpells[index + index1].Serialize(myBinaryWriter);
+        }
+        else if (gg.GetTeamMode())
+        {
+          int numberPlayersPerTeam = gg.GetNumberPlayersPerTeam();
+          int num = index % numberPlayersPerTeam;
+          myBinaryWriter.Write(index - num);
+          int index2 = index - num;
+          for (int index3 = 0; index3 < numberPlayersPerTeam; ++index3)
+          {
+            gg.realSpells[index2].Serialize(myBinaryWriter);
+            ++index2;
+          }
+        }
+        else
+          gg.realSpells[index].Serialize(myBinaryWriter);
+        myBinaryWriter.Write(Server.DebugResyncs);
       }
       c.player.location = Location.Ingame;
       c.DataReceived -= new EventHandler<DataReceivedEventArgs>(Server.UnratedHandler);
@@ -2557,15 +2638,10 @@ public class Server : MonoBehaviour
     if (restrictions.availableSpells[4])
       source.Add((byte) 4);
     int num4 = 0;
-    bool flag = false;
     if (level1.Count < 8)
     {
       for (int index = 0; index < level1.Count; ++index)
-      {
-        if (level1[index] >= (byte) 156 && level1[index] < (byte) 168)
-          flag = true;
         source.Add(level1[index]);
-      }
     }
     else
     {
@@ -2574,21 +2650,13 @@ public class Server : MonoBehaviour
         ++num4;
         byte num5 = level1[randomNumberGenerator.Next(0, level1.Count)];
         if (!source.Contains(num5) && ((int) num5 < num2 || (int) num5 >= num3))
-        {
-          if (num5 >= (byte) 156 && num5 < (byte) 168)
-            flag = true;
           source.Add(num5);
-        }
       }
     }
     if (level2.Count < 8)
     {
       for (int index = 0; index < level2.Count; ++index)
-      {
-        if (level2[index] >= (byte) 156 && level2[index] < (byte) 168)
-          flag = true;
         source.Add(level2[index]);
-      }
     }
     else
     {
@@ -2598,20 +2666,13 @@ public class Server : MonoBehaviour
         ++num6;
         byte num7 = level2[randomNumberGenerator.Next(0, level2.Count)];
         if (!source.Contains(num7) && ((int) num7 < num2 || (int) num7 >= num3))
-        {
-          if (num7 >= (byte) 156 && num7 < (byte) 168)
-            flag = true;
           source.Add(num7);
-        }
       }
     }
     if (level3.Count < 3)
     {
       for (int index = 0; index < level3.Count; ++index)
-      {
-        if (flag || Inert.Instance._spells[(int) level3[index]].spellEnum != SpellEnum.Ritual)
-          source.Add(level3[index]);
-      }
+        source.Add(level3[index]);
     }
     else
     {
@@ -2619,9 +2680,9 @@ public class Server : MonoBehaviour
       while (source.Count < 16 && source.Count < level1.Count + level2.Count + level3.Count && num8 < 30)
       {
         ++num8;
-        byte index = level3[randomNumberGenerator.Next(0, level3.Count)];
-        if (!source.Contains(index) && ((int) index < num2 || (int) index >= num3) && (flag || Inert.Instance._spells[(int) index].spellEnum != SpellEnum.Ritual))
-          source.Add(index);
+        byte num9 = level3[randomNumberGenerator.Next(0, level3.Count)];
+        if (!source.Contains(num9) && ((int) num9 < num2 || (int) num9 >= num3))
+          source.Add(num9);
       }
     }
     if (source.Count < 16 && level1.Count + level2.Count + level3.Count > source.Count)
@@ -2654,7 +2715,6 @@ public class Server : MonoBehaviour
     int num2 = (int) num1 - 1;
     settings.fullBook = num1;
     HashSet<byte> source = new HashSet<byte>() { (byte) 4 };
-    bool flag3 = false;
     while (source.Count < 7)
     {
       int num3 = randomNumberGenerator.Next(0, maxValue);
@@ -2667,8 +2727,6 @@ public class Server : MonoBehaviour
             break;
         }
       }
-      if (num3 == 13)
-        flag3 = true;
       int num4 = num3 == 0 ? randomNumberGenerator.Next(0, 12) : randomNumberGenerator.Next(0, 5) * 2;
       byte num5 = (byte) (num3 * 12 + num4);
       if (!source.Contains(num5) && (!flag2 || num5 != (byte) 11))
@@ -2686,11 +2744,9 @@ public class Server : MonoBehaviour
             break;
         }
       }
-      if (num6 == 13)
-        flag3 = true;
       int num7 = num6 == 0 ? randomNumberGenerator.Next(0, 12) : randomNumberGenerator.Next(0, 5) * 2 + 1;
       byte num8 = (byte) (num6 * 12 + num7);
-      if (!source.Contains(num8) && num8 != (byte) 141)
+      if (!source.Contains(num8))
         source.Add(num8);
     }
     while (source.Count < 16)
@@ -2706,9 +2762,9 @@ public class Server : MonoBehaviour
         }
       }
       int num10 = randomNumberGenerator.Next(10, 12);
-      byte index1 = (byte) (num9 * 12 + num10);
-      if (!source.Contains(index1) && (flag3 || Inert.Instance._spells[(int) index1].spellEnum != SpellEnum.Ritual))
-        source.Add(index1);
+      byte num11 = (byte) (num9 * 12 + num10);
+      if (!source.Contains(num11))
+        source.Add(num11);
     }
     List<byte> list = source.ToList<byte>();
     list.Sort();
@@ -2727,106 +2783,111 @@ public class Server : MonoBehaviour
   private static void AuthHandler(object sender, DataReceivedEventArgs args)
   {
     if (args.Bytes.Length == 1 && args.Bytes[0] == (byte) 34)
-      return;
-    Hazel.Connection c = (Hazel.Connection) sender;
-    byte[] bb = args.Bytes;
-    UnityThreadHelper.Dispatcher.Dispatch2((Action) (() =>
     {
-      if (c.player.location == Location.Authenticating)
+      args.Recycle();
+    }
+    else
+    {
+      Hazel.Connection c = (Hazel.Connection) sender;
+      byte[] bb = args.Bytes;
+      UnityThreadHelper.Dispatcher.Dispatch2((Action) (() =>
       {
-        using (MemoryStream memoryStream1 = new MemoryStream(bb))
+        if (c.player.location == Location.Authenticating)
         {
-          using (myBinaryReader myBinaryReader = new myBinaryReader((Stream) memoryStream1))
+          using (MemoryStream memoryStream1 = new MemoryStream(bb))
           {
-            try
+            using (myBinaryReader myBinaryReader = new myBinaryReader((Stream) memoryStream1))
             {
-              switch (myBinaryReader.ReadByte())
+              try
               {
-                case 1:
-                  if (Server._connections.ContainsKey(c))
-                  {
-                    Debug.LogError((object) "Connections already contains connection");
-                    Server.SendMessage(c, (byte) 19);
-                    break;
-                  }
-                  myBinaryReader.ReadBytes();
-                  myBinaryReader.ReadString();
-                  string str = myBinaryReader.ReadString().Trim();
-                  myBinaryReader.ReadString();
-                  myBinaryReader.ReadBytes();
-                  if (string.IsNullOrEmpty(str) || Server._names.ContainsKey(str) || str.Length > 13)
-                  {
-                    Server.SendMessage(c, (byte) 3);
-                    break;
-                  }
-                  Account account = new Account(str);
-                  account.cosmetics = Server.DefaultCosmetics;
-                  account.accountType = AccountType.None;
-                  Server._names.Add(str, c);
-                  c.player.account = account;
-                  Server._connections.Add(c, c);
-                  Server.MovePlayer(c, Location.MainMenu);
-                  break;
-                case 37:
-                  string name = myBinaryReader.ReadString();
-                  byte[] cypo = myBinaryReader.ReadBytes();
-                  string endPoint = c.EndPoint.ToString().Split(':')[0];
-                  UnityThreadHelper.Dispatcher.Dispatch2((Action) (() =>
-                  {
-                    ValidSpectator validSpectator;
-                    if (c != null && c.State == ConnectionState.Connected && Server.validSpectator.TryGetValue(name, out validSpectator))
+                switch (myBinaryReader.ReadByte())
+                {
+                  case 1:
+                    if (Server._connections.ContainsKey(c))
                     {
-                      GameFacts gf;
-                      if (Global.combareByteArrays(validSpectator.cryp, cypo) && string.Equals(validSpectator.isp, endPoint) && Server._games.TryGetValue(validSpectator.gameID, out gf) && gf.game != null)
+                      Debug.LogError((object) "Connections already contains connection");
+                      Server.SendMessage(c, (byte) 19);
+                      break;
+                    }
+                    myBinaryReader.ReadBytes();
+                    myBinaryReader.ReadString();
+                    string str = myBinaryReader.ReadString().Trim();
+                    myBinaryReader.ReadString();
+                    myBinaryReader.ReadBytes();
+                    if (string.IsNullOrEmpty(str) || Server._names.ContainsKey(str) || str.Length > 13)
+                    {
+                      Server.SendMessage(c, (byte) 3);
+                      break;
+                    }
+                    Account account = new Account(str);
+                    account.cosmetics = Server.DefaultCosmetics;
+                    account.accountType = AccountType.None;
+                    Server._names.Add(str, c);
+                    c.player.account = account;
+                    Server._connections.Add(c, c);
+                    Server.MovePlayer(c, Location.MainMenu);
+                    break;
+                  case 37:
+                    string name = myBinaryReader.ReadString();
+                    byte[] cypo = myBinaryReader.ReadBytes();
+                    string endPoint = c.EndPoint.ToString().Split(':')[0];
+                    UnityThreadHelper.Dispatcher.Dispatch2((Action) (() =>
+                    {
+                      ValidSpectator validSpectator;
+                      if (c != null && c.State == ConnectionState.Connected && Server.validSpectator.TryGetValue(name, out validSpectator))
                       {
-                        Server.validSpectator.Remove(name);
-                        c.player.account.name = validSpectator.name;
-                        c.player.gameNumber = gf.id;
-                        c.player.id = gf.game.GetSpectatorID();
-                        c.player.spectator = true;
-                        c.DataReceived -= new EventHandler<DataReceivedEventArgs>(Server.AuthHandler);
-                        c.DataReceived += new EventHandler<DataReceivedEventArgs>(gf.game.ServerSpectatorHandler);
-                        gf.game.RemoveInactiveSpectators();
-                        if (gf.game.timeline.Count > 10)
+                        GameFacts gf;
+                        if (Global.combareByteArrays(validSpectator.cryp, cypo) && string.Equals(validSpectator.isp, endPoint) && Server._games.TryGetValue(validSpectator.gameID, out gf) && gf.game != null)
                         {
-                          gf.game.SendOldData((ZPerson) null, c, "", onTrue: (Action) (() => gf.game.spectators.Add(c)));
-                          return;
-                        }
-                        gf.game.spectators.Add(c);
-                        using (MemoryStream memoryStream2 = new MemoryStream())
-                        {
-                          using (myBinaryWriter myBinaryWriter = new myBinaryWriter((Stream) memoryStream2))
+                          Server.validSpectator.Remove(name);
+                          c.player.account.name = validSpectator.name;
+                          c.player.gameNumber = gf.id;
+                          c.player.id = gf.game.GetSpectatorID();
+                          c.player.spectator = true;
+                          c.DataReceived -= new EventHandler<DataReceivedEventArgs>(Server.AuthHandler);
+                          c.DataReceived += new EventHandler<DataReceivedEventArgs>(gf.game.ServerSpectatorHandler);
+                          gf.game.RemoveInactiveSpectators();
+                          if (gf.game.timeline.Count > 10)
                           {
-                            myBinaryWriter.Write((byte) 35);
-                            myBinaryWriter.Write(gf.game.timeline.Count);
-                            for (int index = 0; index < gf.game.timeline.Count; ++index)
-                              myBinaryWriter.Write(gf.game.timeline[index]);
+                            gf.game.SendOldData((ZPerson) null, c, "", onTrue: (Action) (() => gf.game.spectators.Add(c)));
+                            return;
                           }
-                          c.SendBytes(memoryStream2.ToArray());
-                          return;
+                          gf.game.spectators.Add(c);
+                          using (MemoryStream memoryStream2 = new MemoryStream())
+                          {
+                            using (myBinaryWriter myBinaryWriter = new myBinaryWriter((Stream) memoryStream2))
+                            {
+                              myBinaryWriter.Write((byte) 35);
+                              myBinaryWriter.Write(gf.game.timeline.Count);
+                              for (int index = 0; index < gf.game.timeline.Count; ++index)
+                                myBinaryWriter.Write(gf.game.timeline[index]);
+                            }
+                            c.SendBytes(memoryStream2.ToArray());
+                            return;
+                          }
                         }
                       }
-                    }
-                    c.Close();
-                  }));
-                  break;
-                case 46:
-                  Server.SendMessage(c, (byte) 47);
-                  break;
-                case 48:
-                  Server.SendMessage(c, (byte) 47);
-                  break;
+                      c.Close();
+                    }));
+                    break;
+                  case 46:
+                    Server.SendMessage(c, (byte) 47);
+                    break;
+                  case 48:
+                    Server.SendMessage(c, (byte) 47);
+                    break;
+                }
               }
-            }
-            catch (Exception ex)
-            {
-              Debug.LogError((object) ex.ToString());
+              catch (Exception ex)
+              {
+                Debug.LogError((object) ex.ToString());
+              }
             }
           }
         }
-      }
-      args.Recycle();
-    }));
+        args.Recycle();
+      }));
+    }
   }
 
   private static void NewConnectionHandler(object sender, NewConnectionEventArgs args)

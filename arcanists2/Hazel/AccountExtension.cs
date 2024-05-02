@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: Hazel.AccountExtension
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System;
 using System.Text;
@@ -17,19 +17,19 @@ namespace Hazel
       AccountType.Owner,
       AccountType.Developer,
       AccountType.Game_Director,
-      AccountType.Web_Developer,
-      AccountType.Community_Admin,
+      AccountType.Backend_Technical_Director,
+      AccountType.Art_Director,
+      AccountType.Audio_Director,
+      AccountType.Website_Director,
+      AccountType.Tournament_Director,
+      AccountType.Head_of_Moderation,
       AccountType.Mod,
-      AccountType.GameMod,
       AccountType.Perm_Muted,
       AccountType.Muted,
       AccountType.Contributor,
-      AccountType.Imp,
-      AccountType.Press_Account,
-      AccountType.Art_Lead,
-      AccountType.Asset_Creator,
-      AccountType.Head_Tournament_Official,
       AccountType.Tournament_Official,
+      AccountType.Press_Account,
+      AccountType.Asset_Creator,
       AccountType.Audio_Wizard,
       AccountType.Lifetime,
       AccountType.Arch_Donator,
@@ -77,7 +77,7 @@ namespace Hazel
 
     public static bool isMod(this AccountType a)
     {
-      return (a & (AccountType.Mod | AccountType.Community_Admin | AccountType.GameMod)) != 0;
+      return (a & (AccountType.Mod | AccountType.Head_of_Moderation)) != 0;
     }
 
     public static bool isDev(this AccountType a)
@@ -87,27 +87,27 @@ namespace Hazel
 
     public static bool isDevOrHeadMod(this AccountType a)
     {
-      return (a & (AccountType.Developer | AccountType.Community_Admin | AccountType.Game_Director | AccountType.Owner)) != 0;
+      return (a & (AccountType.Developer | AccountType.Head_of_Moderation | AccountType.Game_Director | AccountType.Owner)) != 0;
     }
 
     public static bool IsModPlus(this AccountType a)
     {
-      return (a & (AccountType.Mod | AccountType.Developer | AccountType.Community_Admin | AccountType.GameMod | AccountType.Game_Director | AccountType.Owner)) != 0;
+      return (a & (AccountType.Mod | AccountType.Developer | AccountType.Head_of_Moderation | AccountType.Game_Director | AccountType.Owner)) != 0;
     }
 
     public static bool IsModPlusTOParticipate(this AccountType a)
     {
-      return (a & (AccountType.Mod | AccountType.Developer | AccountType.Community_Admin | AccountType.GameMod | AccountType.Tournament_Official | AccountType.Game_Director | AccountType.Owner | AccountType.Head_Tournament_Official | AccountType.Tourny_Participate)) != 0;
+      return (a & (AccountType.Mod | AccountType.Developer | AccountType.Head_of_Moderation | AccountType.Tournament_Official | AccountType.Game_Director | AccountType.Owner | AccountType.Tournament_Director | AccountType.Tourny_Participate)) != 0;
     }
 
     public static bool IsModPlusTO(this AccountType a)
     {
-      return (a & (AccountType.Mod | AccountType.Developer | AccountType.Community_Admin | AccountType.GameMod | AccountType.Tournament_Official | AccountType.Game_Director | AccountType.Owner | AccountType.Head_Tournament_Official)) != 0;
+      return (a & (AccountType.Mod | AccountType.Developer | AccountType.Head_of_Moderation | AccountType.Tournament_Official | AccountType.Game_Director | AccountType.Owner | AccountType.Tournament_Director)) != 0;
     }
 
     public static bool Heightened(this AccountType a)
     {
-      return (a & (AccountType.Mod | AccountType.Developer | AccountType.Community_Admin | AccountType.GameMod | AccountType.Contributor | AccountType.Imp | AccountType.Wiki_Staff | AccountType.Twitch_Streamer | AccountType.Youtube_Creator | AccountType.Asset_Creator | AccountType.Audio_Wizard | AccountType.Game_Director | AccountType.Owner)) != 0;
+      return (a & (AccountType.Mod | AccountType.Developer | AccountType.Head_of_Moderation | AccountType.Audio_Director | AccountType.Contributor | AccountType.Backend_Technical_Director | AccountType.Wiki_Staff | AccountType.Twitch_Streamer | AccountType.Youtube_Creator | AccountType.Asset_Creator | AccountType.Audio_Wizard | AccountType.Website_Director | AccountType.Game_Director | AccountType.Art_Director | AccountType.Owner | AccountType.Tournament_Director)) != 0;
     }
   }
 }

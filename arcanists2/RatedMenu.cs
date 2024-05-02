@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: RatedMenu
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using Hazel;
 using Hazel.Tcp;
@@ -317,12 +317,12 @@ public class RatedMenu : MonoBehaviour
       int num = (int) ((RectTransform) this.pfabFriend.transform).sizeDelta.y + 2;
       int x = 0;
       List<Clan.MemberX> memberXList = new List<Clan.MemberX>();
-      foreach (KeyValuePair<string, Clan.Member> member in Client.clan.members)
+      foreach (KeyValuePair<string, Clan.Roles> member in Client.clan.members)
         memberXList.Add(new Clan.MemberX()
         {
-          name = member.Value.name,
-          role = member.Value.role,
-          acc = Client.GetAccount(member.Value.name)
+          name = member.Key,
+          role = member.Value,
+          acc = Client.GetAccount(member.Key)
         });
       memberXList.Sort((Comparison<Clan.MemberX>) ((a, b) => b.acc.location.Online() == a.acc.location.Online() ? (b.role == a.role ? a.name.CompareTo(b.name) : (int) (b.role - a.role)) : (!b.acc.location.Online() ? -1 : 1)));
       this._containerAccounts.DestroyChildern();

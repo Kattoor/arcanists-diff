@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: pfabLobbyGame
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using Hazel;
 using System;
@@ -113,6 +113,13 @@ public class pfabLobbyGame :
     if (this.gameFacts == null)
       return;
     MyToolTip.Show("Turn time: " + (object) this.gameFacts.customTime + " seconds");
+  }
+
+  public void HoverLadderType()
+  {
+    if (this.gameFacts == null)
+      return;
+    MyToolTip.Show("Ladder: " + RatedFacts.GetGameTypeAsStringLong((int) this.gameFacts.gameType));
   }
 
   public void HoverMap()
@@ -342,7 +349,7 @@ public class pfabLobbyGame :
       for (int index2 = 0; index2 < g.settings.customArmageddon.Count; ++index2)
       {
         Spell spell = Inert.GetSpell(g.settings.customArmageddon[index2]);
-        if ((UnityEngine.Object) spell != (UnityEngine.Object) null && spell.level < 4)
+        if ((UnityEngine.Object) spell != (UnityEngine.Object) null && (spell.level < 4 || GameFacts.AllowCustomArmageddon(spell.spellEnum)))
         {
           this.imgArmageddon.sprite = ClientResources.Instance.GetSpellIcon(spell.name);
           break;
@@ -410,7 +417,7 @@ public class pfabLobbyGame :
       case TimeEnum.Ten:
         this.imgTime.sprite = ClientResources.Instance._iconsTime[7];
         break;
-      case TimeEnum.Eight:
+      case TimeEnum.Seven:
         this.imgTime.sprite = ClientResources.Instance._iconsTime[8];
         break;
       case TimeEnum.Fifteen:

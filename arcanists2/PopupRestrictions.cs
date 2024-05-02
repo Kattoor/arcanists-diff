@@ -1,12 +1,13 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: PopupRestrictions
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using Hazel;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -38,7 +39,9 @@ public class PopupRestrictions : MonoBehaviour
     if ((UnityEngine.Object) PopupRestrictions.Instance != (UnityEngine.Object) null)
       return;
     PopupRestrictions andApply = Controller.Instance.CreateAndApply<PopupRestrictions>(Controller.Instance.dialogRestrictions, Controller.Instance.transform);
-    andApply.restrictions = r ?? new Restrictions();
+    andApply.restrictions = new Restrictions();
+    if (r != null)
+      andApply.restrictions.Copy(r);
     andApply.editing = edit;
     andApply.butApply.SetActive(false);
     andApply.Init();
@@ -70,11 +73,45 @@ public class PopupRestrictions : MonoBehaviour
   {
     if (!Input.GetKeyDown(KeyCode.F12) || !Client.MyAccount.accountType.isDev())
       return;
-    if (Server._restrictions == null)
-      Server._restrictions = new Restrictions();
-    Server._restrictions.Copy(this.restrictions);
-    Client.connection.SendBytes(ClientResources.SerializeRestricitons());
-    ChatBox.Instance?.NewChatMsg("Restrictions Sent", (Color) ColorScheme.GetColor(Global.ColorSystem));
+    MyContextMenu myContextMenu = MyContextMenu.Show();
+    myContextMenu.AddItem("Send Restrictions", (Action) (() =>
+    {
+      if (Server._restrictions == null)
+        Server._restrictions = new Restrictions();
+      Server._restrictions.Copy(this.restrictions);
+      Client.connection.SendBytes(ClientResources.SerializeRestricitons());
+      ChatBox.SystemMessage("Restrictions Sent");
+    }), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+    myContextMenu.AddItem("Random Restrictions", (Action) (() => this.SendRandomRestrictions(false, false)), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+    myContextMenu.AddItem("Casino Restrictions", (Action) (() => this.SendRandomRestrictions(false, true)), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+    myContextMenu.AddSeperator();
+    myContextMenu.AddItem("Retrieve Random", (Action) (() => this.SendRandomRestrictions(true, false)), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+    myContextMenu.AddItem("Retrieve Casino", (Action) (() => this.SendRandomRestrictions(true, true)), (Color) ColorScheme.GetColor(MyContextMenu.ColorGreen));
+    myContextMenu.Rebuild();
+  }
+
+  public void SendRandomRestrictions(bool retrieve, bool casino)
+  {
+    using (MemoryStream memoryStream = new MemoryStream())
+    {
+      using (myBinaryWriter w = new myBinaryWriter((Stream) memoryStream))
+      {
+        w.Write((byte) 106);
+        if (retrieve)
+          w.Write(-1);
+        else if (!this.restrictions.AnyRestricted())
+          w.Write(0);
+        else
+          w.Write(1);
+        w.Write(casino);
+        this.restrictions.Serialize(w);
+      }
+      Client.connection.SendBytes(memoryStream.ToArray());
+      if (retrieve)
+        ChatBox.SystemMessage("Retrieving..." + (casino ? "Casino" : "Random") + " restrictions");
+      else
+        ChatBox.SystemMessage((casino ? "Casino" : "Random") + " Restrictions Sent");
+    }
   }
 
   public void Close() => UnityEngine.Object.Destroy((UnityEngine.Object) this.gameObject);

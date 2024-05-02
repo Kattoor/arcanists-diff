@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: ChooseJsonDialog
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using Educative;
 using System;
@@ -254,29 +254,6 @@ public class ChooseJsonDialog : MonoBehaviour
       if (this.custom == ChooseJsonDialog.Viewing.Default)
       {
         int index = 0;
-        foreach (DefaultTutorials.Data tutorial in DefaultTutorials.tutorials)
-        {
-          GameObject g = UnityEngine.Object.Instantiate<GameObject>(this.pfabBook, (Transform) this.container);
-          RectTransform transform = (RectTransform) g.transform;
-          transform.localScale = new Vector3(1f, 1f, 1f);
-          transform.anchoredPosition = new Vector2(0.0f, y);
-          string s = tutorial.name;
-          int tempIndex = index;
-          g.name = s;
-          if (Client.MyAccount.tutorials[index])
-            g.GetComponent<TextMeshProUGUI>().text = "• " + s + " •";
-          else
-            g.GetComponent<TextMeshProUGUI>().text = s;
-          g.GetComponent<UIOnHover>().onClick.AddListener((UnityAction) (() =>
-          {
-            this.selectedGameObject = g;
-            this.PreviewDefaultBook(tempIndex);
-          }));
-          g.GetComponent<UIOnHover>().onRightClick.AddListener((UnityAction) (() => this.OnRightClick(s, g)));
-          y -= transform.sizeDelta.y * transform.localScale.y;
-          g.SetActive(true);
-          ++index;
-        }
         foreach (ClientResources.TutorialData tutorial in ClientResources.Instance._tutorials)
         {
           GameObject g = UnityEngine.Object.Instantiate<GameObject>(this.pfabBook, (Transform) this.container);
@@ -442,29 +419,13 @@ public class ChooseJsonDialog : MonoBehaviour
     if (this.custom == ChooseJsonDialog.Viewing.Default)
     {
       int selectedDefault = this.selectedDefault;
-      Tutorial tutorial;
-      if (this.selectedDefault >= DefaultTutorials.tutorials.Count)
-      {
-        this.selectedDefault -= DefaultTutorials.tutorials.Count;
-        bool scriptOnly = ClientResources.Instance._tutorials[this.selectedDefault].scriptOnly;
-        if (scriptOnly && this.onEnd2 != null)
-        {
-          Action<string, string, int> onEnd2 = this.onEnd2;
-          if (onEnd2 != null)
-            onEnd2(Global.GetTutorialPath + DefaultTutorials.tutorials[this.selectedDefault].name + ".arcTutorial2", ClientResources.Instance._tutorials[this.selectedDefault].data.text, -1);
-          this.Cancel();
-          return;
-        }
-        tutorial = scriptOnly ? Tutorial.FromCodeOnly(ClientResources.Instance._tutorials[this.selectedDefault].data.text) : Tutorial.FromJson(ClientResources.Instance._tutorials[this.selectedDefault].data.text);
-      }
-      else
-        tutorial = Tutorial.FromBytes(DefaultTutorials.tutorials[this.selectedDefault].bytes);
+      Tutorial tutorial = Tutorial.FromCodeOnly(ClientResources.Instance._tutorials[this.selectedDefault].data.text);
       Action<string, Tutorial, int> onEnd = this.onEnd;
       if (onEnd != null)
-        onEnd(Global.GetTutorialPath + DefaultTutorials.tutorials[this.selectedDefault].name + ".arcTutorial", tutorial, selectedDefault);
-      Action<string, string, int> onEnd2_1 = this.onEnd2;
-      if (onEnd2_1 != null)
-        onEnd2_1(Global.GetTutorialPath + DefaultTutorials.tutorials[this.selectedDefault].name + ".arcTutorial2", tutorial.ToCodeOnly(), -1);
+        onEnd(Global.GetTutorialPath + ClientResources.Instance._tutorials[this.selectedDefault].name + ".arcTutorial2", tutorial, selectedDefault);
+      Action<string, string, int> onEnd2 = this.onEnd2;
+      if (onEnd2 != null)
+        onEnd2(Global.GetTutorialPath + ClientResources.Instance._tutorials[this.selectedDefault].name + ".arcTutorial2", tutorial.ToCodeOnly(), -1);
       this.Cancel();
     }
     else
@@ -502,19 +463,9 @@ public class ChooseJsonDialog : MonoBehaviour
       try
       {
         int index = i;
-        if (i >= DefaultTutorials.tutorials.Count)
-        {
-          i -= DefaultTutorials.tutorials.Count;
-          Tutorial tutorial = ClientResources.Instance._tutorials[i].scriptOnly ? Tutorial.FromCodeOnly(ClientResources.Instance._tutorials[i].data.text) : Tutorial.FromJson(ClientResources.Instance._tutorials[i].data.text);
-          this.header.text = tutorial.Name;
-          this.description.text = tutorial.message;
-        }
-        else
-        {
-          Tutorial tutorial = Tutorial.FromBytes(DefaultTutorials.tutorials[i].bytes);
-          this.header.text = tutorial.Name;
-          this.description.text = tutorial.message;
-        }
+        Tutorial tutorial = Tutorial.FromCodeOnly(ClientResources.Instance._tutorials[i].data.text);
+        this.header.text = tutorial.Name;
+        this.description.text = tutorial.message;
         if (index < Prestige.tutorialInfo.Count)
         {
           if (Client.MyAccount.tutorials[index])

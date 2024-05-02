@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: ZSpellMeteor
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System.Collections.Generic;
 using UnityEngine;
@@ -116,12 +116,14 @@ label_43:
       {
         spell.addVelocity = false;
         spell.velocity = spell.velocity + spell.addedVelocity;
+        spell.velocity.x = Mathd.Clamp(spell.velocity.x, (FixedInt) -50, (FixedInt) 50);
+        spell.velocity.y = Mathd.Clamp(spell.velocity.y, (FixedInt) -50, (FixedInt) 50);
         spell.addedVelocity.x = (FixedInt) 0;
         spell.addedVelocity.y = (FixedInt) 0;
       }
       else if (spell.affectedByGravity && spell.velocity.y > -ZMap.MaxSpeed)
         spell.velocity.y += spell.map.Gravity;
-      else if (!spell.affectedByGravity && spell.velocity.y > -1 && spell.maxDuration > 150)
+      else if (!spell.affectedByGravity && spell.velocity.y > -10 && spell.maxDuration > 150)
         spell.affectedByGravity = true;
       spell.Wind();
       ++spell.curDuration;

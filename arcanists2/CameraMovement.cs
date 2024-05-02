@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: CameraMovement
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using Lean.Touch;
 using MovementEffects;
@@ -66,8 +66,9 @@ public class CameraMovement : MonoBehaviour
       return;
     this.sizeX = Vector3.Distance(this._camera.ViewportToWorldPoint(new Vector3(1f, 0.0f, 0.0f)), this._camera.ViewportToWorldPoint(new Vector3(0.5f, 0.0f, 0.0f)));
     this.sizeY = Vector3.Distance(this._camera.ViewportToWorldPoint(new Vector3(0.0f, 1f, 0.0f)), this._camera.ViewportToWorldPoint(new Vector3(0.0f, 0.5f, 0.0f)));
+    float num1 = Vector3.Distance(this._camera.ViewportToWorldPoint(new Vector3(0.0f, 1f, 0.0f)), this._camera.ViewportToWorldPoint(new Vector3(0.0f, 0.7f, 0.0f)));
     this.mapYmax = (float) Client.map.Height + 1000f - this.sizeY;
-    this.mapYmin = 0.0f;
+    this.mapYmin = this.sizeY - num1;
     if ((double) this.mapYmax < (double) this.mapYmin)
       this.mapYmax = this.mapYmin;
     this.mapXmax = (float) Client.map.Width + 1000f - this.sizeX;
@@ -99,8 +100,8 @@ public class CameraMovement : MonoBehaviour
       if ((double) this.bgMaxY < (double) this.bgMinY)
         this.bgMaxY = this.bgMinY;
     }
-    float num = this.sizeX / 8f;
-    this._camera.transform.GetChild(1).localScale = new Vector3(num, num, 1f);
+    float num2 = this.sizeX / 8f;
+    this._camera.transform.GetChild(1).localScale = new Vector3(num2, num2, 1f);
   }
 
   private void Awake() => CameraMovement.Instance = this;
@@ -250,74 +251,77 @@ public class CameraMovement : MonoBehaviour
         this.SetBounds();
       }
     }
-    switch (Input.touchCount)
+    if (Input.touchCount != 0 && (Input.touchCount != 1 || Player.IsPointerOverGameObject() || !((Object) Player.Instance?.selectedSpell == (Object) null)))
     {
-      case 0:
-      case 3:
-        float num1 = (Object) HUD.instance != (Object) null && !HUD.instance.Chatting() || Global.InputString.Length == 0 ? (float) ((hardInput.GetKeyDown("ZoomIn") ? 1 : 0) + (hardInput.GetKeyDown("ZoomOut") ? -1 : 0)) : 0.0f;
-        if (CameraMovement.allowscrollwheel)
-          num1 += Global.IsMouseOverGameWindow ? Input.GetAxis("Mouse ScrollWheel") : 0.0f;
-        if ((double) num1 != 0.0 && !EventSystem.current.IsPointerOverGameObject())
-        {
-          float num2 = this.ClampZoom(this._camera.orthographicSize - ((double) num1 > 0.0 ? 1f : -1f) * 100f);
-          if ((double) num2 != (double) this._camera.orthographicSize)
+      switch (Input.touchCount)
+      {
+        case 3:
+          break;
+        case 4:
+          HUD instance = HUD.instance;
+          if (instance != null)
           {
-            if ((double) Input.GetAxis("Mouse ScrollWheel") != 0.0 && Global.GetPrefBool("prefZoomMouse", false))
-            {
-              Vector3 worldPoint1 = this._camera.ScreenToWorldPoint(Input.mousePosition);
-              this._camera.orthographicSize = num2;
-              Vector3 worldPoint2 = this._camera.ScreenToWorldPoint(Input.mousePosition);
-              position.x += worldPoint1.x - worldPoint2.x;
-              position.y += worldPoint1.y - worldPoint2.y;
-              this.state = CameraState.Stationary;
-            }
-            else
-              this._camera.orthographicSize = num2;
-            PlayerPrefs.SetFloat("prefZoom", num2);
-            this.SetBounds();
+            instance.PressedCenterCamera();
+            goto label_35;
           }
-        }
-        if (((Object) HUD.instance == (Object) null || !HUD.instance.Chatting() || !this.wasChatting) && (!Client.game.isSandbox || (Object) ChatBox.Instance == (Object) null))
-        {
-          this.horz = Input.GetAxis("Horizontal") + hardInput.GetAxis("Camera Right", "Camera Left", 3f);
-          this.vert = Input.GetAxis("Vertical") + hardInput.GetAxis("Camera Up", "Camera Down", 3f);
-          if ((double) this.horz != 0.0 || (double) this.vert != 0.0)
-          {
-            if ((double) this._camera.orthographicSize < 50.0)
-            {
-              this.horz *= 0.25f;
-              this.vert *= 0.25f;
-            }
-            this.KillMovement();
-            position.x += this.horz * 1000f * Time.deltaTime;
-            position.y += this.vert * 1000f * Time.deltaTime;
-          }
-        }
-        if (Input.GetMouseButton(1) || Input.GetMouseButton(2) && (!HUD.UseTouchControls || (double) Input.GetAxis("Mouse X") != 0.0 || (double) Input.GetAxis("Mouse Y") != 0.0))
-        {
-          this.KillMovement();
-          if (CameraMovement.reversedX)
-            position.x += Input.GetAxis("Mouse X") * -25f;
           else
-            position.x += Input.GetAxis("Mouse X") * 25f;
-          if (CameraMovement.reversedY)
-          {
-            position.y += Input.GetAxis("Mouse Y") * -25f;
-            break;
-          }
-          position.y += Input.GetAxis("Mouse Y") * 25f;
-          break;
-        }
-        break;
-      case 4:
-        HUD instance = HUD.instance;
-        if (instance != null)
-        {
-          instance.PressedCenterCamera();
-          break;
-        }
-        break;
+            goto label_35;
+        default:
+          goto label_35;
+      }
     }
+    float num1 = (Object) HUD.instance != (Object) null && !HUD.instance.Chatting() || Global.InputString.Length == 0 ? (float) ((hardInput.GetKeyDown("ZoomIn") ? 1 : 0) + (hardInput.GetKeyDown("ZoomOut") ? -1 : 0)) : 0.0f;
+    if (CameraMovement.allowscrollwheel)
+      num1 += Global.IsMouseOverGameWindow ? Input.GetAxis("Mouse ScrollWheel") : 0.0f;
+    if ((double) num1 != 0.0 && !EventSystem.current.IsPointerOverGameObject())
+    {
+      float num2 = this.ClampZoom(this._camera.orthographicSize - ((double) num1 > 0.0 ? 1f : -1f) * 100f);
+      if ((double) num2 != (double) this._camera.orthographicSize)
+      {
+        if ((double) Input.GetAxis("Mouse ScrollWheel") != 0.0 && Global.GetPrefBool("prefZoomMouse", false))
+        {
+          Vector3 worldPoint1 = this._camera.ScreenToWorldPoint(Input.mousePosition);
+          this._camera.orthographicSize = num2;
+          Vector3 worldPoint2 = this._camera.ScreenToWorldPoint(Input.mousePosition);
+          position.x += worldPoint1.x - worldPoint2.x;
+          position.y += worldPoint1.y - worldPoint2.y;
+          this.state = CameraState.Stationary;
+        }
+        else
+          this._camera.orthographicSize = num2;
+        PlayerPrefs.SetFloat("prefZoom", num2);
+        this.SetBounds();
+      }
+    }
+    if (((Object) HUD.instance == (Object) null || !HUD.instance.Chatting() || !this.wasChatting) && (!Client.game.isSandbox || (Object) ChatBox.Instance == (Object) null))
+    {
+      this.horz = Input.GetAxis("Horizontal") + hardInput.GetAxis("Camera Right", "Camera Left", 3f);
+      this.vert = Input.GetAxis("Vertical") + hardInput.GetAxis("Camera Up", "Camera Down", 3f);
+      if ((double) this.horz != 0.0 || (double) this.vert != 0.0)
+      {
+        if ((double) this._camera.orthographicSize < 50.0)
+        {
+          this.horz *= 0.25f;
+          this.vert *= 0.25f;
+        }
+        this.KillMovement();
+        position.x += this.horz * 1000f * Time.deltaTime;
+        position.y += this.vert * 1000f * Time.deltaTime;
+      }
+    }
+    if ((Input.GetMouseButton(1) || Input.GetMouseButton(2) || Input.touchCount == 1 && !Player.IsPointerOverGameObject() && (Object) Player.Instance?.selectedSpell == (Object) null) && (!HUD.UseTouchControls || (double) Input.GetAxis("Mouse X") != 0.0 || (double) Input.GetAxis("Mouse Y") != 0.0))
+    {
+      this.KillMovement();
+      if (CameraMovement.reversedX)
+        position.x += Input.GetAxis("Mouse X") * -25f;
+      else
+        position.x += Input.GetAxis("Mouse X") * 25f;
+      if (CameraMovement.reversedY)
+        position.y += Input.GetAxis("Mouse Y") * -25f;
+      else
+        position.y += Input.GetAxis("Mouse Y") * 25f;
+    }
+label_35:
     if (CameraMovement.FOLLOWTARGETS && (this.state != CameraState.Stationary || CameraMovement.refollowCamera) && this.HasValidFollowTarget())
     {
       if (Client.game.serverState.busy != ServerState.Busy.Between_Turns)
@@ -408,7 +412,7 @@ public class CameraMovement : MonoBehaviour
 
   public void LerpToTransform(ZCreature v, bool force = false)
   {
-    if (!force && (!CameraMovement.refollowCamera && this.state != CameraState.Follow || Input.GetMouseButton(1) || Client.game.resyncing || (ZComponent) this.target == (object) v && (this.state == CameraState.MoveTo || this.state == CameraState.Follow) || (Object) Player.Instance != (Object) null && (Object) Player.Instance.selectedSpell != (Object) null))
+    if (!force && (!CameraMovement.refollowCamera && this.state != CameraState.Follow && this.state != CameraState.MoveTo || Input.GetMouseButton(1) || Client.game.resyncing || (ZComponent) this.target == (object) v && (this.state == CameraState.MoveTo || this.state == CameraState.Follow) || (Object) Player.Instance != (Object) null && (Object) Player.Instance.selectedSpell != (Object) null))
       return;
     Timing.KillCoroutines("Camera");
     Timing.RunCoroutine(this.LerpTransform(v, force), Segment.Update, "Camera");

@@ -1,10 +1,11 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: Junk.IsaacCipher
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System;
+using UnityEngine;
 
 #nullable disable
 namespace Junk
@@ -163,25 +164,33 @@ namespace Junk
       if ((bound & bound - 1) == 0)
         return (int) ((long) bound * ((long) this.next() & (long) uint.MaxValue) >> 32);
       int num1 = int.MaxValue - (int) (4294967296L % (long) bound);
-      int num2;
+      int num2 = 0;
       do
       {
-        num2 = this.next();
+        int num3 = this.next();
+        if (num3 <= num1)
+          return num3 >= 0 ? num3 % bound : bound - 1 + (num3 + 1) % bound;
+        ++num2;
       }
-      while (num2 > num1);
-      return num2 >= 0 ? num2 % bound : bound - 1 + (num2 + 1) % bound;
+      while (num2 <= 1000);
+      Debug.LogError((object) "next looped 1000+ times");
+      return 0;
     }
 
     public int next2(int bound)
     {
       int num1 = int.MaxValue - (int) (4294967296L % (long) bound);
-      int num2;
+      int num2 = 0;
       do
       {
-        num2 = this.next();
+        int num3 = this.next();
+        if (num3 <= num1)
+          return num3 >= 0 ? num3 % bound : bound - 1 + (num3 + 1) % bound;
+        ++num2;
       }
-      while (num2 > num1);
-      return num2 >= 0 ? num2 % bound : bound - 1 + (num2 + 1) % bound;
+      while (num2 <= 1000);
+      Debug.LogError((object) "next looped 1000+ times");
+      return 0;
     }
 
     public int Next(int min, int max)

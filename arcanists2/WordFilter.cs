@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: WordFilter
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using mattmc3.dotmore.Collections.Generic;
 using System;
@@ -14,6 +14,7 @@ using System.Text.RegularExpressions;
 public static class WordFilter
 {
   internal static string BadWords = "\\bass\\b|\\bassnigger\\b|\\bbitch\\b|\\bchild fucker\\b|\\bchild-fucker\\b|\\bchinc\\b|\\bchincs\\b|\\bchink\\b|\\bchinky\\b|\\bcoon\\b|\\bcoonnass\\b|\\bcoons\\b|\\bdog-fucker\\b|\\bdyke\\b|\\bdykes\\b|\\bf4g\\b|\\bf4gg0t\\b|\\bfag\\b|\\bfagbag\\b|\\bfagfucker\\b|\\bfagg\\b|\\bfagg0t\\b|\\bfagged\\b|\\bfagging\\b|\\bfaggit\\b|\\bfaggitt\\b|\\bfaggot\\b|\\bfaggotcock\\b|\\bfaggots\\b|\\bfaggs\\b|\\bfagot\\b|\\bfagots\\b|\\bfags\\b|\\bfagtard\\b|\\bfaig\\b|\\bfaigt\\b|\\bfaqqet\\b|\\bfrigga\\b|\\bfuck\\b|\\bfuckingshitmotherfucker\\b|\\bfucknigger\\b|\\bgayass\\b|\\bgaytard\\b|\\bh0m0\\b|\\bh0mo\\b|\\bkill yourself\\b|\\bkkk\\b|\\bku klux klan\\b|\\bKu Klux Klan\\b|\\bky\\b|\\bmcfagget\\b|\\bmolest\\b|\\bn1gg@\\b|\\bn1gga\\b|\\bn1gger\\b|\\bnegro\\b|\\bnig nog\\b|\\bnigaboo\\b|\\bnigg\\b|\\bnigg3r\\b|\\bnigg4h\\b|\\bnigga\\b|\\bniggaa\\b|\\bniggah\\b|\\bniggas\\b|\\bniggaz\\b|\\bnigger\\b|\\bniggerfaggot\\b|\\bniggers\\b|\\bniggger\\b|\\bnigggger\\b|\\bniggle\\b|\\bniglet\\b|\\bnig-nog\\b|\\bnigro\\b|\\bnigros\\b|\\bpaki\\b|\\bporch monkey\\b|\\bporchmonkey\\b|\\bqueer\\b|\\bqueerbait\\b|\\bqueerhole\\b|\\bqueero\\b|\\bqueers\\b|\\braghead\\b|\\brape\\b|\\braped\\b|\\braper\\b|\\brapey\\b|\\braping\\b|\\brapist\\b|\\breetard\\b|\\bretard\\b|\\bretarded\\b|\\breturd\\b|\\britard\\b|\\brope\\b|\\bRP1\\b|\\brtard\\b|\\br-tard\\b|\\bsand nigger\\b|\\bsandnigger\\b|\\bsex\\b|\\bslanteye\\b|\\bspic\\b|\\bspick\\b|\\bspik\\b|\\bspiks\\b|\\btowelhead\\b|\\bwhitey\\b|\\bwigger\\b|nigger|niger|cunt|n1ger|n1gger|nlger|nlgger|nigr|n1gr|nlgr|nigg|n1gg|nlgg";
+  internal static string RealBadWords = "\\bassnigger\\b|\\bchild fucker\\b|\\bchild-fucker\\b|\\bchinc\\b|\\bchincs\\b|\\bchink\\b|\\bchinky\\b|\\bcoon\\b|\\bcoonnass\\b|\\bcoons\\b|\\bcuntboy\\b|\\bqueer\\b|\\bdyke\\b|\\bdykes\\b|\\bf4g\\b|\\bf4gg0t\\b|\\bfag\\b|\\bfagbag\\b|\\bfagfucker\\b|\\bfagg\\b|\\bfagg0t\\b|\\bfagged\\b|\\bfagging\\b|\\bfaggit\\b|\\bfaggitt\\b|\\bfaggot\\b|\\bfaggotcock\\b|\\bfaggots\\b|\\bfaggs\\b|\\bfagot\\b|\\bfagots\\b|\\bfags\\b|\\bfagtard\\b|\\bfaig\\b|\\bfaigt\\b|\\bfaqqet\\b|\\bfrigga\\b|\\bfucknigger\\b|\\bgayass\\b|\\bgaytard\\b|\\bh0m0\\b|\\bh0mo\\b|\\bkkk\\b|\\bku klux klan\\b|\\bKu Klux Klan\\b|\\bmcfagget\\b|\\bmolest\\b|\\bn1gg@\\b|\\bn1gga\\b|\\bn1gger\\b|\\bnegro\\b|\\bnig nog\\b|\\bnigaboo\\b|\\bnigg\\b|\\bnigg3r\\b|\\bnigg4h\\b|\\bnigga\\b|\\bniggaa\\b|\\bniggah\\b|\\bniggas\\b|\\bniggaz\\b|\\bnigger\\b|\\bniggerfaggot\\b|\\bniggers\\b|\\bniggger\\b|\\bnigggger\\b|\\bniggle\\b|\\bniglet\\b|\\bnig-nog\\b|\\bnigro\\b|\\bnigros\\b|\\bpaki\\b|\\bporch monkey\\b|\\bporchmonkey\\b|\\braghead\\b|\\brape\\b|\\braped\\b|\\braper\\b|\\brapey\\b|\\braping\\b|\\brapist\\b|\\breetard\\b|\\bretard\\b|\\bretarded\\b|\\breturd\\b|\\britard\\b|\\brtard\\b|\\br-tard\\b|\\bsand nigger\\b|\\bsandnigger\\b|\\bslanteye\\b|\\bspic\\b|\\bspick\\b|\\bspik\\b|\\bspiks\\b|\\btowelhead\\b|\\bTranny\\b|\\bwigger\\b|nigger|niger|cunt|n1ger|n1gger|nlger|nlgger|nigr|n1gr|nlgr|nigg|n1gg|nlgg";
   private static string[] replacer = new string[27]
   {
     "",
@@ -46,6 +47,7 @@ public static class WordFilter
   };
   public static string ForbiddenWords = "<size|<align|<cspace|<font|<indent|<line|<link|<margin|<mark|<mspace|<noparse|<page|<pos|<space|<style|<voffset|<width|<color";
   private static Regex wordFilter = new Regex(WordFilter.BadWords, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+  private static Regex realWordFilter = new Regex(WordFilter.RealBadWords, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
   private static Regex forbiddenFilter = new Regex(WordFilter.ForbiddenWords, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
   private static Regex webFilter = new Regex("(https?|www\\.|\\.com|\\.c0m|\\.net)", RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
   private static Regex linkFilter = (Regex) null;
@@ -163,6 +165,11 @@ public static class WordFilter
     return WordFilter.wordFilter.Replace(inputWords, "");
   }
 
+  public static string FilterRealBadWords(string inputWords)
+  {
+    return WordFilter.realWordFilter.Replace(inputWords, "");
+  }
+
   public static bool HasWeb(string inputWords) => WordFilter.webFilter.IsMatch(inputWords);
 
   public static string FilterForbiddenWords(string inputWords)
@@ -172,6 +179,11 @@ public static class WordFilter
 
   public static bool HasBadWords(string inputWords) => WordFilter.wordFilter.IsMatch(inputWords);
 
+  public static bool HasRealBadWords(string inputWords)
+  {
+    return WordFilter.realWordFilter.IsMatch(inputWords);
+  }
+
   public static string ReplaceBadWords(string inputWords)
   {
     foreach (Match match in WordFilter.wordFilter.Matches(inputWords))
@@ -179,7 +191,19 @@ public static class WordFilter
     return WordFilter.wordFilter.Replace(inputWords, "");
   }
 
+  public static string ReplaceRealBadWords(string inputWords)
+  {
+    foreach (Match match in WordFilter.realWordFilter.Matches(inputWords))
+      inputWords = inputWords.Remove(match.Index, match.Length).Insert(match.Index, WordFilter.replacer[match.Value.Length]);
+    return WordFilter.realWordFilter.Replace(inputWords, "");
+  }
+
   public static MatchCollection GetBadWords(string inputWords)
+  {
+    return WordFilter.wordFilter.Matches(inputWords);
+  }
+
+  public static MatchCollection GetRealBadWords(string inputWords)
   {
     return WordFilter.wordFilter.Matches(inputWords);
   }

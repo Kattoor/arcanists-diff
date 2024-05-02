@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: Armageddon
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System;
 using System.Collections.Generic;
@@ -22,8 +22,8 @@ public static class Armageddon
     SpellEnum.Nature_s_Wrath,
     SpellEnum.Glide,
     SpellEnum.Apparition,
-    SpellEnum.Ritual,
-    SpellEnum.Werewolf_Transformation,
+    SpellEnum.Grove_Renewal,
+    SpellEnum.Bear_Form,
     SpellEnum.Abduction
   };
   public static HashSet<SpellEnum> ApparitionFriendlySpells = new HashSet<SpellEnum>()
@@ -31,7 +31,7 @@ public static class Armageddon
     SpellEnum.Sphere_of_Healing,
     SpellEnum.Thanksgiving_Dinner,
     SpellEnum.Vortex,
-    SpellEnum.Wild_Mushrooms,
+    SpellEnum.Healing_Spores,
     SpellEnum.Blood_Mist
   };
 
@@ -57,7 +57,7 @@ public static class Armageddon
       foreach (SpellEnum s in p.game.gameFacts.settings.customArmageddon)
       {
         Spell spell = Inert.GetSpell(s);
-        if ((UnityEngine.Object) spell != (UnityEngine.Object) null && spell.level < 4)
+        if ((UnityEngine.Object) spell != (UnityEngine.Object) null && (spell.level < 4 || GameFacts.AllowCustomArmageddon(spell.spellEnum)))
           p.game.customArmageddon.Add(spell);
       }
     }
@@ -78,32 +78,46 @@ public static class Armageddon
           int xInt = p.game.RandomInt(100, Mathf.Min(p.map.Width - 100, Mathf.Max(1, p.localTurn - p.game.armageddonTurn) * 100));
           if (p.game.RandomInt(0, 10) >= 5)
             xInt = p.map.Width - xInt;
-          MyLocation pos = new MyLocation(xInt, p.game.RandomInt(0, p.map.Height));
+          MyLocation pos1 = new MyLocation(xInt, p.game.RandomInt(0, p.map.Height));
           int num = xInt > p.map.Width / 2 ? p.game.RandomInt(90, 180) : p.game.RandomInt(-90, 90);
           if (theSpell.type == CastType.TargetOnly)
           {
             p.first().SetScale(xInt > p.map.Width / 2 ? -1f : 1f);
-            ZSpell.FireWhich(theSpell, p.first(), pos, (FixedInt) 0, (FixedInt) num, new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)));
+            if (theSpell.spellEnum == SpellEnum.Curse_of_Disabling || theSpell.spellEnum == SpellEnum.Curse_of_Loneliness)
+              ZSpell.FireWhich(theSpell, p.first(), pos1, (FixedInt) 0, (FixedInt) num, p.first().position, p.first().position, fromArmageddon: true);
+            else
+              ZSpell.FireWhich(theSpell, p.first(), pos1, (FixedInt) 0, (FixedInt) num, new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), fromArmageddon: true);
           }
           else if (theSpell.type == CastType.Target_Power || theSpell.type == CastType.Power)
           {
-            pos.y = (FixedInt) p.map.Height;
-            ZSpell.FireWhich(theSpell, p.first(), pos, (FixedInt) num, (FixedInt) 1 / (FixedInt) 2, new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)));
+            pos1.y = (FixedInt) p.map.Height;
+            ZSpell.FireWhich(theSpell, p.first(), pos1, (FixedInt) num, (FixedInt) 1 / (FixedInt) 2, new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), fromArmageddon: true);
           }
           else if (theSpell.type == CastType.Flash || theSpell.type == CastType.Naplem)
-            ZSpell.FireWhich(theSpell, p.first(), new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), (FixedInt) num, (FixedInt) 1, new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)));
+          {
+            if (theSpell.spellEnum == SpellEnum.Abduction)
+            {
+              MyLocation pos2 = new MyLocation(p.first().position.x + p.game.RandomInt(-125, 125), p.first().position.y + p.game.RandomInt(75, 125));
+              MyLocation myLocation = p.first().position - pos2;
+              myLocation.Normalize();
+              FixedInt rot_z = FixedInt.Atan2(myLocation.y, myLocation.x) * FixedInt.Rad2Deg;
+              ZSpell.FireWhich(theSpell, p.first(), pos2, rot_z, (FixedInt) 1, new MyLocation(), new MyLocation(), fromArmageddon: true);
+            }
+            else
+              ZSpell.FireWhich(theSpell, p.first(), new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), (FixedInt) num, (FixedInt) 1, new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), fromArmageddon: true);
+          }
           else if (theSpell.type == CastType.Double_Naplem)
-            ZSpell.FireWhich(theSpell, p.first(), new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), (FixedInt) num, (FixedInt) 1, new MyLocation(xInt > p.map.Width / 2 ? p.game.RandomInt(90, 180) : p.game.RandomInt(-90, 90), p.game.RandomInt(0, p.map.Height)), new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)));
+            ZSpell.FireWhich(theSpell, p.first(), new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), (FixedInt) num, (FixedInt) 1, new MyLocation(xInt > p.map.Width / 2 ? p.game.RandomInt(90, 180) : p.game.RandomInt(-90, 90), p.game.RandomInt(0, p.map.Height)), new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), fromArmageddon: true);
           else if (theSpell.type == CastType.Target_Placement)
           {
             if (theSpell.spellEnum == SpellEnum.Duplication)
             {
               ZCreature randomTarget = Armageddon.GetRandomTarget(p);
               if (!((ZComponent) randomTarget == (object) null))
-                ZSpell.FireWhich(theSpell, p.first(), pos, (FixedInt) p.game.RandomInt(0, 360), (FixedInt) num, new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), randomTarget.position);
+                ZSpell.FireWhich(theSpell, p.first(), pos1, (FixedInt) p.game.RandomInt(0, 360), (FixedInt) num, new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), randomTarget.position, fromArmageddon: true);
             }
             else
-              ZSpell.FireWhich(theSpell, p.first(), pos, (FixedInt) p.game.RandomInt(0, 360), (FixedInt) num, new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)));
+              ZSpell.FireWhich(theSpell, p.first(), pos1, (FixedInt) p.game.RandomInt(0, 360), (FixedInt) num, new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), fromArmageddon: true);
           }
           else if (theSpell.type == CastType.Placement)
           {
@@ -118,15 +132,15 @@ public static class Armageddon
               }
               if (theSpell.spellEnum == SpellEnum.Summon_Titan)
                 num = p.game.RandomInt(0, p.minionBookTitans.Count);
-              ZSpell.FireWhich(theSpell, p.first(), new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), (FixedInt) num, (FixedInt) 1, new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)));
+              ZSpell.FireWhich(theSpell, p.first(), new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), (FixedInt) num, (FixedInt) 1, new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), fromArmageddon: true);
             }
           }
           else if (theSpell.type == CastType.Blit)
-            ZSpell.FireWhich(theSpell, p.first(), pos, (FixedInt) 0, (FixedInt) num, new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)));
+            ZSpell.FireWhich(theSpell, p.first(), pos1, (FixedInt) 0, (FixedInt) num, new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), new MyLocation(xInt, p.game.RandomInt(0, p.map.Height)), fromArmageddon: true);
           else if (theSpell.type == CastType.Flight)
-            ZSpell.FireWhich(theSpell, p.first(), pos, (FixedInt) 0, (FixedInt) num, new MyLocation(0, 0), new MyLocation(0, 0));
+            ZSpell.FireWhich(theSpell, p.first(), pos1, (FixedInt) 0, (FixedInt) num, new MyLocation(0, 0), new MyLocation(0, 0), fromArmageddon: true);
           else if (theSpell.type == CastType.Tower && (ZComponent) p.first().tower == (object) null)
-            ZSpell.FireWhich(theSpell, p.first(), pos, (FixedInt) 0, (FixedInt) num, new MyLocation(0, 0), new MyLocation(0, 0));
+            ZSpell.FireWhich(theSpell, p.first(), pos1, (FixedInt) 0, (FixedInt) num, new MyLocation(0, 0), new MyLocation(0, 0), fromArmageddon: true);
         }
       }
     }
@@ -273,6 +287,13 @@ public static class Armageddon
 
   private static void Dark_Fortress(ZPerson p)
   {
+    if (p.localTurn != p.game.armageddonTurn || p.game.globalEffectors.FindIndex((Predicate<ZEffector>) (a => (ZComponent) a != (object) null && a.type == EffectorType.Rising_Lava)) != -1)
+      return;
+    ZSpell.FireRisingLava(Inert.Instance.ArmageddonObjects[GameFacts.GetMapIndex(MapEnum.Dark_Fortress)], p.game);
+  }
+
+  private static void Jungle(ZPerson p)
+  {
     if (p.localTurn < 20 && p.localTurn <= p.lastArmageddon + 2)
       return;
     p.lastArmageddon = p.localTurn;
@@ -303,51 +324,6 @@ public static class Armageddon
     z.game._uncontrolledPlayer.controlled.Add(z);
     z.daOriginalTrueParent = p;
     z.parent = z.game._uncontrolledPlayer;
-  }
-
-  private static void Jungle(ZPerson p)
-  {
-    p.lastArmageddon = p.localTurn;
-    ZCreature c = p.first();
-    Spell spell;
-    switch (p.game.RandomInt(0, 3))
-    {
-      case 0:
-        spell = Inert.Instance.spells["Summon Wolf"];
-        break;
-      case 1:
-        spell = Inert.GetSpell(SpellEnum.Pack_Mentality);
-        break;
-      default:
-        spell = Inert.GetSpell(SpellEnum.Summon_Alpha_Wolf);
-        break;
-    }
-    Spell theSpell = spell;
-    int xInt = p.game.RandomInt(100, Mathf.Min(p.map.Width - 100, Mathf.Max(1, p.localTurn - p.game.armageddonTurn) * 100));
-    if (p.game.RandomInt(0, 10) >= 5)
-      xInt = p.map.Width - xInt;
-    ZCreature z = ZSpell.FireSummon(theSpell, p.game, c, new MyLocation(xInt, p.game.RandomInt(30, p.map.Height - 30)), 1);
-    p.controlled.Remove(z);
-    if (ZComponent.IsNull((ZComponent) z) || z.isDead)
-      return;
-    z.maxHealth = Math.Max(10, z.maxHealth - 30);
-    z.health = Math.Min(z.health, z.maxHealth);
-    z.race = CreatureRace.Arcane;
-    if (p.game.isClient)
-    {
-      z.bg.gameObject.SetActive(false);
-      z.UpdateHealthTxt();
-      p.panelPlayer?.SetSummons(p);
-      AudioManager.Play(theSpell.castClip);
-    }
-    z.effectors[0].variable = p.localTurn + 1;
-    p.game.globalEffectors.Add(z.effectors[0]);
-    z.game._uncontrolledPlayer.controlled.Add(z);
-    z.daOriginalTrueParent = p;
-    z.parent = z.game._uncontrolledPlayer;
-    z.team = z.parent.team;
-    z.collider.layer = 65536;
-    z.collider.gameObjectLayer = 16;
   }
 
   private static void Wasteland(ZPerson p)

@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: ButtonSpell
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System.Collections.Generic;
 using UnityEngine;
@@ -74,11 +74,24 @@ label_13:
     this.uihover.onClick.AddListener(new UnityAction(this.Click));
     this.uihover.onEnter.AddListener(new UnityAction(this.Hover));
     this.uihover.onExit.AddListener(new UnityAction(this.Leave));
+    this.uihover.onRightClick.AddListener(new UnityAction(this.RightClick));
+  }
+
+  public void RightClick()
+  {
+    Spell spell = this.GetSpell();
+    if ((Object) spell == (Object) null || (Object) spell.toSummon == (Object) null || !((Object) spell.toSummon?.GetComponent<Creature>() != (Object) null) || !spell.IsMinionSpell())
+      return;
+    SpellLobbyChange.Instance?.OpenMinion(spell, spell.toSummon.GetComponent<Creature>());
   }
 
   public void Click()
   {
-    if (Client.viewSpellLocks.ViewLocked() && !Prestige.IsUnlocked(Client.MyAccount, this.myRealIndex))
+    if ((Object) SpellLobbyChange.Instance != (Object) null && (Object) SpellLobbyChange.Instance.viewingMinion != (Object) null)
+      SpellLobbyChange.Instance.OpenBook(SpellLobbyChange.Instance.openBook);
+    else if ((Object) SpellLobbyChange.Instance != (Object) null && SpellLobbyChange.Instance.viewingExtraSpells != BookOf.Nothing)
+      SpellLobbyChange.Instance.OpenBook(SpellLobbyChange.Instance.openBook);
+    else if (Client.viewSpellLocks.ViewLocked() && !Prestige.IsUnlocked(Client.MyAccount, this.myRealIndex))
     {
       int i = Prestige.CanUnlock(Client.MyAccount, this.myRealIndex);
       if (i == 0)
@@ -183,13 +196,53 @@ label_13:
     return i == 0 ? "\n<color=green>Buy with </color><color=white>" + (myRealIndex % 12 >= 10 ? "3" : "2") + "</color><color=green> wands.</color>" : "\n" + Prestige.SpellErrorCode(i);
   }
 
+  public Spell GetSpell()
+  {
+    if ((Object) SpellLobbyChange.Instance.viewingMinion != (Object) null)
+      return this.index == 11 ? (Spell) null : SpellLobbyChange.Instance.viewingMinion.spells[this.index].spell;
+    if (SpellLobbyChange.Instance.viewingExtraSpells != BookOf.Nothing)
+      return SpellLobbyChange.GetFamiliarSpell(this.index);
+    return SpellLobbyChange.Instance.settingsPlayer._spells.SeasonsIsHoliday && SpellLobbyChange.Instance.openBook == BookOf.Seasons ? Inert.Instance.holidaySpells[this.index] : Inert.Instance.spells.GetItem(this.index + (int) SpellLobbyChange.Instance.openBook * 12).Value;
+  }
+
   public void Hover()
   {
-    if ((Object) SpellSelection.Instance != (Object) null)
+    if ((Object) SpellLobbyChange.Instance.viewingMinion != (Object) null)
     {
-      SpellSelection.Instance.ShowDescription(Inert.Instance.spells.GetItem(this.index + (int) SpellSelection.Instance.openBook * 12).Key);
+      if (this.index == 11)
+      {
+        SpellLobbyChange.Instance.textError.text = "";
+        SpellLobbyChange.Instance.ShowDescription("Cancel", this.index);
+      }
+      else
+      {
+        Spell spell = SpellLobbyChange.Instance.viewingMinion.spells[this.index].spell;
+        int index = this.index;
+        SpellLobbyChange.Instance.textError.text = SpellLobbyChange.Instance.viewingMinion.name + "'s spell";
+        SpellLobbyChange.Instance.ShowDescription(spell.name, index);
+      }
+    }
+    else if (SpellLobbyChange.Instance.viewingExtraSpells != BookOf.Nothing)
+    {
+      if (this.index == 11)
+      {
+        SpellLobbyChange.Instance.ShowDescription("Cancel", this.index);
+        SpellLobbyChange.Instance.textError.text = "";
+      }
+      else
+      {
+        Spell familiarSpell = SpellLobbyChange.GetFamiliarSpell(this.index);
+        int index = this.index;
+        SpellLobbyChange.Instance.textError.text = "Familiar Spell - Bring the full book and level up the familiar to obtain";
+        SpellLobbyChange.Instance.ShowDescription(familiarSpell.name, index);
+      }
+    }
+    else if ((Object) SpellSelection.Instance != (Object) null)
+    {
+      KeyValuePair<string, Spell> keyValuePair = Inert.Instance.spells.GetItem(this.index + (int) SpellSelection.Instance.openBook * 12);
       int num = (int) SpellSelection.Instance.openBook * 12 + this.index;
       SpellSelection.Instance.textError.text = ButtonSpell.Hover(Client.settingsPlayer, num) + ButtonSpell.AddWandStuff(num);
+      SpellSelection.Instance.ShowDescription(keyValuePair.Key);
     }
     else if ((Object) SpellLobbyChange.Instance != (Object) null)
     {
@@ -198,15 +251,15 @@ label_13:
         Spell holidaySpell = Inert.Instance.holidaySpells[this.index];
         SpellLobbyChange.Instance.txtHeader.text = holidaySpell.name;
         int num = (int) SpellLobbyChange.Instance.openBook * 12 + this.index;
-        SpellLobbyChange.Instance.ShowDescription(holidaySpell.name, num);
         SpellLobbyChange.Instance.textError.text = ButtonSpell.Hover(SpellLobbyChange.Instance.settingsPlayer, num) + ButtonSpell.AddWandStuff(num);
+        SpellLobbyChange.Instance.ShowDescription(holidaySpell.name, num);
       }
       else
       {
         KeyValuePair<string, Spell> keyValuePair = Inert.Instance.spells.GetItem(this.index + (int) SpellLobbyChange.Instance.openBook * 12);
         int num = (int) SpellLobbyChange.Instance.openBook * 12 + this.index;
-        SpellLobbyChange.Instance.ShowDescription(keyValuePair.Key, num);
         SpellLobbyChange.Instance.textError.text = ButtonSpell.Hover(SpellLobbyChange.Instance.settingsPlayer, num) + ButtonSpell.AddWandStuff(num);
+        SpellLobbyChange.Instance.ShowDescription(keyValuePair.Key, num);
       }
     }
     if (this.equipped)

@@ -1,8 +1,8 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: CosmeticsMenuDev
 // Assembly: Assembly-CSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: DA7163A9-CD4F-457E-9379-B1755B6F3B01
-// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.8\Arcanists 2_Data\Managed\Assembly-CSharp.dll
+// MVID: D266BEE2-E7E9-4299-9752-8BB93E4AAF85
+// Assembly location: C:\Users\jaspe\Downloads\Arcanists6.9\Arcanists 2_Data\Managed\Assembly-CSharp.dll
 
 using System.Collections.Generic;
 using System.IO;
@@ -149,14 +149,20 @@ public class CosmeticsMenuDev : MonoBehaviour
     this.ClickIndex(this.arrayIndex);
   }
 
+  public void ClickApplyAndExit()
+  {
+    this.ClickApply();
+    this.ClickClose();
+  }
+
   public void ClickApply()
   {
     using (MemoryStream memoryStream = new MemoryStream())
     {
-      using (myBinaryWriter w = new myBinaryWriter((Stream) memoryStream))
+      using (myBinaryWriter myBinaryWriter = new myBinaryWriter((Stream) memoryStream))
       {
-        w.Write((byte) 73);
-        w.Write(this.input_name.text);
+        myBinaryWriter.Write((byte) 73);
+        myBinaryWriter.Write(this.input_name.text);
         List<CosmeticData> cosmeticDataList = new List<CosmeticData>();
         for (byte index1 = 0; index1 < (byte) 8; ++index1)
         {
@@ -171,14 +177,13 @@ public class CosmeticsMenuDev : MonoBehaviour
               });
           }
         }
-        w.Write(cosmeticDataList.Count);
+        myBinaryWriter.Write(cosmeticDataList.Count);
         for (int index = 0; index < cosmeticDataList.Count; ++index)
         {
-          w.Write(cosmeticDataList[index].type);
-          w.Write(cosmeticDataList[index].index);
-          w.Write(cosmeticDataList[index].on ? (byte) 1 : (byte) 0);
+          myBinaryWriter.Write(cosmeticDataList[index].type);
+          myBinaryWriter.Write(cosmeticDataList[index].index);
+          myBinaryWriter.Write(cosmeticDataList[index].on ? (byte) 1 : (byte) 0);
         }
-        this.cosmetics.Serialize(w);
       }
       Client.connection?.SendBytes(memoryStream.ToArray());
     }
